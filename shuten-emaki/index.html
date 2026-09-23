@@ -64,6 +64,10 @@ button{font-family:var(--mincho)}
 #touch .grp{display:flex;gap:12px;pointer-events:auto}
 #touch button{width:68px;height:68px;border-radius:50%;border:2px solid rgba(42,36,32,.75);background:rgba(239,227,198,.55);font:400 24px/1 var(--brush);color:var(--ink);touch-action:none}
 #touch button.on{background:rgba(184,65,46,.75);color:#fbf3e2}
+#touch{align-items:flex-end}
+#touch .pad{display:grid;grid-template-columns:repeat(3,auto);gap:6px}
+#touch .pad button{width:58px;height:58px}
+#tU{grid-column:2}#tL{grid-column:1;grid-row:2}#tD{grid-column:2;grid-row:2}#tR{grid-column:3;grid-row:2}
 #mute{position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);right:12px;font:700 12px/1 var(--mincho);letter-spacing:.1em;padding:8px 10px;background:rgba(239,227,198,.85);border:1px solid var(--ink);border-radius:2px;cursor:pointer;color:var(--ink)}
 #rotate{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 10px);transform:translateX(-50%);margin:0;font-size:12px;letter-spacing:.1em;color:#efe3c6;background:rgba(20,14,10,.7);padding:6px 12px;border-radius:2px;white-space:nowrap}
 @media (max-width:640px){
@@ -88,7 +92,7 @@ button{font-family:var(--mincho)}
 @media (pointer:coarse) and (orientation:landscape){
   #touch{padding:0 10px calc(env(safe-area-inset-bottom,0px) + 8px)}
   #touch .grp{gap:8px}
-  #touch button{width:56px;height:56px;font-size:20px;background:rgba(239,227,198,.32);border-color:rgba(42,36,32,.55)}
+  #touch button,#touch .pad button{width:50px;height:50px;font-size:18px;background:rgba(239,227,198,.32);border-color:rgba(42,36,32,.55)}
 }
 @media (prefers-reduced-motion:reduce){#story,#story h2,#story p{transition:none}}
 </style>
@@ -109,7 +113,8 @@ button{font-family:var(--mincho)}
       </div>
       <dl class="keys">
         <dt>← →　A D</dt><dd>歩く（左が大江山）</dd>
-        <dt>Z　Space　↑</dt><dd>跳ぶ</dd>
+        <dt>↑ ↓　W S</dt><dd>奥へ・手前へ</dd>
+        <dt>Z　Space</dt><dd>跳ぶ（金棒をかわす）</dd>
         <dt>X　J</dt><dd>斬る（空中で斬ると跳び斬り）</dd>
         <dt>M</dt><dd>音の入り切り</dd>
       </dl>
@@ -133,7 +138,7 @@ button{font-family:var(--mincho)}
 </div>
 
 <div id="touch" hidden>
-  <div class="grp"><button id="tL" type="button" aria-label="左へ歩く">◀</button><button id="tR" type="button" aria-label="右へ歩く">▶</button></div>
+  <div class="grp pad"><button id="tU" type="button" aria-label="奥へ">▲</button><button id="tL" type="button" aria-label="左へ歩く">◀</button><button id="tD" type="button" aria-label="手前へ">▼</button><button id="tR" type="button" aria-label="右へ歩く">▶</button></div>
   <div class="grp"><button id="tJ" type="button" aria-label="跳ぶ">跳</button><button id="tA" type="button" aria-label="斬る">斬</button></div>
 </div>
 <button id="mute" type="button" aria-pressed="false">音　入</button>
@@ -936,23 +941,39 @@ function drawSprite(g, kind, n, f, x, y, scale, face, mode, alpha = 1) {
   g.restore();
 }
 
-// ============================================================ stage
-const WORLD_W = 7600;
-const GROUND = [[0,440],[700,440],[1560,440],[1800,426],[2300,406],[2700,406],[2950,420],[3600,440],[4200,428],[4650,440],[4700,432],[5300,432],[5400,442],[6000,452],[7600,452]];
-function groundY(x) {
-  if (x <= GROUND[0][0]) return GROUND[0][1];
-  for (let i = 1; i < GROUND.length; i++) if (x <= GROUND[i][0]) { const a = GROUND[i - 1], b = GROUND[i]; return lerp(a[1], b[1], (x - a[0]) / (b[0] - a[0])); }
-  return GROUND[GROUND.length - 1][1];
+// ============================================================ stage — 斜投影 (oblique parallel projection)
+// x runs along the road (left = 大江山), z goes into the picture, h is height. As in 絵巻, receding lines run
+// up-right at one fixed slope and stay parallel, and a figure keeps the same size at every depth.
+const WORLD_W = 7600, CAM_MAX = WORLD_W - W + 300;
+const KX = 0.7, KY = 0.5, Y0 = 494, ZMAX = 240;
+const PX = (x, z) => x + z * KX, PY = (z, h) => Y0 - z * KY - (h || 0);
+const RIVER = { x0: 4800, x1: 5150, lo: 22 };
+const BRIDGE = { x0: 4730, x1: 5220, z0: 84, z1: 164, rise: 34 };
+const TREE_X = 3130, TREE_Z = 322;
+const GATE_X = 250, ARENA = { x0: 700, x1: 1480 };
+const HALL = { x0: GATE_X - 10, x1: 1620, back: 318 };
+const YAKATA = { x0: 6880, x1: 7960, back: 318 };
+const DOOR = { x: HALL.x0, z0: 70, z1: 180 };
+const MON = [{ x: 6500, z0: 52, z1: 188, oni: false }, { x: 1690, z0: 52, z1: 188, oni: true }];
+const bridgeRise = x => { const t = (x - BRIDGE.x0) / (BRIDGE.x1 - BRIDGE.x0); return t <= 0 || t >= 1 ? 0 : BRIDGE.rise * Math.pow(Math.sin(Math.PI * t), 0.85); };
+const elev = (x, z) => x > BRIDGE.x0 && x < BRIDGE.x1 && z >= BRIDGE.z0 - 6 && z <= BRIDGE.z1 + 6 ? bridgeRise(x) : 0;
+function walkable(x, z) {
+  if (z < 0 || z > ZMAX) return false;
+  if (x > RIVER.x0 - 6 && x < RIVER.x1 + 6 && (z < BRIDGE.z0 || z > BRIDGE.z1)) return false;
+  for (const m of MON) if (Math.abs(x - m.x) < 16 && (z < m.z0 || z > m.z1)) return false;
+  return !(Math.abs(x - DOOR.x) < 16 && (z < DOOR.z0 || z > DOOR.z1));
 }
-const BRIDGE = { x0: 4700, x1: 5300, y: 432 };
-const RIVER = { x0: 4650, x1: 5350 };
-const TREE_X = 3130;
-const PLATFORMS = [ { x0: 3035, x1: 3215, y: 318 }, { x0: 2960, x1: 3060, y: 232 }, { x0: 4030, x1: 4140, y: 362 }, { x0: 2060, x1: 2170, y: 322 } ];
-const GATE_X = 250, ARENA = { x0: 620, x1: 1545 };
+// slide along walls: try the full step, then each axis alone
+function moveBody(b, nx, nz) {
+  nz = clamp(nz, 0, ZMAX);
+  if (walkable(nx, nz)) { b.x = nx; b.z = nz; }
+  else if (walkable(nx, b.z)) b.x = nx;
+  else if (walkable(b.x, nz)) b.z = nz;
+}
 const POINTS = [
   { id: 'A', name: '橋の前', short: '橋', x: 5460 },
   { id: 'B', name: '大木の前', short: '木', x: 3360 },
-  { id: 'C', name: '大鬼の前', short: '鬼', x: 1660 },
+  { id: 'C', name: '大鬼の前', short: '鬼', x: 1790 },
 ];
 const ZONE_HALF = 75;
 const SECTIONS = [
@@ -963,14 +984,14 @@ const SECTIONS = [
 ];
 const sectionIndexAt = x => { for (let i = 0; i < SECTIONS.length; i++) if (x >= SECTIONS[i].x0) return i; return SECTIONS.length - 1; };
 const ENEMY_DEFS = [
-  { type: 'oni', x: 6300, a: 6120, b: 6520 },
-  { type: 'aooni', x: 5230, a: 5020, b: 5395 },
-  { type: 'oni', x: 4250, a: 4000, b: 4430 },
-  { type: 'oni', x: 3530, a: 3400, b: 3720 },
-  { type: 'aooni', x: 2880, a: 2700, b: 3020 },
-  { type: 'oni', x: 1960, a: 1790, b: 2130 },
-  { type: 'oni', x: 1700, a: 1610, b: 1820 },
-  { type: 'ooni', x: 980, a: 700, b: 1450, boss: true },
+  { type: 'oni', x: 6260, z: 150, a: 6080, b: 6440 },
+  { type: 'aooni', x: 5230, z: 124, a: 4960, b: 5390 },
+  { type: 'oni', x: 4250, z: 80, a: 4000, b: 4430 },
+  { type: 'oni', x: 3530, z: 170, a: 3400, b: 3720 },
+  { type: 'aooni', x: 2880, z: 70, a: 2700, b: 3020 },
+  { type: 'oni', x: 2050, z: 150, a: 1930, b: 2200 },
+  { type: 'oni', x: 1780, z: 90, a: 1712, b: 1900 },
+  { type: 'ooni', x: 1000, z: 150, a: 760, b: 1420, boss: true },
 ];
 
 // ============================================================ painters (shared by game world and emaki)
@@ -1346,89 +1367,11 @@ function water(g, x0, x1, y0, y1, t) {
   g.strokeStyle = sc_rgba(P.gofun, 0.95); g.lineWidth = 1.4; g.stroke();
   g.restore();
 }
-function sc_waterWorld(g, S, time, xa, xb, wy) {
-  const TW = 192, s = sc_sprite(S, 'water', 0, 0, TW + 8, H + 6 - wy, cg => water(cg, 0, TW + 8, 0, H + 6 - wy, 0));
-  const off = ((time * 30) % 96 + 96) % 96;
-  g.save(); g.beginPath(); g.rect(xa, wy, xb - xa, H + 6 - wy); g.clip();
-  for (let X = off + Math.floor((xa - off) / TW) * TW; X < xb; X += TW) g.drawImage(s.c, X, wy, s.w, s.h);
-  g.restore();
-}
-// ------------------------------------------------------------ 朱塗りの橋
-function sc_bridgeBack(g, x0, x1, y, wy) {
-  const P = sc_P();
-  g.save(); g.lineJoin = 'round'; g.lineCap = 'round';
-  const bottom = H + 12;
-  for (let x = x0 + 52; x < x1 - 20; x += 124) {
-    for (const dx of [-10, 10]) { g.fillStyle = P.shu; g.fillRect(x + dx - 4, y + 12, 8, bottom - y - 12); g.strokeStyle = P.ink; g.lineWidth = 1.1; g.strokeRect(x + dx - 4, y + 12, 8, bottom - y - 12); }
-    for (const yb of [y + 28, y + 52]) { g.fillStyle = P.shuD; g.fillRect(x - 20, yb, 40, 5); g.strokeRect(x - 20, yb, 40, 5); }
-    g.strokeStyle = sc_rgba(P.gofun, 0.95); g.lineWidth = 1.4; g.beginPath();
-    for (const dx of [-10, 10]) { g.moveTo(x + dx - 10, wy + 2); g.quadraticCurveTo(x + dx - 6, wy - 1.5, x + dx - 4, wy + 1); g.moveTo(x + dx + 4, wy + 1); g.quadraticCurveTo(x + dx + 6, wy - 1.5, x + dx + 10, wy + 2); }
-    g.stroke();
-  }
-  g.fillStyle = sc_rgba(P.ink, 0.25); g.fillRect(x0 - 6, y + 14, x1 - x0 + 12, 4);
-  g.fillStyle = P.shu; g.fillRect(x0 - 8, y + 4, x1 - x0 + 16, 11); g.strokeStyle = P.ink; g.lineWidth = 1.4; g.strokeRect(x0 - 8, y + 4, x1 - x0 + 16, 11);
-  g.fillStyle = '#8a6446'; g.fillRect(x0 - 8, y, x1 - x0 + 16, 4.5); g.strokeRect(x0 - 8, y, x1 - x0 + 16, 4.5);
-  g.beginPath(); for (let x = x0 - 2; x < x1 + 8; x += 9) { g.moveTo(x, y + 0.5); g.lineTo(x, y + 4); } g.strokeStyle = sc_rgba(P.ink, 0.4); g.lineWidth = 0.8; g.stroke();
-  g.fillStyle = P.kin; for (let x = x0 + 52; x < x1 - 20; x += 124) { g.fillRect(x - 13, y + 6.5, 6, 6); g.fillRect(x + 7, y + 6.5, 6, 6); }
-  g.restore();
-}
 function sc_giboshi(g, x, y) {
   const P = sc_P();
   g.fillStyle = P.kin; g.strokeStyle = P.ink; g.lineWidth = 1;
   g.fillRect(x - 5, y - 3, 10, 3); g.strokeRect(x - 5, y - 3, 10, 3);
   g.beginPath(); g.moveTo(x - 5, y - 3); g.bezierCurveTo(x - 7, y - 9, x - 2, y - 11, x, y - 15); g.bezierCurveTo(x + 2, y - 11, x + 7, y - 9, x + 5, y - 3); g.closePath(); g.fill(); g.stroke();
-}
-function sc_bridgeFront(g, x0, x1, y) {
-  const P = sc_P();
-  g.save(); g.lineJoin = 'round';
-  const R = (ax, ay, w, h, fill, lw) => { g.fillStyle = fill; g.fillRect(ax, ay, w, h); g.strokeStyle = P.ink; g.lineWidth = lw; g.strokeRect(ax, ay, w, h); };
-  R(x0 - 2, y - 44, x1 - x0 + 4, 5, P.shu, 1.2);
-  R(x0 - 2, y - 25, x1 - x0 + 4, 4, P.shu, 1);
-  for (let x = x0 + 75; x < x1 - 1; x += 75) { R(x - 3, y - 46, 6, 46, P.shu, 1.1); g.fillStyle = P.kin; g.fillRect(x - 3.5, y - 45, 7, 2); g.fillRect(x - 3.5, y - 26, 7, 2); }
-  for (const x of [x0, x1]) { R(x - 4.5, y - 54, 9, 54, P.shu, 1.2); g.fillStyle = P.kin; g.fillRect(x - 5, y - 46, 10, 2.5); g.fillRect(x - 5, y - 27, 10, 2.5); sc_giboshi(g, x, y - 54); }
-  g.restore();
-}
-function bridgeDeck(g, x0, x1, y, front) {
-  if (g === ctx) {
-    const S = sc_scaleOf(g), key = 'bridge:' + (front ? 1 : 0) + ':' + x0 + ':' + x1 + ':' + y;
-    const s = front ? sc_sprite(S, key, x0 - 12, y - 72, x1 + 12, y + 2, cg => sc_bridgeFront(cg, x0, x1, y))
-      : sc_sprite(S, key, x0 - 12, y - 2, x1 + 12, H + 14, cg => sc_bridgeBack(cg, x0, x1, y, 462));
-    sc_blit(g, s, 0, 0);
-    return;
-  }
-  if (front) sc_bridgeFront(g, x0, x1, y); else sc_bridgeBack(g, x0, x1, y, 462);
-}
-// arched bridge for the emaki: the deck top follows yf(x)
-function sc_archBridge(g, bx0, bx1, yf, wy, bottom) {
-  const P = sc_P(), pts = []; for (let x = bx0 - 8; x <= bx1 + 8.1; x += 8) pts.push([x, yf(clamp(x, bx0, bx1))]);
-  g.save(); g.lineJoin = g.lineCap = 'round';
-  for (let x = bx0 + 46; x < bx1 - 20; x += 96) {
-    const yt = yf(x) + 12;
-    for (const dx of [-9, 9]) { g.fillStyle = P.shu; g.fillRect(x + dx - 4, yt, 8, bottom - yt); g.strokeStyle = P.ink; g.lineWidth = 1.1; g.strokeRect(x + dx - 4, yt, 8, bottom - yt); }
-    for (const o of [18, 42]) { g.fillStyle = P.shuD; g.fillRect(x - 18, yt + o, 36, 5); g.strokeRect(x - 18, yt + o, 36, 5); }
-    g.strokeStyle = sc_rgba(P.gofun, 0.95); g.lineWidth = 1.4; g.beginPath();
-    for (const dx of [-9, 9]) { g.moveTo(x + dx - 10, wy + 2); g.quadraticCurveTo(x + dx - 6, wy - 1.5, x + dx - 4, wy + 1); g.moveTo(x + dx + 4, wy + 1); g.quadraticCurveTo(x + dx + 6, wy - 1.5, x + dx + 10, wy + 2); }
-    g.stroke();
-  }
-  const band = (d0, d1, fill) => { g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1] + d0) : g.moveTo(p[0], p[1] + d0)); for (let i = pts.length - 1; i >= 0; i--) g.lineTo(pts[i][0], pts[i][1] + d1); g.closePath(); g.fillStyle = fill; g.fill(); g.strokeStyle = P.ink; g.lineWidth = 1.3; g.stroke(); };
-  band(4.5, 15, P.shu); band(0, 4.5, '#8a6446');
-  g.fillStyle = P.kin; for (let x = bx0 + 46; x < bx1 - 20; x += 96) { const yt = yf(x); g.fillRect(x - 12, yt + 7, 5, 5); g.fillRect(x + 7, yt + 7, 5, 5); }
-  // 高欄 (front railing)
-  const rail = (d, lw) => { g.beginPath(); for (let x = bx0; x <= bx1 + 0.1; x += 8) { const yy = yf(x) - d; x === bx0 ? g.moveTo(x, yy) : g.lineTo(x, yy); } g.strokeStyle = P.ink; g.lineWidth = lw + 2.2; g.stroke(); g.strokeStyle = P.shu; g.lineWidth = lw; g.stroke(); };
-  for (let x = bx0 + 60; x < bx1 - 20; x += 60) { const yy = yf(x); g.fillStyle = P.shu; g.fillRect(x - 3, yy - 46, 6, 46); g.strokeStyle = P.ink; g.lineWidth = 1.1; g.strokeRect(x - 3, yy - 46, 6, 46); }
-  rail(42, 3.4); rail(23, 2.6);
-  for (const x of [bx0, bx1]) { const yy = yf(x); g.fillStyle = P.shu; g.fillRect(x - 4.5, yy - 54, 9, 54); g.strokeStyle = P.ink; g.lineWidth = 1.2; g.strokeRect(x - 4.5, yy - 54, 9, 54); sc_giboshi(g, x, yy - 54); }
-  g.restore();
-}
-// ------------------------------------------------------------ 神木 (the great sacred tree)
-function sc_treeLimbs() {
-  if (sc_treeLimbs.v) return sc_treeLimbs.v;
-  const gy = groundY(TREE_X), L = [];
-  for (const p of PLATFORMS) if (p.x0 > 2900 && p.x1 < 3300) L.push({ x0: p.x0 - TREE_X, x1: p.x1 - TREE_X, dy: p.y - gy });
-  L.sort((a, b) => b.dy - a.dy);
-  if (!L[0]) L.push({ x0: -95, x1: 85, dy: -107 });
-  if (!L[1]) L.push({ x0: -170, x1: -70, dy: -193 });
-  return (sc_treeLimbs.v = L);
 }
 function sc_clump(g, cx, cy, rx, ry, s, rng) {
   const P = sc_P(), n = 9 + Math.floor(rng() * 4), pts = [];
@@ -1514,168 +1457,6 @@ function bigTree(g, x, y, s, rng) {
   }
   g.restore();
 }
-// ------------------------------------------------------------ 鬼の岩屋
-function sc_caveMouth(g, x, y) {
-  const m = [[-114, 8], [-116, -116], [-106, -176], [-80, -214], [-42, -234], [0, -229], [30, -206], [48, -162], [53, -92], [54, 8]];
-  g.beginPath(); sc_curve(g, m.map(p => [x + p[0], y + p[1]]), true); g.closePath();
-}
-function sc_caveRock(g, x, y) {
-  const P = sc_P(), r = mulberry(4077);
-  g.save(); g.lineJoin = g.lineCap = 'round';
-  // a pile of 青緑 boulders (back → front)
-  const B = [[-40, -246, 250, 118], [-196, -168, 176, 132], [92, -176, 150, 140], [-44, -150, 320, 110], [-222, 10, 124, 196], [124, 10, 104, 196], [-156, 10, 96, 132], [78, 10, 84, 122]];
-  for (const [u, v, w, h] of B) sc_rockPaint(g, sc_rockGeo(x + u, y + v, w, h, r, null));
-  // mouth
-  sc_caveMouth(g, x, y); g.fillStyle = '#1b1512'; g.fill(); g.strokeStyle = P.ink; g.lineWidth = 3; g.stroke();
-  g.save(); sc_caveMouth(g, x, y); g.clip();
-  g.fillStyle = 'rgba(80,60,48,.35)'; g.beginPath(); g.ellipse(x - 30, y + 10, 90, 26, 0, 0, Math.PI * 2); g.fill();
-  g.restore();
-  // rim stones and grass on ledges
-  for (const [u, v, w, h] of [[-124, 8, 34, 26], [60, 8, 30, 22], [-40, -228, 60, 16]]) sc_rockPaint(g, sc_rockGeo(x + u, y + v, w, h, r, null));
-  pine(g, x - 206, y - 292, 0.5, mulberry(611)); pine(g, x + 118, y - 300, 0.38, mulberry(612));
-  const items = []; for (const [u, v] of [[-262, -120], [-180, -178], [-60, -250], [40, -330], [140, -176], [-250, 2], [150, 2], [-150, -300]]) items.push([x + u, y + v, mulberry(u * 31 + v)]);
-  sc_grass(g, items);
-  g.restore();
-}
-function sc_caveBars(g, x, y, open) {
-  const P = sc_P(), drop = open * 170;
-  g.save(); sc_caveMouth(g, x, y); g.clip();
-  g.lineJoin = 'round';
-  for (let xx = x - 110; xx < x + 50; xx += 19.5) {
-    g.beginPath(); g.moveTo(xx + 3, y - 178 - drop); g.lineTo(xx + 14, y - 178 - drop); g.lineTo(xx + 14, y - 12 - drop); g.lineTo(xx + 8.5, y - drop); g.lineTo(xx + 3, y - 12 - drop); g.closePath();
-    g.fillStyle = '#3b3136'; g.fill(); g.strokeStyle = P.ink; g.lineWidth = 1.2; g.stroke();
-  }
-  for (const o of [150, 72]) { g.fillStyle = '#5b4636'; g.fillRect(x - 116, y - o - drop, 172, 8); g.strokeStyle = P.ink; g.lineWidth = 1.2; g.strokeRect(x - 116, y - o - drop, 172, 8); }
-  g.fillStyle = P.kin; for (let xx = x - 110; xx < x + 50; xx += 19.5) for (const o of [150, 72]) g.fillRect(xx + 6.5, y - o + 2.5 - drop, 4, 3);
-  g.restore();
-}
-function sc_caveFrame(g, x, y) {
-  const P = sc_P();
-  g.save(); g.lineJoin = 'round';
-  const R = (ax, ay, w, h) => { g.fillStyle = '#2f2926'; g.fillRect(ax, ay, w, h); g.strokeStyle = P.ink; g.lineWidth = 1.4; g.strokeRect(ax, ay, w, h); };
-  R(x - 124, y - 182, 14, 186); R(x + 46, y - 182, 14, 186);
-  R(x - 138, y - 192, 212, 14); R(x - 128, y - 172, 192, 6);
-  g.fillStyle = P.kin; for (const u of [-117, 53]) for (const v of [-150, -100, -50]) g.fillRect(x + u - 2.5, y + v, 5, 5);
-  for (let u = -128; u <= 62; u += 19) g.fillRect(x + u, y - 187, 4, 4);
-  g.restore();
-}
-function cave(g, x, y, open) { sc_caveRock(g, x, y); sc_caveBars(g, x, y, open); sc_caveFrame(g, x, y); }
-// ------------------------------------------------------------ 都の門 (楼門) with 築地塀
-function sc_roof(g, cx, ey, he, ht, hgt, up) {
-  const P = sc_P(), top = ey - hgt;
-  const eave = () => { g.moveTo(cx - he - 6, ey - up); g.quadraticCurveTo(cx - he * 0.5, ey + 2, cx, ey + 2); g.quadraticCurveTo(cx + he * 0.5, ey + 2, cx + he + 6, ey - up); };
-  const path = () => { g.beginPath(); eave(); g.quadraticCurveTo(cx + he * 0.72, ey - hgt * 0.55, cx + ht, top); g.lineTo(cx - ht, top); g.quadraticCurveTo(cx - he * 0.72, ey - hgt * 0.55, cx - he - 6, ey - up); g.closePath(); };
-  path(); g.fillStyle = P.tile; g.fill();
-  g.save(); path(); g.clip();
-  const n = Math.round(he / 4.2);
-  g.beginPath(); for (let i = 0; i <= n; i++) { const u = -1 + 2 * i / n; g.moveTo(cx + u * (he + 6), ey + 3 - up * Math.pow(Math.abs(u), 2.2)); g.lineTo(cx + u * ht, top); }
-  g.strokeStyle = 'rgba(20,16,14,.55)'; g.lineWidth = 0.9; g.stroke();
-  g.beginPath(); for (let i = 0; i < n; i++) { const u = -1 + (2 * i + 1) / n; g.moveTo(cx + u * (he + 6), ey + 3 - up * Math.pow(Math.abs(u), 2.2)); g.lineTo(cx + u * ht, top); }
-  g.strokeStyle = 'rgba(160,150,140,.35)'; g.lineWidth = 1; g.stroke();
-  g.restore();
-  g.beginPath(); eave(); g.strokeStyle = P.ink; g.lineWidth = 2.6; g.stroke();
-  g.save(); g.translate(0, 2.6); g.beginPath(); eave(); g.strokeStyle = 'rgba(239,230,207,.75)'; g.lineWidth = 1; g.stroke(); g.restore();
-  path(); g.strokeStyle = P.ink; g.lineWidth = 1.3; g.stroke();
-  g.fillStyle = P.kin; g.strokeStyle = P.ink; g.lineWidth = 0.8;
-  for (const d of [-1, 1]) { const ex = cx + d * (he + 5); g.beginPath(); g.moveTo(ex - 2, ey - up + 1); g.lineTo(ex + 2, ey - up + 1); g.lineTo(ex + 1.5, ey - up + 8); g.lineTo(ex - 1.5, ey - up + 8); g.closePath(); g.fill(); g.stroke(); }
-}
-function sc_wall(g, xa, xb, y) {
-  const P = sc_P(), h = 60;
-  g.save();
-  g.fillStyle = P.wall; g.fillRect(xa, y - h, xb - xa, h);
-  g.beginPath(); for (let k = 0; k < 5; k++) { const yy = y - h + 10 + k * 5.5; g.moveTo(xa, yy); g.lineTo(xb, yy); }
-  g.strokeStyle = 'rgba(255,252,240,.95)'; g.lineWidth = 1.8; g.stroke();
-  g.fillStyle = '#958d80'; g.fillRect(xa, y - 9, xb - xa, 9);
-  g.beginPath(); for (let xx = xa + 10; xx < xb; xx += 16) { g.moveTo(xx, y - 9); g.lineTo(xx, y); } g.moveTo(xa, y - 9); g.lineTo(xb, y - 9); g.strokeStyle = sc_rgba(P.ink, 0.45); g.lineWidth = 0.8; g.stroke();
-  g.beginPath(); g.moveTo(xa - 5, y - h + 2); g.lineTo(xb + 5, y - h + 2); g.lineTo(xb - 1, y - h - 10); g.lineTo(xa + 1, y - h - 10); g.closePath();
-  g.fillStyle = P.tile; g.fill(); g.strokeStyle = P.ink; g.lineWidth = 1.2; g.stroke();
-  g.beginPath(); for (let xx = xa; xx < xb; xx += 4.5) { g.moveTo(xx, y - h + 1); g.lineTo(xx, y - h - 9); } g.strokeStyle = 'rgba(20,16,14,.45)'; g.lineWidth = 0.8; g.stroke();
-  g.strokeStyle = P.ink; g.lineWidth = 1.2; g.strokeRect(xa, y - h + 2, xb - xa, h - 2);
-  g.restore();
-}
-function miyakoGate(g, x, y) {
-  const P = sc_P(), I = P.ink;
-  g.save(); g.lineJoin = 'round'; g.lineCap = 'round';
-  const R = (ax, ay, w, h, fill, lw) => { g.fillStyle = fill; g.fillRect(ax, ay, w, h); if (lw) { g.strokeStyle = I; g.lineWidth = lw; g.strokeRect(ax, ay, w, h); } };
-  const lattice = (ax, ay, w, h) => { R(ax, ay, w, h, P.roku, 1); g.beginPath(); for (let xx = ax + 3.5; xx < ax + w - 1; xx += 4.2) { g.moveTo(xx, ay); g.lineTo(xx, ay + h); } g.strokeStyle = sc_rgba(I, 0.75); g.lineWidth = 1.1; g.stroke(); };
-  sc_wall(g, x - 262, x - 110, y); sc_wall(g, x + 110, x + 236, y);
-  R(x - 106, y - 6, 212, 8, '#bdb4a2', 1.1);
-  for (const [a, b] of [[-86, -30], [30, 86]]) {
-    R(x + a, y - 124, b - a, 118, P.plaster, 0);
-    lattice(x + a + 7, y - 110, b - a - 14, 36);
-    R(x + a, y - 66, b - a, 5, P.shu, 0.9);
-    g.beginPath(); g.moveTo(x + a, y - 32); g.lineTo(x + b, y - 32); g.strokeStyle = sc_rgba(I, 0.35); g.lineWidth = 1; g.stroke();
-  }
-  R(x - 30, y - 124, 60, 16, sc_rgba(I, 0.3), 0);
-  for (const px of [-86, -30, 30, 86]) { R(x + px - 5.5, y - 128, 11, 122, P.shu, 1.2); g.fillStyle = '#a39c8f'; g.beginPath(); g.ellipse(x + px, y - 6, 9, 3, 0, 0, Math.PI * 2); g.fill(); g.strokeStyle = I; g.lineWidth = 1; g.stroke(); }
-  R(x - 98, y - 136, 196, 9, P.shu, 1.2);
-  for (const px of [-86, -30, 30, 86]) { R(x + px - 7, y - 143, 14, 7, P.shu, 1); R(x + px - 15, y - 148, 30, 5, P.shu, 1); for (const k of [-11, 0, 11]) R(x + px + k - 3, y - 153, 6, 5, P.roku, 0.8); }
-  R(x - 112, y - 157, 224, 4, P.wood, 1);
-  sc_roof(g, x, y - 158, 126, 96, 20, 7);
-  R(x - 92, y - 184, 184, 6, P.wood, 1);
-  for (const [a, b] of [[-64, -22], [22, 64]]) { R(x + a, y - 230, b - a, 46, P.plaster, 0); lattice(x + a + 6, y - 222, b - a - 12, 24); }
-  R(x - 22, y - 230, 44, 46, P.shu, 1);
-  g.beginPath(); g.moveTo(x, y - 230); g.lineTo(x, y - 184); g.strokeStyle = I; g.lineWidth = 1; g.stroke();
-  g.fillStyle = P.kin; for (const dx of [-15, -7, 7, 15]) for (const dy of [-222, -208, -194]) { g.beginPath(); g.arc(x + dx, y + dy, 1.5, 0, Math.PI * 2); g.fill(); }
-  for (const px of [-64, -22, 22, 64]) R(x + px - 4.5, y - 234, 9, 50, P.shu, 1.1);
-  R(x - 94, y - 198, 188, 3.5, P.shu, 0.9); R(x - 94, y - 190, 188, 3, P.shu, 0.8);
-  for (let xx = x - 92; xx <= x + 92.1; xx += 23) { R(xx - 1.8, y - 200, 3.6, 16, P.shu, 0.8); R(xx - 2.6, y - 202, 5.2, 3, P.kin, 0.6); }
-  R(x - 76, y - 242, 152, 8, P.shu, 1.1);
-  for (const px of [-64, -22, 22, 64]) { R(x + px - 6, y - 248, 12, 6, P.shu, 0.9); R(x + px - 13, y - 253, 26, 5, P.shu, 0.9); for (const k of [-9, 0, 9]) R(x + px + k - 2.5, y - 257, 5, 4, P.roku, 0.7); }
-  R(x - 96, y - 261, 192, 4, P.wood, 1);
-  sc_roof(g, x, y - 262, 158, 70, 44, 13);
-  const top = y - 306;
-  R(x - 74, top - 7, 148, 8, '#3e3836', 1.2);
-  for (const d of [-1, 1]) { const ex = x + d * 72; g.beginPath(); g.moveTo(ex, top + 1); g.quadraticCurveTo(ex + d * 2, top - 14, ex - d * 6, top - 24); g.quadraticCurveTo(ex + d * 11, top - 17, ex + d * 9, top + 1); g.closePath(); g.fillStyle = P.kin; g.fill(); g.strokeStyle = I; g.lineWidth = 1; g.stroke(); }
-  g.restore();
-}
-// ------------------------------------------------------------ 土坡 ground
-function sc_bankOff(x) { return 40 + 9 * Math.sin(x * 0.0057 + 0.7) + 5 * Math.sin(x * 0.0171 + 2.1); }
-// earth strip between xa..xb whose top follows yf; optional sloping bank faces at either end (into water)
-function sc_groundStrip(g, xa, xb, yf, yb, bottom, fL, fR) {
-  if (xb <= xa) return;
-  const P = sc_P(), top = [];
-  for (let x = xa; x < xb; x += 16) top.push([x, yf(x)]); top.push([xb, yf(xb)]);
-  const face = (x, y, d) => { const pts = []; for (let k = 1; k <= 6; k++) { const t = k / 6; pts.push([x + d * 62 * Math.pow(t, 1.7), y + (bottom - y) * t]); } return pts; };
-  const lf = fL ? face(xa, top[0][1], -1) : null, rf = fR ? face(xb, top[top.length - 1][1], 1) : null;
-  const earth = () => {
-    g.beginPath();
-    if (lf) { g.moveTo(lf[5][0], lf[5][1]); for (let k = 4; k >= 0; k--) g.lineTo(lf[k][0], lf[k][1]); } else g.moveTo(xa, bottom);
-    for (const p of top) g.lineTo(p[0], p[1]);
-    if (rf) for (const p of rf) g.lineTo(p[0], p[1]); else g.lineTo(xb, bottom);
-    g.closePath();
-  };
-  const line = (pts, off) => { g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1] + off) : g.moveTo(p[0], p[1] + off)); };
-  g.save(); g.lineJoin = 'round'; g.lineCap = 'butt';
-  earth(); g.fillStyle = P.earth; g.fill();
-  g.save(); earth(); g.clip();
-  const lx0 = lf ? xa - 64 : xa, lx1 = rf ? xb + 64 : xb, low = [];
-  for (let x = lx0; x < lx1; x += 16) low.push([x, yb(x)]); low.push([lx1, yb(lx1)]);
-  g.beginPath(); g.moveTo(lx0, bottom + 20); for (const p of low) g.lineTo(p[0], p[1]); g.lineTo(lx1, bottom + 20); g.closePath(); g.fillStyle = P.earth2; g.fill();
-  line(low, 5); g.strokeStyle = sc_rgba(P.rokuL, 0.4); g.lineWidth = 10; g.stroke();
-  line(low, 2); g.strokeStyle = sc_rgba(P.roku, 0.6); g.lineWidth = 4; g.stroke();
-  line(low, 0); g.strokeStyle = sc_rgba(P.ink, 0.65); g.lineWidth = 1.3; g.stroke();
-  line(top, 6); g.strokeStyle = sc_rgba(P.rokuL, 0.5); g.lineWidth = 12; g.stroke();
-  line(top, 2.5); g.strokeStyle = sc_rgba(P.roku, 0.8); g.lineWidth = 5; g.stroke();
-  // 皴 on the banks (anchored to the world)
-  g.beginPath();
-  for (let c = Math.floor(lx0 / 70); c * 70 < lx1; c++) {
-    const hsh = Math.sin(c * 12.9898) * 43758.5453, u = hsh - Math.floor(hsh), x = c * 70 + u * 50;
-    const y1 = yf(x) + 14 + u * 12, y2 = yb(x) + 12 + u * 10;
-    g.moveTo(x, y1); g.quadraticCurveTo(x + 8, y1 - 2, x + 18 + u * 10, y1 + 1);
-    g.moveTo(x + 30, y2); g.quadraticCurveTo(x + 40, y2 - 2.5, x + 52, y2 + 1);
-  }
-  g.strokeStyle = sc_rgba(P.ink, 0.22); g.lineWidth = 1; g.stroke();
-  g.restore();
-  g.beginPath();
-  if (lf) { g.moveTo(lf[3][0], lf[3][1]); for (let k = 2; k >= 0; k--) g.lineTo(lf[k][0], lf[k][1]); g.lineTo(top[0][0], top[0][1]); } else g.moveTo(top[0][0], top[0][1]);
-  for (const p of top) g.lineTo(p[0], p[1]);
-  if (rf) for (let k = 0; k < 4; k++) g.lineTo(rf[k][0], rf[k][1]);
-  g.strokeStyle = P.ink; g.lineWidth = 1.8; g.stroke();
-  g.restore();
-}
-function sc_ground(g, xa, xb, fL, fR) { sc_groundStrip(g, xa, xb, groundY, x => groundY(x) + sc_bankOff(x), H + 10, fL, fR); }
-function groundFill(g, x0, x1) { sc_ground(g, x0, x1, false, false); }
 // grass tufts and 苔点 (items: [x, y, rng])
 function sc_grass(g, items) {
   const P = sc_P(), dark = [], light = [], dots = [];
@@ -1689,193 +1470,608 @@ function sc_grass(g, items) {
   if (dots.length) { g.beginPath(); for (const d of dots) { g.moveTo(d[0] + d[2], d[1]); g.ellipse(d[0], d[1], d[2], d[2] * 0.65, 0, 0, Math.PI * 2); } g.fillStyle = sc_rgba(P.ink, 0.72); g.fill(); }
   g.restore();
 }
-function grassTufts(g, x0, x1, rng) {
-  const items = [], CW = 46, cx = GATE_X - 20; void rng;
-  for (let c = Math.floor(x0 / CW); c * CW < x1; c++) {
-    const r = mulberry(c * 9973 + 17); if (r() < 0.3) continue;
-    const x = c * CW + r() * CW;
-    if ((x > RIVER.x0 - 8 && x < RIVER.x1 + 8) || (x > cx - 122 && x < cx + 62)) continue;
-    items.push([x, groundY(x) + 1, r]);
-  }
-  sc_grass(g, items);
+// ============================================================ 斜投影の大和絵 — world painters
+// Every painter below takes a projector V: V.p(x, z, h) → [X, Y]; V.s scales brush sizes, V.zs depth offsets.
+// The game uses V_WORLD; each emaki scene builds its own V (x squeezed into the scene, same slope).
+const V_WORLD = { p: (x, z, h) => [x + z * KX, Y0 - z * KY - (h || 0)], s: 1, zs: 1 };
+function sc_X() {
+  return sc_X.v || (sc_X.v = {
+    floor: '#dcc59b', floorD: '#b5946a', floorE: '#6b4a33', shiraki: '#cfb287', shirakiD: '#a2825a',
+    lac: '#2e2724', lacD: '#171311', tatami: '#d3c689', misu: '#dcd0a2', misuL: '#8a7446', mokou: '#2f5d4b',
+    kabe: '#f1e8d3', kabeD: '#d8ccaf', earthF: '#d2b27e', inner: '#5a4636', innerOni: '#3b2c25',
+  });
 }
-// ------------------------------------------------------------ game world
-function sc_worldSprites(S) {
-  const m = sc_store(S);
-  if (!m.has('@layout')) m.set('@layout', true);
-  return m;
+const sc_hash = c => { const h = Math.sin(c * 12.9898 + 78.233) * 43758.5453; return h - Math.floor(h); };
+const sc_lw = (V, w) => w * V.s + 0.25;
+function sc_poly(g, pts) { g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]); g.closePath(); }
+function sc_q(g, V, arr) { sc_poly(g, arr.map(q => V.p(q[0], q[1], q[2]))); }
+function sc_fill(g, fill, ink, lw) { if (fill) { g.fillStyle = fill; g.fill(); } if (ink) { g.strokeStyle = ink; g.lineWidth = lw || 1; g.stroke(); } }
+function sc_line(g, V, a, b) { const p = V.p(a[0], a[1], a[2]), q = V.p(b[0], b[1], b[2]); g.moveTo(p[0], p[1]); g.lineTo(q[0], q[1]); }
+// upright post at (x,z): front face plus the right side face (the side the viewer sees)
+function sc_post(g, V, x, z, h0, h1, w, d, col, side) {
+  const P = sc_P(), b = V.p(x, z, h0), t = V.p(x, z, h1), hw = w * V.s / 2, dx = d * KX * V.zs, dy = -d * KY * V.zs;
+  g.beginPath(); g.moveTo(b[0] + hw, b[1]); g.lineTo(b[0] + hw + dx, b[1] + dy); g.lineTo(t[0] + hw + dx, t[1] + dy); g.lineTo(t[0] + hw, t[1]); g.closePath();
+  sc_fill(g, side || col, P.ink, sc_lw(V, 0.7));
+  g.beginPath(); g.rect(b[0] - hw, t[1], hw * 2, b[1] - t[1]); sc_fill(g, col, P.ink, sc_lw(V, 0.85));
 }
-function drawWorld(g, camX, time, gateOpen) {
-  const S = sc_scaleOf(g), P = sc_P();
-  sc_worldSprites(S);
-  g.save(); g.imageSmoothingEnabled = true;
-  drawPaper(g, W, H);
-  for (const c of CLOUDS) { const x = c.x - camX * 0.1; if (x > W + 40 || x + c.w < -40) continue; kinunCached(g, x, c.y, Math.round(c.w), Math.round(c.h), c.seed); }
-  const far = sc_pal('far'), mid = sc_pal('mid');
-  for (let i = 0; i < FAR.length; i++) {
-    const m = FAR[i], x = m.x - camX * 0.18; if (x - m.w / 2 - 20 > W || x + m.w / 2 + 20 < 0) continue;
-    const b = sc_mtnBounds(m.w, m.h, far);
-    sc_blit(g, sc_sprite(S, 'far:' + i, b[0], b[1], b[2], b[3], cg => sc_mtnPaint(cg, m.w, m.h, far)), x, 380);
-  }
-  for (let i = 0; i < MID.length; i++) {
-    const m = MID[i], x = m.x - camX * 0.42; if (x - m.w / 2 - 20 > W || x + m.w / 2 + 20 < 0) continue;
-    const o = m.pine ? Object.assign({}, mid, { pine: { u: (m.s - 0.5) * 0.8, s: 0.45, seed: Math.floor(m.s * 1e6) } }) : mid;
-    const b = sc_mtnBounds(m.w, m.h, o);
-    sc_blit(g, sc_sprite(S, 'mid:' + i, b[0], b[1], b[2], b[3], cg => sc_mtnPaint(cg, m.w, m.h, o)), x, 420);
-  }
-  kinunBand(g, camX * 0.28, 330);
-  g.translate(-camX, 0);
-  const x0 = Math.max(0, camX - 40), x1 = Math.min(WORLD_W, camX + W + 40), wy = 462;
-  const bl = BRIDGE.x0 + 6, br = BRIDGE.x1 - 6;
-  if (x1 > RIVER.x0 && x0 < RIVER.x1) sc_waterWorld(g, S, time, Math.max(x0, bl + 6), Math.min(x1, br - 6), wy);
-  if (x0 < bl) sc_ground(g, x0, Math.min(x1, bl), false, x1 >= bl);
-  if (x1 > br) sc_ground(g, Math.max(x0, br), x1, x0 <= br, false);
-  if (x1 > -60 && x0 < 420) {
-    const cx = GATE_X - 20, cy = 440;
-    sc_blit(g, sc_sprite(S, 'caveRock', cx - 292, cy - 390, cx + 184, cy + 14, cg => sc_caveRock(cg, cx, cy)), 0, 0);
-    sc_caveBars(g, cx, cy, gateOpen);
-    sc_blit(g, sc_sprite(S, 'caveFrame', cx - 142, cy - 196, cx + 78, cy + 8, cg => sc_caveFrame(cg, cx, cy)), 0, 0);
-  }
-  if (x0 < 7650 && x1 > 7100) { const gx = 7380, gy = groundY(7380); sc_blit(g, sc_sprite(S, 'gate', gx - 272, gy - 336, gx + 246, gy + 6, cg => miyakoGate(cg, gx, gy)), 0, 0); }
-  if (x0 < TREE_X + 290 && x1 > TREE_X - 300) { const ty = groundY(TREE_X); sc_blit(g, sc_sprite(S, 'tree', TREE_X - 300, ty - 500, TREE_X + 262, ty + 14, cg => bigTree(cg, TREE_X, ty, 1, mulberry(77))), 0, 0); }
-  for (let i = 0; i < NEAR_PINES.length; i++) {
-    const p = NEAR_PINES[i]; if (p.x < x0 - 140 || p.x > x1 + 140) continue;
-    const L = sc_pineLayout(0, 0, p.s, mulberry(p.seed));
-    sc_blit(g, sc_sprite(S, 'pine:' + i, L.b[0], L.b[1], L.b[2], L.b[3], cg => sc_pinePaint(cg, L)), p.x, groundY(p.x) + 4);
-  }
-  if (x1 > BRIDGE.x0 - 40 && x0 < BRIDGE.x1 + 40) bridgeDeck(g, BRIDGE.x0, BRIDGE.x1, BRIDGE.y, false);
-  for (let i = 0; i < NEAR_ROCKS.length; i++) {
-    const r = NEAR_ROCKS[i];
-    if (r.plat) {
-      const p = r.plat; if (p.x1 + 40 < x0 || p.x0 - 40 > x1) continue;
-      const cx = (p.x0 + p.x1) / 2, cy = groundY(cx) + 2, w = p.x1 - p.x0 + 44;
-      sc_blit(g, sc_sprite(S, 'prock:' + i, cx - w / 2 - 4, p.y - 6, cx + w / 2 + 4, cy + 8, cg => sc_rockPaint(cg, sc_rockGeo(cx, cy, w, 0, mulberry(p.x0), p))), 0, 0);
-      continue;
-    }
-    if (r.x < x0 - 70 || r.x > x1 + 70 || (r.x > 7240 && r.x < 7520) || r.x < 440 || Math.abs(r.x - TREE_X) < 110) continue;
-    const ry = groundY(r.x) + 3;
-    sc_blit(g, sc_sprite(S, 'rock:' + i, r.x - r.w / 2 - 4, ry - r.h * 1.2 - 6, r.x + r.w / 2 + 4, ry + 6, cg => rock(cg, r.x, ry, r.w, r.h, mulberry(r.seed))), 0, 0);
-  }
-  grassTufts(g, x0, x1, null);
-  g.restore();
-  void P;
+function sc_beamX(g, V, x0, x1, z, h, t, d, col) {
+  const P = sc_P();
+  if (d) { sc_q(g, V, [[x0, z, h], [x1, z, h], [x1, z + d, h], [x0, z + d, h]]); sc_fill(g, col, P.ink, sc_lw(V, 0.7)); }
+  sc_q(g, V, [[x0, z, h], [x1, z, h], [x1, z, h - t], [x0, z, h - t]]); sc_fill(g, col, P.ink, sc_lw(V, 0.85));
 }
-function drawPlatformBranches(g) {
-  // the branch platforms are painted as limbs of the great tree (bigTree); add a few ferns on their tops
-  const t = g.getTransform(), sx = t.a || 1, vx0 = -t.e / sx, vx1 = vx0 + (g.canvas.width / sx);
-  const items = [];
-  for (const p of PLATFORMS) {
-    if (!(p.x0 > 2900 && p.x1 < 3300) || p.x1 < vx0 - 1000 || p.x0 > vx1 + 1000) continue;
-    for (const f of [0.18, 0.62]) { const x = p.x0 + (p.x1 - p.x0) * f; items.push([x, p.y + 1, mulberry(Math.round(x))]); }
-  }
-  if (items.length) sc_grass(g, items);
+function sc_beamZ(g, V, x, z0, z1, h, t, col) { sc_q(g, V, [[x, z0, h], [x, z1, h], [x, z1, h - t], [x, z0, h - t]]); sc_fill(g, col, sc_P().ink, sc_lw(V, 0.85)); }
+function sc_gib(g, V, x, z, h) { const t = V.p(x, z, h); g.save(); g.translate(t[0], t[1] + 1); g.scale(0.52 * V.s, 0.56 * V.s); sc_giboshi(g, 0, 0); g.restore(); }
+// 高欄 along x at depth z; hf(x) lifts it (the arched bridge)
+function sc_railX(g, V, x0, x1, z, hr, col, side, step, hf) {
+  const P = sc_P(); hf = hf || (() => 0);
+  const xs = []; for (let x = x0; x < x1; x += 10) xs.push(x); xs.push(x1);
+  const band = (h0, h1) => {
+    g.beginPath(); xs.forEach((x, i) => { const p = V.p(x, z, hf(x) + h1); i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); });
+    for (let i = xs.length - 1; i >= 0; i--) { const p = V.p(xs[i], z, hf(xs[i]) + h0); g.lineTo(p[0], p[1]); }
+    g.closePath(); sc_fill(g, col, P.ink, sc_lw(V, 0.8));
+  };
+  band(0, 3);
+  for (let x = x0 + step; x < x1 - step * 0.35; x += step) sc_post(g, V, x, z, hf(x), hf(x) + hr, 2.8, 2, col, side);
+  band(hr * 0.5, hr * 0.5 + 2.4);
+  band(hr, hr + 3.2);
+  for (const x of [x0, x1]) { sc_post(g, V, x, z, hf(x), hf(x) + hr + 8, 4.6, 4, col, side); sc_gib(g, V, x, z, hf(x) + hr + 8); }
 }
-function drawRecordMarker(g, p, done, time, near) {
-  const P = sc_P(), y = groundY(p.x);
+// ------------------------------------------------------------ furnishings (吹抜屋台 interiors)
+function sc_misu(g, V, xa, xb, z, h0, h1) { // 御簾 with 帽額 and 鉤丸
+  const P = sc_P(), X = sc_X(), s = V.s;
+  sc_q(g, V, [[xa, z, h0], [xb, z, h0], [xb, z, h1], [xa, z, h1]]); g.fillStyle = X.misu; g.fill();
+  g.beginPath(); for (let h = h0 + 2; h < h1 - 9; h += 2.4) sc_line(g, V, [xa, z, h], [xb, z, h]);
+  g.strokeStyle = sc_rgba(X.misuL, 0.34); g.lineWidth = 0.6 * s; g.stroke();
+  g.beginPath(); for (let x = xa + 16; x < xb - 4; x += 16) sc_line(g, V, [x, z, h0], [x, z, h1 - 9]);
+  g.strokeStyle = sc_rgba(X.misuL, 0.3); g.lineWidth = 0.6 * s; g.stroke();
+  sc_q(g, V, [[xa, z, h0], [xb, z, h0], [xb, z, h0 + 3], [xa, z, h0 + 3]]); g.fillStyle = X.mokou; g.fill();
+  sc_q(g, V, [[xa, z, h1], [xb, z, h1], [xb, z, h1 - 9], [xa, z, h1 - 9]]); sc_fill(g, X.mokou, P.ink, sc_lw(V, 0.6));
+  g.fillStyle = P.gofun; for (let x = xa + 9; x < xb - 4; x += 18) { const p = V.p(x, z, h1 - 4.5); g.beginPath(); g.ellipse(p[0], p[1], 2.3 * s, 1.5 * s, 0, 0, 6.2832); g.fill(); }
+  sc_q(g, V, [[xa, z, h0], [xb, z, h0], [xb, z, h1], [xa, z, h1]]); g.strokeStyle = P.ink; g.lineWidth = sc_lw(V, 0.75); g.stroke();
+  for (const u of [0.3, 0.7]) {
+    const x = xa + (xb - xa) * u, a = V.p(x, z, h1 - 9), b = V.p(x, z, h1 - 9 - (h1 - h0) * 0.42);
+    g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.strokeStyle = P.shu; g.lineWidth = 1.5 * s; g.stroke();
+    g.beginPath(); g.moveTo(b[0] - 2 * s, b[1]); g.lineTo(b[0] + 2 * s, b[1]); g.lineTo(b[0], b[1] + 7 * s); g.closePath(); g.fillStyle = P.shu; g.fill();
+  }
+}
+function sc_kicho(g, V, x, z, w, hgt, k) { // 几帳: a stand with hanging silk strips and 野筋 ribbons
+  const P = sc_P(), X = sc_X(), cols = [P.shu, '#ece0c4', P.gunjo, '#ece0c4', P.roku], n = 4, xa = x - w / 2;
+  for (let i = 0; i < n; i++) {
+    const a = xa + i * w / n, b = a + w / n, sw = i % 2 ? 1.4 : -1.2;
+    sc_q(g, V, [[a, z, hgt - 3], [b, z, hgt - 3], [b + sw, z, 2], [a + sw, z, 2]]); sc_fill(g, cols[(i + k) % cols.length], P.ink, sc_lw(V, 0.6));
+    g.beginPath(); sc_line(g, V, [(a + b) / 2, z, hgt - 3], [(a + b) / 2 + sw, z, 9]); g.strokeStyle = sc_rgba(P.ink, 0.5); g.lineWidth = 0.8 * V.s; g.stroke();
+  }
+  sc_beamX(g, V, xa - 4, xa + w + 4, z, hgt + 1, 2.4, 0, X.lac);
+  sc_post(g, V, x, z, 0, hgt + 1, 2.2, 1, X.lac, X.lacD);
+  sc_beamX(g, V, x - 9, x + 9, z - 3, 4, 4, 6, X.lac);
+}
+function sc_tatami(g, V, xa, xb, za, zb, h) { // 畳 with a 繧繝縁 border
+  const P = sc_P(), X = sc_X(), ring = (e, col) => { sc_q(g, V, [[xa + e, za + e, h], [xb - e, za + e, h], [xb - e, zb - e, h], [xa + e, zb - e, h]]); g.fillStyle = col; g.fill(); };
+  ring(0, P.shu); ring(1.6, '#f1e6c9'); ring(2.6, P.gunjo); ring(4, X.tatami);
+  g.beginPath(); for (let z = za + 6; z < zb - 4; z += 3.2) sc_line(g, V, [xa + 4, z, h], [xb - 4, z, h]);
+  g.strokeStyle = sc_rgba(P.roku, 0.22); g.lineWidth = 0.6 * V.s; g.stroke();
+  sc_q(g, V, [[xa, za, h], [xb, za, h], [xb, zb, h], [xa, zb, h]]); g.strokeStyle = P.ink; g.lineWidth = sc_lw(V, 0.8); g.stroke();
+}
+// 屏風: panels zigzag in plan; gold ground with 青緑 hills (palace) or 山水 on paper (mansion)
+function sc_byobu(g, V, xa, xb, z, n, hgt, gold, seed) {
+  const P = sc_P(), X = sc_X(), pw = (xb - xa) / n, zz = 7, r = mulberry(seed);
+  const at = (i, u, v) => { const za = z + (i % 2 ? zz : 0), zb = z + (i % 2 ? 0 : zz); return V.p(xa + (i + u) * pw, za + (zb - za) * u, v * hgt); };
+  const ridge = U => 0.5 + 0.15 * Math.sin(U * 7.1 + seed) + 0.08 * Math.sin(U * 19.3 + seed * 2);
+  for (let i = 0; i < n; i++) {
+    const q = [at(i, 0, 0), at(i, 1, 0), at(i, 1, 1), at(i, 0, 1)];
+    sc_poly(g, q); g.fillStyle = gold ? '#d6b75c' : '#ece2c6'; g.fill();
+    g.save(); sc_poly(g, q); g.clip();
+    g.beginPath(); for (let k = 0; k <= 8; k++) { const u = k / 8, p = at(i, u, ridge((i + u) / n)); k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); }
+    const b1 = at(i, 1, -0.1), b0 = at(i, 0, -0.1); g.lineTo(b1[0], b1[1]); g.lineTo(b0[0], b0[1]); g.closePath();
+    g.fillStyle = gold ? P.roku : P.rokuL; g.fill(); g.strokeStyle = sc_rgba(P.gunjo, 0.85); g.lineWidth = 2.4 * V.s; g.stroke();
+    if (gold) { g.fillStyle = sc_rgba(P.kinS, 0.85); for (let k = 0; k < 16; k++) { const p = at(i, r(), 0.55 + r() * 0.45); g.fillRect(p[0], p[1], 1.3 * V.s, 1.3 * V.s); } }
+    else { g.beginPath(); for (const v of [0.14, 0.24]) for (let k = 0; k <= 6; k++) { const u = k / 6, p = at(i, u, v + 0.02 * Math.sin((i + u) * 9)); k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); } g.strokeStyle = sc_rgba(P.gunjo, 0.55); g.lineWidth = 0.9 * V.s; g.stroke(); }
+    if (i % 2) { sc_poly(g, q); g.fillStyle = 'rgba(42,36,32,.1)'; g.fill(); }
+    g.restore();
+    sc_poly(g, q); g.strokeStyle = P.ink; g.lineWidth = sc_lw(V, 0.6); g.stroke();
+  }
+  for (const v of [0, 1]) { g.beginPath(); for (let i = 0; i <= n; i++) { const p = i < n ? at(i, 0, v) : at(n - 1, 1, v); i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); } g.strokeStyle = X.lac; g.lineWidth = 2.6 * V.s; g.stroke(); }
+}
+function sc_lamp(g, V, x, z) { // 燈台
+  const P = sc_P(), X = sc_X(), b = V.p(x, z, 0), t = V.p(x, z, 62), s = V.s;
+  g.beginPath(); g.ellipse(b[0], b[1], 7 * s, 2.6 * s, 0, 0, 6.2832); sc_fill(g, X.lac, P.ink, sc_lw(V, 0.6));
+  g.beginPath(); g.moveTo(b[0], b[1]); g.lineTo(t[0], t[1]); g.strokeStyle = X.lac; g.lineWidth = 2.2 * s; g.stroke();
+  g.beginPath(); g.ellipse(t[0], t[1], 5 * s, 1.6 * s, 0, 0, 6.2832); g.fillStyle = X.lac; g.fill();
+  g.beginPath(); g.moveTo(t[0], t[1] - 1.5 * s); g.quadraticCurveTo(t[0] + 2.6 * s, t[1] - 5 * s, t[0], t[1] - 10 * s); g.quadraticCurveTo(t[0] - 2.6 * s, t[1] - 5 * s, t[0], t[1] - 1.5 * s); g.fillStyle = P.shu; g.fill();
+  g.beginPath(); g.ellipse(t[0], t[1] - 4 * s, 1.1 * s, 2.2 * s, 0, 0, 6.2832); g.fillStyle = P.kinS; g.fill();
+}
+function sc_heishi(g, V, x, z) { // 瓶子 with a red paper cap
+  const P = sc_P(), b = V.p(x, z, 0), s = V.s, X0 = b[0], Y = b[1];
+  g.beginPath(); g.moveTo(X0 - 3 * s, Y); g.bezierCurveTo(X0 - 8 * s, Y - 6 * s, X0 - 7 * s, Y - 13 * s, X0 - 2 * s, Y - 17 * s); g.lineTo(X0 - 2 * s, Y - 20 * s); g.lineTo(X0 + 2 * s, Y - 20 * s); g.lineTo(X0 + 2 * s, Y - 17 * s); g.bezierCurveTo(X0 + 7 * s, Y - 13 * s, X0 + 8 * s, Y - 6 * s, X0 + 3 * s, Y); g.closePath();
+  sc_fill(g, P.gofun, P.ink, sc_lw(V, 0.7));
+  g.beginPath(); g.moveTo(X0 - 3 * s, Y - 19 * s); g.lineTo(X0 + 3 * s, Y - 19 * s); g.lineTo(X0 + 4.5 * s, Y - 23 * s); g.lineTo(X0 - 4.5 * s, Y - 23 * s); g.closePath(); sc_fill(g, P.shu, P.ink, sc_lw(V, 0.5));
+}
+function sc_taru(g, V, x, z) { // 酒樽
+  const P = sc_P(), X = sc_X(), b = V.p(x, z, 0), s = V.s, w = 11 * s, h = 22 * s;
+  g.beginPath(); g.moveTo(b[0] - w, b[1]); g.lineTo(b[0] - w * 1.06, b[1] - h); g.lineTo(b[0] + w * 1.06, b[1] - h); g.lineTo(b[0] + w, b[1]); g.closePath(); sc_fill(g, '#c08a52', P.ink, sc_lw(V, 0.8));
+  g.beginPath(); for (const k of [0.2, 0.5, 0.82]) { g.moveTo(b[0] - w * 1.03, b[1] - h * k); g.lineTo(b[0] + w * 1.03, b[1] - h * k); } g.strokeStyle = X.lac; g.lineWidth = 1.8 * s; g.stroke();
+  g.beginPath(); g.ellipse(b[0], b[1] - h, w * 1.06, 3.2 * s, 0, 0, 6.2832); sc_fill(g, '#d9ad72', P.ink, sc_lw(V, 0.7));
+}
+function sc_sanbo(g, V, x, z, h0) { // 三方 with a red lacquer 盃
+  const P = sc_P(), b = V.p(x, z, h0), s = V.s;
+  g.beginPath(); g.rect(b[0] - 7 * s, b[1] - 7 * s, 14 * s, 7 * s); sc_fill(g, '#e2cfa0', P.ink, sc_lw(V, 0.6));
+  g.beginPath(); g.ellipse(b[0], b[1] - 8 * s, 6 * s, 2 * s, 0, 0, 6.2832); sc_fill(g, P.shu, P.ink, sc_lw(V, 0.5));
+}
+function sc_kyosoku(g, V, x, z, h0) { // 脇息
+  const X = sc_X(), b = V.p(x, z, h0), s = V.s;
+  g.beginPath(); g.rect(b[0] - 9 * s, b[1] - 9 * s, 18 * s, 3 * s); sc_fill(g, X.lac, sc_P().ink, sc_lw(V, 0.5));
+  g.beginPath(); g.moveTo(b[0] - 6 * s, b[1] - 6 * s); g.lineTo(b[0] - 7 * s, b[1]); g.moveTo(b[0] + 6 * s, b[1] - 6 * s); g.lineTo(b[0] + 7 * s, b[1]); g.strokeStyle = X.lac; g.lineWidth = 1.6 * s; g.stroke();
+}
+// ------------------------------------------------------------ 吹抜屋台: 頼光の館 / 鬼の館 (no roof, no ceiling)
+const SC_BAYS = { oni: ['misu', 'byobu', 'misu', 'misuL', 'misuL', 'misu', 'byobu', 'misu'], yakata: ['misuL', 'hajitomi', 'misuL', 'misu', 'hajitomi', 'misuL'] };
+const SC_HN = 150, SC_HT = 205;
+function sc_bays(H) { const n = H === HALL ? 8 : 6, xs = []; for (let i = 0; i <= n; i++) xs.push(H.x0 + (H.x1 - H.x0) * i / n); return xs; }
+function sc_lattice(g, V, x, za, zb, h0, h1, alongZ) {
+  g.beginPath();
+  if (alongZ) for (let z = za + 5; z < zb; z += 6) sc_line(g, V, [x, z, h0], [x, z, h1]);
+  else for (let xx = za + 5; xx < zb; xx += 6) sc_line(g, V, [xx, x, h0], [xx, x, h1]);
+  g.strokeStyle = sc_rgba(sc_P().ink, 0.7); g.lineWidth = 0.9 * V.s; g.stroke();
+}
+function sc_hallBack(g, V, H, oni) {
+  const P = sc_P(), X = sc_X(), zf = -24, zb = H.back, x0 = H.x0, x1 = H.x1, HN = SC_HN, HT = SC_HT;
+  const col = oni ? P.shu : X.shiraki, side = oni ? P.shuD : X.shirakiD;
   g.save(); g.lineJoin = g.lineCap = 'round';
-  const zx0 = p.x - ZONE_HALF, zx1 = p.x + ZONE_HALF;
-  if (!done) {
-    const a = 0.25 + 0.15 * Math.sin(time * 4) + (near ? 0.2 : 0);
-    g.globalAlpha = clamp(a * 1.7, 0, 1);
-    g.beginPath(); g.moveTo(zx0 + 5, y - 1); g.quadraticCurveTo(p.x, y - 8, zx1 - 5, y - 1); g.arc(zx1 - 5, y + 4, 5, -Math.PI / 2, Math.PI / 2); g.quadraticCurveTo(p.x, y + 5, zx0 + 5, y + 9); g.arc(zx0 + 5, y + 4, 5, Math.PI / 2, Math.PI * 1.5); g.closePath();
-    g.fillStyle = P.kin; g.fill(); g.strokeStyle = P.kinD; g.lineWidth = 1.2; g.stroke();
-    g.fillStyle = P.kinS; for (let k = 0; k < 16; k++) { const u = Math.sin((p.x + k * 37) * 12.9898) * 43758.5453, f = u - Math.floor(u); g.fillRect(zx0 + 8 + f * (zx1 - zx0 - 16), y + 1 + ((k * 7) % 5), 1.4, 1.4); }
-    g.globalAlpha = 1;
+  // 床: the raised edge with its short posts, then the boards seen from above
+  sc_q(g, V, [[x0, zf, 0], [x1, zf, 0], [x1, zf, -16], [x0, zf, -16]]); sc_fill(g, X.floorE, P.ink, sc_lw(V, 1));
+  g.beginPath(); for (let x = x0 + 28; x < x1; x += 56) sc_line(g, V, [x, zf, -2], [x, zf, -16]); g.strokeStyle = sc_rgba(P.ink, 0.55); g.lineWidth = 1.8 * V.s; g.stroke();
+  if (oni) { sc_q(g, V, [[x1, zf, 0], [x1, zb, 0], [x1, zb, -16], [x1, zf, -16]]); sc_fill(g, X.floorE, P.ink, sc_lw(V, 1)); }
+  sc_q(g, V, [[x0, zf, 0], [x1, zf, 0], [x1, zb, 0], [x0, zb, 0]]); g.fillStyle = oni ? X.floorD : X.floor; g.fill();
+  g.beginPath(); for (let x = x0 + 21; x < x1; x += 21) sc_line(g, V, [x, zf, 0], [x, zb, 0]); g.strokeStyle = sc_rgba(P.ink, 0.2); g.lineWidth = 0.6 * V.s; g.stroke();
+  sc_q(g, V, [[x0, zf, 0], [x1, zf, 0], [x1, zf + 30, 0], [x0, zf + 30, 0]]); g.fillStyle = sc_rgba(P.bark, 0.14); g.fill();
+  g.beginPath(); sc_line(g, V, [x0, zf + 30, 0], [x1, zf + 30, 0]); g.strokeStyle = sc_rgba(P.ink, 0.45); g.lineWidth = sc_lw(V, 0.8); g.stroke();
+  sc_q(g, V, [[x0, zf, 0], [x1, zf, 0], [x1, zb, 0], [x0, zb, 0]]); g.strokeStyle = P.ink; g.lineWidth = sc_lw(V, 1.2); g.stroke();
+  const xs = sc_bays(H), bays = oni ? SC_BAYS.oni : SC_BAYS.yakata;
+  if (oni) { // the side wall behind the door, seen from inside
+    sc_q(g, V, [[x0, DOOR.z1, 0], [x0, zb, 0], [x0, zb, HN], [x0, DOOR.z1, HN]]); sc_fill(g, X.innerOni, P.ink, sc_lw(V, 0.9));
+    sc_q(g, V, [[x0, DOOR.z1, HN], [x0, zb, HN], [x0, zb, HT], [x0, DOOR.z1, HT]]); sc_fill(g, P.roku, P.ink, sc_lw(V, 0.9));
+    sc_lattice(g, V, x0, DOOR.z1, zb, HN, HT, true);
+    sc_beamZ(g, V, x0, DOOR.z1, zb, HN + 3, 7, col); sc_beamZ(g, V, x0, DOOR.z1, zb, HT + 3, 6, col);
+    sc_post(g, V, x0, DOOR.z1, 0, HT + 12, 8, 8, col, side);
   }
-  g.strokeStyle = P.ink; g.lineWidth = 3; g.beginPath(); g.moveTo(p.x, y); g.lineTo(p.x, y - 150); g.stroke();
-  g.fillStyle = P.kin; g.lineWidth = 1; g.beginPath(); g.moveTo(p.x, y - 161); g.quadraticCurveTo(p.x + 5.5, y - 155, p.x, y - 149); g.quadraticCurveTo(p.x - 5.5, y - 155, p.x, y - 161); g.fill(); g.stroke();
-  const sway = Math.sin(time * 1.6 + p.x) * 2;
-  g.lineWidth = 2; g.beginPath(); g.moveTo(p.x, y - 146); g.lineTo(p.x + 30 + sway * 0.5, y - 146); g.stroke();
-  g.fillStyle = done ? SHU : '#f6f0e2'; g.strokeStyle = INK; g.lineWidth = 1.5;
-  g.beginPath(); g.moveTo(p.x + 3, y - 146); g.lineTo(p.x + 29 + sway, y - 144); g.lineTo(p.x + 27 + sway, y - 64); g.lineTo(p.x + 5, y - 66); g.closePath(); g.fill(); g.stroke();
-  g.strokeStyle = done ? 'rgba(251,243,226,.55)' : 'rgba(184,65,46,.7)'; g.lineWidth = 1;
-  g.beginPath(); g.moveTo(p.x + 6.5, y - 141); g.lineTo(p.x + 25.5 + sway, y - 139.5); g.lineTo(p.x + 24 + sway, y - 69); g.lineTo(p.x + 8, y - 70.5); g.closePath(); g.stroke();
-  g.fillStyle = done ? '#7d2a1d' : SHU; for (let k = 0; k < 4; k++) g.fillRect(p.x - 2.5, y - 138 + k * 20, 6, 3.5);
-  g.fillStyle = done ? '#fbf3e2' : INK; g.font = `26px ${FONT_BRUSH}`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText('記', p.x + 16 + sway * 0.5, y - 124);
-  g.font = `14px ${FONT_BRUSH}`;
-  g.fillText(p.short, p.x + 16 + sway * 0.5, y - 92);
+  for (let i = 0; i < xs.length - 1; i++) {
+    const a = xs[i], b = xs[i + 1];
+    sc_q(g, V, [[a, zb, 0], [b, zb, 0], [b, zb, HN], [a, zb, HN]]); g.fillStyle = oni ? X.innerOni : X.inner; g.fill();
+    sc_q(g, V, [[a, zb, HN], [b, zb, HN], [b, zb, HT], [a, zb, HT]]); sc_fill(g, oni ? P.roku : X.kabe, P.ink, sc_lw(V, 0.7));
+    if (oni) sc_lattice(g, V, zb, a, b, HN, HT, false);
+    sc_misu(g, V, a + 5, b - 5, zb - 2, bays[i] === 'misuL' ? 56 : bays[i] === 'byobu' ? 108 : bays[i] === 'hajitomi' ? 70 : 96, HN - 1);
+  }
+  sc_beamX(g, V, x0, x1, zb, HN + 3, 7, 6, col); sc_beamX(g, V, x0, x1, zb, HT + 3, 6, 6, col);
+  for (const x of xs) sc_post(g, V, x, zb, 0, HT + 14, 8, 8, col, side);
+  for (let i = 0; i < xs.length - 1; i++) if (bays[i] === 'hajitomi') { // 半蔀: the upper lattice shutter propped open towards us
+    const a = xs[i] + 5, b = xs[i + 1] - 5, q = [[a, zb - 1, HN + 2], [b, zb - 1, HN + 2], [b, zb - 46, HN + 6], [a, zb - 46, HN + 6]];
+    sc_q(g, V, q); g.fillStyle = X.lac; g.fill();
+    g.beginPath(); for (let k = 1; k < 16; k++) { const x = a + (b - a) * k / 16; sc_line(g, V, [x, zb - 1, HN + 2], [x, zb - 46, HN + 6]); } for (let k = 1; k < 4; k++) sc_line(g, V, [a, zb - 1 - 45 * k / 4, HN + 2 + 4 * k / 4], [b, zb - 1 - 45 * k / 4, HN + 2 + 4 * k / 4]);
+    g.strokeStyle = sc_rgba(P.kinL, 0.35); g.lineWidth = 0.8 * V.s; g.stroke();
+    sc_q(g, V, q); g.strokeStyle = P.ink; g.lineWidth = sc_lw(V, 1); g.stroke();
+    g.beginPath(); for (const x of [a + 12, b - 12]) sc_line(g, V, [x, zb - 44, HN + 5], [x, zb - 44, 60]); g.strokeStyle = X.lac; g.lineWidth = 1.4 * V.s; g.stroke();
+  }
+  if (oni) {
+    const d0 = xs[3] + 10, d1 = xs[5] - 10, dz0 = 250, dz1 = zb - 18, dm = (d0 + d1) / 2;
+    sc_byobu(g, V, d0 + 8, d1 - 8, zb - 12, 8, 84, true, 31);
+    sc_q(g, V, [[d0, dz0, 0], [d1, dz0, 0], [d1, dz0, 9], [d0, dz0, 9]]); sc_fill(g, X.floorE, P.ink, sc_lw(V, 0.9));
+    sc_q(g, V, [[d1, dz0, 0], [d1, dz1, 0], [d1, dz1, 9], [d1, dz0, 9]]); sc_fill(g, X.lacD, P.ink, sc_lw(V, 0.9));
+    sc_tatami(g, V, d0, dm, dz0, dz1, 9); sc_tatami(g, V, dm, d1, dz0, dz1, 9);
+    sc_byobu(g, V, xs[1] + 12, xs[2] - 12, zb - 26, 6, 70, true, 17);
+    sc_byobu(g, V, xs[6] + 12, xs[7] - 12, zb - 26, 4, 70, true, 53);
+    sc_lamp(g, V, xs[0] + 96, 282); sc_lamp(g, V, xs[7] + 86, 284); sc_lamp(g, V, d0 - 22, 262); sc_lamp(g, V, d1 + 22, 262);
+    sc_heishi(g, V, xs[2] + 70, 288); sc_heishi(g, V, xs[2] + 94, 292);
+    sc_taru(g, V, xs[5] + 60, 294); sc_taru(g, V, xs[5] + 100, 286);
+    sc_sanbo(g, V, dm + 44, 272, 9); sc_sanbo(g, V, dm - 50, 276, 9);
+  } else {
+    sc_kicho(g, V, xs[0] + 92, 294, 50, 58, 0); sc_kicho(g, V, xs[4] + 70, 292, 50, 58, 2);
+    sc_lamp(g, V, xs[1] + 60, 284);
+    const t0 = xs[2] + 14, t1 = xs[3] - 14, tm = (t0 + t1) / 2;
+    sc_tatami(g, V, t0, tm, 248, 300, 2); sc_tatami(g, V, tm, t1, 248, 300, 2);
+    sc_kyosoku(g, V, tm + 30, 284, 2);
+    sc_byobu(g, V, xs[3] + 14, xs[4] - 14, zb - 24, 4, 64, false, 7);
+  }
   g.restore();
 }
-// ------------------------------------------------------------ emaki scenes
-function sc_mound(g, cx, by, bw, bh, rng) {
+function sc_hallFront(g, V, H, oni) {
+  const P = sc_P(), X = sc_X(), zf = -24, x0 = H.x0, HN = SC_HN, HT = SC_HT;
+  g.save(); g.lineJoin = g.lineCap = 'round';
+  if (oni) { // the near part of the side wall, and the lintel over the door
+    sc_q(g, V, [[x0, zf, 0], [x0, DOOR.z0, 0], [x0, DOOR.z0, HN], [x0, zf, HN]]); sc_fill(g, X.innerOni, P.ink, sc_lw(V, 0.9));
+    sc_q(g, V, [[x0, zf, HN], [x0, DOOR.z1, HN], [x0, DOOR.z1, HT], [x0, zf, HT]]); sc_fill(g, P.roku, P.ink, sc_lw(V, 0.9));
+    sc_lattice(g, V, x0, zf, DOOR.z1, HN, HT, true);
+    sc_beamZ(g, V, x0, zf, DOOR.z1, HN + 3, 7, P.shu); sc_beamZ(g, V, x0, zf, DOOR.z1, HT + 3, 6, P.shu);
+    sc_post(g, V, x0, zf, 0, HT + 12, 8, 8, P.shu, P.shuD); sc_post(g, V, x0, DOOR.z0, 0, HT + 12, 8, 8, P.shu, P.shuD);
+  }
+  sc_railX(g, V, x0 + (oni ? 10 : 0), H.x1, zf + 4, 17, oni ? P.shu : X.lac, oni ? P.shuD : X.lacD, 56);
+  g.restore();
+}
+// the door leaves at the back of 鬼の館 swing outwards as the gate opens (open 0..1)
+function sc_door(g, V, open, front) {
+  const P = sc_P(), X = sc_X(), x = DOOR.x, L = (DOOR.z1 - DOOR.z0) / 2, th = open * 1.35, hh = 146;
+  const hz = front ? DOOR.z0 : DOOR.z1, tx = x - Math.sin(th) * L, tz = hz + (front ? 1 : -1) * Math.cos(th) * L;
+  g.save(); g.lineJoin = 'round';
+  sc_q(g, V, [[x, hz, 0], [tx, tz, 0], [tx, tz, hh], [x, hz, hh]]); sc_fill(g, X.lac, P.ink, sc_lw(V, 1.1));
+  g.beginPath(); for (const v of [0.33, 0.64]) sc_line(g, V, [x, hz, hh * v], [tx, tz, hh * v]); g.strokeStyle = sc_rgba(P.kin, 0.85); g.lineWidth = 2 * V.s; g.stroke();
+  g.fillStyle = P.kin; for (const u of [0.22, 0.5, 0.78]) for (const v of [0.18, 0.46, 0.76, 0.92]) { const p = V.p(x + (tx - x) * u, hz + (tz - hz) * u, hh * v); g.beginPath(); g.arc(p[0], p[1], 1.6 * V.s, 0, 6.2832); g.fill(); }
+  g.restore();
+}
+// ------------------------------------------------------------ 門 and 築地塀
+function sc_tsuijiZ(g, V, x, za, zb, dark) { // earthen wall running into the picture
+  const P = sc_P(), t = 8, hh = 58, face = dark ? '#4a403a' : P.wall, faceD = dark ? '#2e2724' : '#cdb784', lw = sc_lw(V, 0.9);
+  sc_q(g, V, [[x - t, za, 0], [x + t, za, 0], [x + t, za, hh], [x - t, za, hh]]); sc_fill(g, faceD, P.ink, lw);
+  sc_q(g, V, [[x + t, za, 0], [x + t, zb, 0], [x + t, zb, hh], [x + t, za, hh]]); g.fillStyle = face; g.fill();
+  if (!dark) { g.beginPath(); for (let k = 0; k < 5; k++) sc_line(g, V, [x + t, za, 20 + k * 6], [x + t, zb, 20 + k * 6]); g.strokeStyle = 'rgba(255,252,240,.95)'; g.lineWidth = 1.6 * V.s; g.stroke(); }
+  sc_q(g, V, [[x + t, za, 0], [x + t, zb, 0], [x + t, zb, 9], [x + t, za, 9]]); g.fillStyle = '#958d80'; g.fill();
+  sc_q(g, V, [[x + t, za, 0], [x + t, zb, 0], [x + t, zb, hh], [x + t, za, hh]]); g.strokeStyle = P.ink; g.lineWidth = lw; g.stroke();
+  for (const Q of [[[x - t - 4, za - 3, hh], [x, za - 3, hh + 9], [x, zb, hh + 9], [x - t - 4, zb, hh]], [[x + t + 4, za - 3, hh], [x, za - 3, hh + 9], [x, zb, hh + 9], [x + t + 4, zb, hh]]]) { sc_q(g, V, Q); sc_fill(g, P.tile, P.ink, lw); }
+  g.beginPath(); for (let z = za + 2; z < zb; z += 5) sc_line(g, V, [x + t + 4, z, hh], [x, z, hh + 9]); g.strokeStyle = 'rgba(20,16,14,.5)'; g.lineWidth = 0.8 * V.s; g.stroke();
+}
+function sc_tsuijiX(g, V, xa, xb, z, dark) { // earthen wall running along the road
+  const P = sc_P(), t = 8, hh = 58, face = dark ? '#4a403a' : P.wall, faceD = dark ? '#2e2724' : '#cdb784', lw = sc_lw(V, 0.9);
+  sc_q(g, V, [[xb, z - t, 0], [xb, z + t, 0], [xb, z + t, hh], [xb, z - t, hh]]); sc_fill(g, faceD, P.ink, lw);
+  sc_q(g, V, [[xa, z - t, 0], [xb, z - t, 0], [xb, z - t, hh], [xa, z - t, hh]]); g.fillStyle = face; g.fill();
+  if (!dark) { g.beginPath(); for (let k = 0; k < 5; k++) sc_line(g, V, [xa, z - t, 20 + k * 6], [xb, z - t, 20 + k * 6]); g.strokeStyle = 'rgba(255,252,240,.95)'; g.lineWidth = 1.6 * V.s; g.stroke(); }
+  sc_q(g, V, [[xa, z - t, 0], [xb, z - t, 0], [xb, z - t, 9], [xa, z - t, 9]]); g.fillStyle = '#958d80'; g.fill();
+  sc_q(g, V, [[xa, z - t, 0], [xb, z - t, 0], [xb, z - t, hh], [xa, z - t, hh]]); g.strokeStyle = P.ink; g.lineWidth = lw; g.stroke();
+  sc_q(g, V, [[xa, z, hh + 9], [xb + 3, z, hh + 9], [xb + 3, z + t + 4, hh], [xa, z + t + 4, hh]]); sc_fill(g, P.tile, P.ink, lw);
+  sc_q(g, V, [[xa, z - t - 4, hh], [xb + 3, z - t - 4, hh], [xb + 3, z, hh + 9], [xa, z, hh + 9]]); sc_fill(g, P.tile, P.ink, lw);
+  g.beginPath(); for (let x = xa + 3; x < xb; x += 5) sc_line(g, V, [x, z - t - 4, hh], [x, z, hh + 9]); g.strokeStyle = 'rgba(20,16,14,.5)'; g.lineWidth = 0.8 * V.s; g.stroke();
+}
+function sc_monRoof(g, V, x, za, zb, h, dark) {
+  const P = sc_P(), X = sc_X(), ex = 46, rh = 30, z0 = za - 18, z1 = zb + 18, tile = dark ? '#2b2826' : P.tile, lw = sc_lw(V, 1);
+  for (const d of [-1, 1]) { sc_q(g, V, [[x + d * ex, z0, h], [x, z0, h + rh], [x, z1, h + rh], [x + d * ex, z1, h]]); sc_fill(g, tile, P.ink, lw); }
+  g.beginPath(); for (let z = z0 + 4; z < z1; z += 5.5) sc_line(g, V, [x + ex, z, h], [x, z, h + rh]); g.strokeStyle = 'rgba(12,10,9,.55)'; g.lineWidth = 0.9 * V.s; g.stroke();
+  g.beginPath(); for (let z = z0 + 4; z < z1; z += 5.5) sc_line(g, V, [x + ex, z, h + 0.6], [x + ex - 5, z, h + 3.9]); g.strokeStyle = sc_rgba(P.gofun, 0.35); g.lineWidth = 0.8 * V.s; g.stroke();
+  sc_q(g, V, [[x - ex + 7, z0 + 2, h + 2], [x, z0 + 2, h + rh - 4], [x + ex - 7, z0 + 2, h + 2]]); sc_fill(g, dark ? X.lac : X.shiraki, P.ink, lw);
+  g.beginPath(); sc_line(g, V, [x - ex, z0, h], [x, z0, h + rh]); sc_line(g, V, [x, z0, h + rh], [x + ex, z0, h]);
+  g.strokeStyle = P.ink; g.lineWidth = 4 * V.s; g.stroke(); g.strokeStyle = dark ? '#5a4e46' : '#efe6cf'; g.lineWidth = 1.8 * V.s; g.stroke();
+  const k = V.p(x, z0 + 1, h + rh - 7); g.beginPath(); g.moveTo(k[0], k[1]); g.lineTo(k[0] - 4 * V.s, k[1] + 8 * V.s); g.lineTo(k[0] + 4 * V.s, k[1] + 8 * V.s); g.closePath(); sc_fill(g, P.kin, P.ink, sc_lw(V, 0.5));
+  g.beginPath(); sc_line(g, V, [x, z0, h + rh + 2], [x, z1, h + rh + 2]); g.strokeStyle = P.ink; g.lineWidth = 6 * V.s; g.stroke(); g.strokeStyle = '#3e3836'; g.lineWidth = 3.4 * V.s; g.stroke();
+}
+function sc_monBack(g, V, M) {
+  const P = sc_P(), X = sc_X(), col = M.oni ? X.lac : P.shu, side = M.oni ? X.lacD : P.shuD;
+  g.save(); g.lineJoin = 'round';
+  sc_tsuijiZ(g, V, M.x, M.z1 + 10, 348, M.oni);
+  for (const dx of [-22, 22]) sc_post(g, V, M.x + dx, M.z1, 0, 150, 8, 8, col, side);
+  // the door leaves stand folded open against the back pillars
+  for (const dx of [-22, 22]) { sc_q(g, V, [[M.x + dx + (dx < 0 ? -1 : 1) * 4, M.z1 - 3, 4], [M.x + dx + (dx < 0 ? -1 : 1) * 4, M.z1 - 42, 4], [M.x + dx + (dx < 0 ? -1 : 1) * 4, M.z1 - 42, 136], [M.x + dx + (dx < 0 ? -1 : 1) * 4, M.z1 - 3, 136]]); sc_fill(g, M.oni ? X.lacD : '#8a6446', P.ink, sc_lw(V, 0.8)); }
+  g.restore();
+}
+function sc_monFront(g, V, M) {
+  const P = sc_P(), X = sc_X(), x = M.x, col = M.oni ? X.lac : P.shu, side = M.oni ? X.lacD : P.shuD;
+  g.save(); g.lineJoin = 'round';
+  for (const dx of [-22, 22]) { sc_beamZ(g, V, x + dx, M.z0, M.z1, 150, 8, col); sc_beamZ(g, V, x + dx, M.z0, M.z1, 112, 5, col); }
+  sc_beamX(g, V, x - 30, x + 30, M.z1, 150, 8, 8, col);
+  for (const dx of [-22, 22]) sc_post(g, V, x + dx, M.z0, 0, 150, 8, 8, col, side);
+  sc_beamX(g, V, x - 30, x + 30, M.z0, 150, 8, 8, col);
+  if (M.oni) { g.fillStyle = P.kin; for (const dx of [-22, 22]) for (const h of [30, 70, 110]) { const p = V.p(x + dx, M.z0, h); g.beginPath(); g.arc(p[0], p[1], 1.8 * V.s, 0, 6.2832); g.fill(); } }
+  sc_tsuijiZ(g, V, x, -160, M.z0 - 10, M.oni);
+  sc_monRoof(g, V, x, M.z0, M.z1, 156, M.oni);
+  g.restore();
+}
+// ------------------------------------------------------------ 川 and 朱塗りの反橋
+function sc_river(g, V) {
+  const P = sc_P(), X = sc_X(), x0 = RIVER.x0, x1 = RIVER.x1, lo = -RIVER.lo, za = -170, zb = 1060;
+  g.save();
+  sc_q(g, V, [[x0, za, lo], [x0, zb, lo], [x1, zb, 0], [x1, za, 0]]); g.clip();
+  const o = V.p(0, 0, lo), ex = V.p(1, 0, lo), ez = V.p(0, 1, lo);
+  g.transform(ez[0] - o[0], ez[1] - o[1], ex[0] - o[0], ex[1] - o[1], o[0], o[1]);
+  water(g, za, zb, x0 - 10, x1 + 50, 0);
+  g.restore();
+  g.save(); g.lineJoin = g.lineCap = 'round';
+  sc_q(g, V, [[x0, za, 0], [x0, zb, 0], [x0, zb, lo], [x0, za, lo]]); g.fillStyle = X.earthF; g.fill();
+  g.beginPath(); for (let z = za + 14; z < zb; z += 34) sc_line(g, V, [x0, z, lo * 0.4], [x0, z + 20, lo * 0.55]); g.strokeStyle = sc_rgba(P.ink, 0.25); g.lineWidth = 0.9 * V.s; g.stroke();
+  g.beginPath(); sc_line(g, V, [x0, za, lo], [x0, zb, lo]); g.strokeStyle = sc_rgba(P.ink, 0.5); g.lineWidth = sc_lw(V, 0.9); g.stroke();
+  for (const x of [x0, x1]) {
+    g.beginPath(); sc_line(g, V, [x, za, 0], [x, zb, 0]);
+    g.strokeStyle = sc_rgba(P.rokuL, 0.45); g.lineWidth = 8 * V.s; g.stroke(); g.strokeStyle = sc_rgba(P.roku, 0.75); g.lineWidth = 3 * V.s; g.stroke();
+    g.strokeStyle = P.ink; g.lineWidth = sc_lw(V, 1.2); g.stroke();
+  }
+  const items = []; for (let z = za + 20; z < zb; z += 30) for (const x of [x0 - 6, x1 + 8]) { const r = mulberry(Math.round(z * 3 + x)); if (r() < 0.45) continue; const p = V.p(x, z, 0); items.push([p[0], p[1], r]); }
+  sc_grass(g, items);
+  g.restore();
+}
+function sc_bridgeBack(g, V) {
+  const P = sc_P(), B = BRIDGE, lo = -RIVER.lo, r = bridgeRise, lw = sc_lw(V, 1.1);
+  const xs = []; for (let x = B.x0; x < B.x1; x += 10) xs.push(x); xs.push(B.x1);
+  const piers = []; for (let x = RIVER.x0 + 40; x < RIVER.x1 - 20; x += 90) piers.push(x);
+  const edge = (z, d, rev) => { const a = rev ? xs.slice().reverse() : xs; a.forEach((x, i) => { const p = V.p(x, z, r(x) + d); i || rev ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); }); };
+  g.save(); g.lineJoin = g.lineCap = 'round';
+  for (const x of piers) sc_post(g, V, x, B.z1 - 4, lo, r(x) - 6, 6, 5, P.shu, P.shuD);
+  g.beginPath(); edge(B.z0, 0, false); edge(B.z1, 0, true); g.closePath(); sc_fill(g, '#b08560', P.ink, lw);
+  g.beginPath(); for (let x = B.x0 + 9; x < B.x1; x += 9) sc_line(g, V, [x, B.z0, r(x)], [x, B.z1, r(x)]); g.strokeStyle = sc_rgba(P.ink, 0.3); g.lineWidth = 0.7 * V.s; g.stroke();
+  sc_railX(g, V, B.x0 + 12, B.x1 - 12, B.z1, 19, P.shu, P.shuD, 49, r);
+  for (const x of piers) {
+    sc_post(g, V, x, B.z0, lo, r(x) - 7, 6, 5, P.shu, P.shuD);
+    const f = V.p(x, B.z0, lo); g.beginPath(); for (const d of [-1, 1]) { g.moveTo(f[0] + d * 10 * V.s, f[1] + 2); g.quadraticCurveTo(f[0] + d * 6 * V.s, f[1] - 1.5, f[0] + d * 3.5 * V.s, f[1] + 1); }
+    g.strokeStyle = sc_rgba(P.gofun, 0.95); g.lineWidth = 1.4 * V.s; g.stroke();
+  }
+  g.beginPath(); edge(B.z0, 0, false); edge(B.z0, -7, true); g.closePath(); sc_fill(g, P.shu, P.ink, lw);
+  g.fillStyle = P.kin; for (const x of piers) { const p = V.p(x, B.z0, r(x) - 3.5); g.fillRect(p[0] - 3 * V.s, p[1] - 2 * V.s, 6 * V.s, 4 * V.s); }
+  g.restore();
+}
+function sc_bridgeFront(g, V) { g.save(); g.lineJoin = 'round'; sc_railX(g, V, BRIDGE.x0 + 12, BRIDGE.x1 - 12, BRIDGE.z0, 19, sc_P().shu, sc_P().shuD, 49, bridgeRise); g.restore(); }
+// ------------------------------------------------------------ 神木の前の鳥居, 都の家並, 土坡
+function sc_torii(g, V, x, z, w, hgt) {
+  const P = sc_P(), X = sc_X(), s = V.s;
+  g.save(); g.lineJoin = g.lineCap = 'round';
+  for (const d of [-1, 1]) sc_post(g, V, x + d * w / 2, z, 0, hgt, 7, 7, P.shu, P.shuD);
+  sc_beamX(g, V, x - w / 2 - 12, x + w / 2 + 12, z, hgt * 0.74, 6, 0, P.shu);
+  sc_post(g, V, x, z, hgt * 0.74, hgt + 2, 5, 3, P.shu, P.shuD);
+  const a = V.p(x - w / 2 - 24, z, hgt + 12), b = V.p(x + w / 2 + 24, z, hgt + 12), m = V.p(x, z, hgt + 4);
+  for (const [d, t, col] of [[0, 7, P.shu], [-7, 6, X.lac]]) {
+    g.beginPath(); g.moveTo(a[0], a[1] + d * s); g.quadraticCurveTo(m[0], m[1] + d * s + 4 * s, b[0], b[1] + d * s); g.lineTo(b[0] - 2 * s, b[1] + (d + t) * s); g.quadraticCurveTo(m[0], m[1] + (d + t) * s + 4 * s, a[0] + 2 * s, a[1] + (d + t) * s); g.closePath();
+    sc_fill(g, col, P.ink, sc_lw(V, 0.9));
+  }
+  g.restore();
+}
+function sc_house(g, V, x, z, w, d, hgt) {
+  const P = sc_P(), X = sc_X(), lw = sc_lw(V, 0.8), rh = d * 0.55;
+  g.save(); g.lineJoin = 'round';
+  sc_q(g, V, [[x, z, 0], [x + w, z, 0], [x + w, z, hgt], [x, z, hgt]]); sc_fill(g, X.kabe, P.ink, lw);
+  sc_q(g, V, [[x + w, z, 0], [x + w, z + d, 0], [x + w, z + d, hgt], [x + w, z, hgt]]); sc_fill(g, X.kabeD, P.ink, lw);
+  g.beginPath(); for (let k = 1; k < 3; k++) sc_line(g, V, [x + w * k / 3, z, 0], [x + w * k / 3, z, hgt]); g.strokeStyle = sc_rgba(P.bark, 0.8); g.lineWidth = 1.6 * V.s; g.stroke();
+  sc_q(g, V, [[x - 5, z - 6, hgt], [x + w + 5, z - 6, hgt], [x + w + 5, z + d / 2, hgt + rh], [x - 5, z + d / 2, hgt + rh]]); sc_fill(g, '#6d4a36', P.ink, lw);
+  g.beginPath(); for (let xx = x; xx < x + w; xx += 5) sc_line(g, V, [xx, z - 6, hgt], [xx, z + d / 2, hgt + rh]); g.strokeStyle = 'rgba(30,20,14,.35)'; g.lineWidth = 0.7 * V.s; g.stroke();
+  sc_q(g, V, [[x + w + 5, z - 6, hgt], [x + w + 5, z + d / 2, hgt + rh], [x + w + 5, z + d + 6, hgt]]); sc_fill(g, X.shiraki, P.ink, lw);
+  g.restore();
+}
+function sc_dopa(g, V, x, z, L, hh, r) { // 土坡: an earthen bank with 緑青 on its crest
   const P = sc_P(), pts = [];
-  for (let i = 0; i <= 10; i++) { const u = i / 5 - 1; pts.push([cx + u * bw / 2, by - bh * Math.pow(1 - u * u, 0.7) * (0.9 + rng() * 0.2)]); }
-  const path = () => { g.beginPath(); sc_curve(g, pts, true); g.lineTo(cx + bw / 2, by + 60); g.lineTo(cx - bw / 2, by + 60); g.closePath(); };
+  for (let i = 0; i <= 10; i++) { const u = i / 10, e = Math.pow(Math.sin(Math.PI * u), 0.7) * (0.8 + r() * 0.3); pts.push(V.p(x - L / 2 + L * u, z + (r() - 0.5) * 10, hh * e)); }
+  const a = V.p(x + L / 2, z, -3), b = V.p(x - L / 2, z, -3);
+  const path = () => { g.beginPath(); sc_curve(g, pts, true); g.lineTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.closePath(); };
   g.save(); g.lineJoin = g.lineCap = 'round';
   path(); g.fillStyle = '#e0cb9c'; g.fill();
   g.save(); path(); g.clip();
-  g.beginPath(); sc_curve(g, pts, true); g.strokeStyle = sc_rgba(P.rokuL, 0.45); g.lineWidth = bh * 1.1; g.stroke();
-  g.beginPath(); sc_curve(g, pts, true); g.strokeStyle = sc_rgba(P.roku, 0.6); g.lineWidth = bh * 0.45; g.stroke();
+  g.beginPath(); sc_curve(g, pts, true); g.strokeStyle = sc_rgba(P.rokuL, 0.45); g.lineWidth = hh * 1.1 * V.s; g.stroke();
+  g.strokeStyle = sc_rgba(P.roku, 0.6); g.lineWidth = hh * 0.42 * V.s; g.stroke();
+  g.beginPath(); for (let i = 2; i < 9; i += 2) { const p = pts[i]; g.moveTo(p[0] - 4 * V.s, p[1] + hh * 0.7 * V.s); g.quadraticCurveTo(p[0] + 2, p[1] + hh * 0.9 * V.s, p[0] + 9 * V.s, p[1] + hh * V.s); } g.strokeStyle = sc_rgba(P.ink, 0.22); g.lineWidth = 0.9 * V.s; g.stroke();
   g.restore();
-  g.beginPath(); sc_curve(g, pts, true); g.strokeStyle = sc_rgba(P.ink, 0.7); g.lineWidth = 1.2; g.stroke();
-  g.beginPath(); for (let i = 2; i < 9; i++) { if (rng() < 0.4) continue; const p = pts[i]; g.moveTo(p[0] + 1.6, p[1] + 2.5); g.ellipse(p[0], p[1] + 2.5, 1.6, 1.1, 0, 0, Math.PI * 2); } g.fillStyle = P.rokuD; g.fill();
-  g.restore();
-}
-function sc_roofsFar(g, xa, xb, by, rng) {
-  const P = sc_P();
-  g.save(); g.lineJoin = 'round';
-  for (let x = xa; x < xb; x += 46 + rng() * 44) {
-    const w = 34 + rng() * 40, h = 9 + rng() * 7, yb = by - rng() * 16;
-    g.fillStyle = P.plaster; g.fillRect(x - w * 0.36, yb, w * 0.72, 16); g.fillStyle = P.shu; g.fillRect(x - w * 0.36, yb, 3, 16); g.fillRect(x + w * 0.36 - 3, yb, 3, 16);
-    g.strokeStyle = sc_rgba(P.ink, 0.8); g.lineWidth = 0.9; g.strokeRect(x - w * 0.36, yb, w * 0.72, 16);
-    g.beginPath(); g.moveTo(x - w / 2, yb + 1); g.quadraticCurveTo(x, yb - 2, x + w / 2, yb + 1); g.lineTo(x + w * 0.28, yb - h); g.lineTo(x - w * 0.28, yb - h); g.closePath();
-    g.fillStyle = P.tile; g.fill(); g.stroke();
-  }
+  g.beginPath(); sc_curve(g, pts, true); g.strokeStyle = sc_rgba(P.ink, 0.72); g.lineWidth = sc_lw(V, 1); g.stroke();
+  g.beginPath(); for (let i = 2; i < 9; i++) { if (r() < 0.4) continue; const p = pts[i]; g.moveTo(p[0] + 1.6 * V.s, p[1] + 2.5 * V.s); g.ellipse(p[0], p[1] + 2.5 * V.s, 1.6 * V.s, 1.1 * V.s, 0, 0, 6.2832); } g.fillStyle = P.rokuD; g.fill();
   g.restore();
 }
-function sceneBackground(g, it, rng) {
-  const { x0, x1, sec } = it, w = x1 - x0, P = sc_P(), id = sec.id, oni = id === 'oni';
-  const gy = x => emGround(it, x), bottom = PH + 10;
-  g.save(); g.beginPath(); g.rect(x0, 0, w, PH); g.clip(); g.lineJoin = g.lineCap = 'round';
-  const far = sc_pal(oni ? 'farOni' : 'far'), mid = sc_pal(oni ? 'midOni' : 'mid');
-  for (let i = 0; i < 5; i++) sc_mountain(g, x0 + w * (0.04 + i * 0.23) + rng() * 60, 338 + rng() * 12, 300 + rng() * 170, (oni ? 200 : 150) + rng() * 90, far);
-  kinun(g, x0 + w * (0.06 + rng() * 0.3), 246 + rng() * 26, w * (0.34 + rng() * 0.14), 30, rng);
-  for (let i = 0; i < 5; i++) {
-    const o = i % 2 ? mid : Object.assign({}, mid, { pine: { u: rng() - 0.5, s: 0.55, seed: Math.floor(rng() * 1e6) } });
-    sc_mountain(g, x0 + w * (0.01 + i * 0.245) + rng() * 50, 424, 260 + rng() * 150, (oni ? 150 : 108) + rng() * 70, o);
-  }
-  if (id === 'depart') sc_roofsFar(g, x0 + w * 0.45, x1 - 30, 404, rng);
-  kinun(g, x0 + w * (0.4 + rng() * 0.2), 384 + rng() * 10, w * 0.42, 26, rng);
-  for (let i = 0; i < 3; i++) sc_mound(g, x0 + w * (0.14 + i * 0.34) + rng() * 60, 456, 220 + rng() * 140, 14 + rng() * 12, rng);
-  const yb = x => gy(x) + 46 + 8 * Math.sin((x - x0) * 0.009 + 1);
-  if (id === 'bridge') {
-    const bx0 = emX(it, BRIDGE.x0), bx1 = emX(it, BRIDGE.x1), wy = 496;
-    sc_groundStrip(g, x0, bx0 + 4, gy, yb, bottom, false, true);
-    sc_groundStrip(g, bx1 - 4, x1, gy, yb, bottom, true, false);
-    water(g, bx0 + 5, bx1 - 5, wy, PH, 3.3);
-    sc_archBridge(g, bx0, bx1, gy, wy, PH + 4);
-    const reeds = []; for (const [xa, d] of [[bx0 + 8, 1], [bx1 - 8, -1]]) for (let k = 0; k < 4; k++) reeds.push([xa + d * (k * 9 + rng() * 5), wy + 3, mulberry(k * 17 + (d > 0 ? 1 : 2))]);
-    sc_grass(g, reeds);
-    rock(g, bx0 - 34, gy(bx0 - 34) + 6, 60, 26, rng); rock(g, bx1 + 40, gy(bx1 + 40) + 6, 54, 24, rng);
-    pine(g, x1 - 110, gy(x1 - 110) + 5, 1.15, rng); pine(g, x0 + 80, gy(x0 + 80) + 5, 0.95, rng);
-    it.bridge = [bx0, bx1];
-  } else sc_groundStrip(g, x0, x1, gy, yb, bottom, false, false);
-  if (id === 'depart') {
-    const gx = x1 - 170; miyakoGate(g, gx, gy(gx) + 3);
-    for (let i = 0; i < 3; i++) { const px2 = x0 + 90 + i * 210 + rng() * 60; pine(g, px2, gy(px2) + 5, 0.9 + rng() * 0.3, rng); }
-    rock(g, x0 + 360, gy(x0 + 360) + 6, 70, 30, rng);
-  }
-  if (id === 'tree') {
-    const tx = x0 + w * 0.42; bigTree(g, tx, gy(tx) + 3, 0.95, rng);
-    rock(g, x0 + w * 0.78, gy(x0 + w * 0.78) + 6, 84, 40, rng); rock(g, x0 + w * 0.2, gy(x0 + w * 0.2) + 6, 60, 26, rng);
-    pine(g, x1 - 90, gy(x1 - 90) + 5, 1, rng); pine(g, x0 + 90, gy(x0 + 90) + 5, 0.85, rng);
-  }
-  if (oni) {
-    const cx = x0 + 250; cave(g, cx, gy(cx) + 3, 1);
-    for (let i = 0; i < 3; i++) { const rx = x0 + 520 + i * 180 + rng() * 60; rock(g, rx, gy(rx) + 6, 70 + rng() * 40, 30 + rng() * 30, rng); }
-    pine(g, x1 - 100, gy(x1 - 100) + 5, 1.05, rng);
-  }
+// ------------------------------------------------------------ 道 (the walkable band) with its 土坡 edges
+function sc_band(g, V, xa, xb) {
+  let segs = [[xa, xb]];
+  for (const [a, b] of [[HALL.x0, HALL.x1], [RIVER.x0, RIVER.x1], [YAKATA.x0, 1e9]]) segs = segs.flatMap(([s, e]) => b <= s || a >= e ? [[s, e]] : [[s, Math.min(e, a)], [Math.max(s, b), e]].filter(q => q[1] - q[0] > 1));
+  for (const [a, b] of segs) sc_bandSeg(g, V, a, b);
+}
+function sc_bandSeg(g, V, a, b) {
+  const P = sc_P(), X = sc_X(), xs = [];
+  for (let x = a; x < b; x += 12) xs.push(x); xs.push(b);
+  const zb = x => ZMAX + 6 + 5 * Math.sin(x * 0.011) + 3 * Math.sin(x * 0.037 + 1.3);
+  const zf = x => -3 + 2.5 * Math.sin(x * 0.019 + 0.4);
+  const fh = x => -20 - 5 * Math.sin(x * 0.0071 + 2) - 2 * Math.sin(x * 0.031);
+  const T = xs.map(x => V.p(x, zb(x), 0)), F = xs.map(x => V.p(x, zf(x), 0)), L = xs.map(x => V.p(x, zf(x), fh(x)));
+  const poly = (A, B) => { g.beginPath(); A.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); for (let i = B.length - 1; i >= 0; i--) g.lineTo(B[i][0], B[i][1]); g.closePath(); };
+  const line = A => { g.beginPath(); A.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); };
+  g.save(); g.lineJoin = g.lineCap = 'round';
+  poly(T, F); g.fillStyle = sc_rgba(P.earth, 0.3); g.fill();
+  line(T); g.strokeStyle = sc_rgba(P.rokuL, 0.38); g.lineWidth = 9 * V.s; g.stroke();
+  g.strokeStyle = sc_rgba(P.roku, 0.7); g.lineWidth = 3.2 * V.s; g.stroke();
+  g.strokeStyle = sc_rgba(P.ink, 0.6); g.lineWidth = sc_lw(V, 0.9); g.stroke();
+  poly(F, L); g.fillStyle = X.earthF; g.fill();
+  g.save(); poly(F, L); g.clip();
+  g.beginPath();
+  for (let c = Math.floor(a / 60); c * 60 < b; c++) { const u = sc_hash(c), x = c * 60 + u * 40, p = V.p(x, zf(x), fh(x) * (0.35 + u * 0.3)); g.moveTo(p[0], p[1]); g.quadraticCurveTo(p[0] + 8 * V.s, p[1] - 2 * V.s, p[0] + (18 + u * 10) * V.s, p[1] + V.s); }
+  g.strokeStyle = sc_rgba(P.ink, 0.25); g.lineWidth = 0.9 * V.s; g.stroke();
+  line(L); g.strokeStyle = sc_rgba(P.rokuL, 0.5); g.lineWidth = 10 * V.s; g.stroke();
+  g.restore();
+  line(L); g.strokeStyle = sc_rgba(P.roku, 0.75); g.lineWidth = 3 * V.s; g.stroke(); g.strokeStyle = sc_rgba(P.ink, 0.55); g.lineWidth = sc_lw(V, 0.9); g.stroke();
+  line(F); g.strokeStyle = sc_rgba(P.roku, 0.5); g.lineWidth = 3 * V.s; g.stroke(); g.strokeStyle = P.ink; g.lineWidth = sc_lw(V, 1.3); g.stroke();
+  g.restore();
   const items = [];
-  for (let x = x0 + 20; x < x1 - 20; x += 30 + rng() * 50) {
-    if (it.bridge && x > it.bridge[0] - 6 && x < it.bridge[1] + 6) continue;
-    if (oni && x > x0 + 130 && x < x0 + 310) continue;
-    items.push([x, gy(x) + 1, mulberry(Math.floor(x * 7) + 3)]);
+  for (let c = Math.floor(a / 38); c * 38 < b; c++) {
+    const r = mulberry(c * 7919 + 3), x = c * 38 + r() * 38; if (x < a + 6 || x > b - 6 || r() < 0.35) continue;
+    const p = r() < 0.5 ? V.p(x, zb(x) + 2, 0) : V.p(x, zf(x), fh(x) + 1); items.push([p[0], p[1], r]);
   }
   sc_grass(g, items);
-  kinun(g, x0 - 60, 18 + rng() * 20, w * 0.55, 46, rng);
-  kinun(g, x0 + w * 0.5, 30 + rng() * 20, w * 0.6, 40, rng);
-  kinun(g, x0 + w * 0.15, PH - 70 + rng() * 10, w * 0.5, 44, rng);
+}
+// ------------------------------------------------------------ the prop list (one layout for the game and the emaki)
+function sc_treeLimbs() { return sc_treeLimbs.v || (sc_treeLimbs.v = [{ x0: -95, x1: 85, dy: -107 }, { x0: -170, x1: -70, dy: -193 }]); }
+const PROPS_B = [], PROPS_F = [];
+(function sc_layout() {
+  const R = mulberry(20260923), seed = () => R() * 1e6 | 0;
+  const add = (kind, o, front) => {
+    o.kind = kind; o.key = o.key ?? o.z ?? o.z1;
+    if (o.x0 === undefined) { o.xL = o.xR = o.x; o.zL = o.zR = o.z; } else { o.xL = o.x0; o.xR = o.x1; o.zL = o.z0; o.zR = o.z1; }
+    if (kind === 'pine') { const L = sc_pineLayout(0, 0, o.s, mulberry(o.seed)); o.mL = -L.b[0] + 8; o.mR = L.b[2] + 8; }
+    else if (kind === 'cloud') { o.mL = o.hh * 1.3; o.mR = o.w + o.hh * 1.3; }
+    else if (kind === 'mtn') o.mL = o.mR = o.w / 2 + 26;
+    else if (kind === 'rock') o.mL = o.mR = o.w / 2 + 10;
+    else if (kind === 'tree') o.mL = o.mR = 210;
+    else o.mL = o.mR = 50;
+    (front ? PROPS_F : PROPS_B).push(o);
+  };
+  const busy = x => (x > HALL.x0 - 50 && x < HALL.x1 + 30) || x > YAKATA.x0 - 50 || (x > RIVER.x0 - 60 && x < RIVER.x1 + 50) || MON.some(m => Math.abs(x - m.x) < 70);
+  // far 青緑 mountains, the 霞 over their feet and along the top of the picture
+  for (let x = -900; x < WORLD_W + 600; x += 170 + R() * 150) { const oni = x < 2700; add('mtn', { x, z: 650 + R() * 110, w: 240 + R() * 240, h: (oni ? 110 : 70) + R() * 80, pal: oni ? 'farOni' : 'far', seed: seed() }); }
+  for (let x = -1000; x < WORLD_W + 600; x += 300 + R() * 300) add('cloud', { x, z: 640 + R() * 40, hc: 12 + R() * 22, w: 220 + R() * 220, hh: 22 + R() * 8, seed: seed() });
+  for (let x = -1000; x < WORLD_W + 600; x += 280 + R() * 220) add('cloud', { x, z: 960 + R() * 30, hc: 0, w: 340 + R() * 260, hh: 30 + R() * 12, seed: seed() });
+  // nearer hills: the rugged 大江山 on the left, gentle 青緑 hills elsewhere
+  for (let x = -500; x < 2800; x += 210 + R() * 150) add('mtn', { x, z: 450 + R() * 110, w: 300 + R() * 200, h: 150 + R() * 90, pal: 'midOni', seed: seed(), pine: R() < 0.55 ? { u: R() - 0.5, s: 0.5, seed: seed() } : null });
+  for (let x = 2800; x < WORLD_W + 400; x += 260 + R() * 220) add('mtn', { x, z: 540 + R() * 90, w: 260 + R() * 200, h: 80 + R() * 70, pal: 'mid', seed: seed(), pine: R() < 0.4 ? { u: R() - 0.5, s: 0.45, seed: seed() } : null });
+  for (let x = -900; x < WORLD_W + 400; x += 420 + R() * 380) add('cloud', { x, z: 400 + R() * 110, hc: 40 + R() * 50, w: 240 + R() * 220, hh: 22 + R() * 8, seed: seed() });
+  // pines, rocks and 土坡 behind the road; a few banks and stones below it
+  for (let x = -400; x < WORLD_W + 300; x += 120 + R() * 150) {
+    const r = R();
+    if (busy(x) || Math.abs(x - TREE_X) < 230) { if (r < 0.5 && !(x > RIVER.x0 - 60 && x < RIVER.x1 + 50)) add('pine', { x, z: 380 + R() * 130, s: 0.7 + R() * 0.3, seed: seed() }); continue; }
+    if (r < 0.42) add('pine', { x, z: ZMAX + 44 + R() * 200, s: 0.6 + R() * 0.38, seed: seed() });
+    else if (r < 0.68) add('rock', { x, z: ZMAX + 24 + R() * 90, w: 40 + R() * 50, h: 18 + R() * 24, seed: seed() });
+    else add('dopa', { x, z: ZMAX + 36 + R() * 220, x0: x - 90, x1: x + 90, z0: ZMAX + 30, z1: ZMAX + 260, L: 140 + R() * 160, hh: 12 + R() * 14, seed: seed() });
+  }
+  for (let x = -300; x < WORLD_W + 200; x += 240 + R() * 260) {
+    if (busy(x)) continue; const r = R();
+    if (r < 0.4) add('rock', { x, z: -60 - R() * 26, w: 36 + R() * 40, h: 14 + R() * 14, seed: seed() });
+    else if (r < 0.75) { const z = -64 - R() * 24; add('dopa', { x, z, x0: x - 80, x1: x + 80, z0: z - 10, z1: z + 10, L: 120 + R() * 140, hh: 8 + R() * 10, seed: seed() }); }
+  }
+  for (let x = -600; x < WORLD_W + 400; x += 640 + R() * 520) add('cloud', { x, z: -52, hc: 0, w: 260 + R() * 220, hh: 26 + R() * 8, seed: seed() });
+  // the river and the vermilion bridge
+  add('river', { x0: RIVER.x0, x1: RIVER.x1, z0: -170, z1: 1060, key: 1e5 });
+  add('bridgeB', { x0: BRIDGE.x0, x1: BRIDGE.x1, z0: BRIDGE.z0, z1: BRIDGE.z1, key: BRIDGE.z1 });
+  add('bridgeF', { x0: BRIDGE.x0, x1: BRIDGE.x1, z0: BRIDGE.z0, z1: BRIDGE.z1, key: BRIDGE.z0 }, true);
+  for (const [x, z, w, h] of [[RIVER.x0 - 34, -40, 60, 24], [RIVER.x1 + 44, ZMAX + 34, 70, 30], [RIVER.x0 - 60, ZMAX + 60, 56, 26], [RIVER.x1 + 30, -46, 48, 20]]) add('rock', { x, z, w, h, seed: seed() });
+  for (const [x, z, s] of [[RIVER.x0 - 110, ZMAX + 120, 1.0], [RIVER.x1 + 120, ZMAX + 70, 0.9]]) add('pine', { x, z, s, seed: seed() });
+  // the sacred tree with its 鳥居
+  add('tree', { x: TREE_X, z: TREE_Z });
+  add('torii', { x0: TREE_X - 20, x1: TREE_X + 100, z0: 268, z1: 268, x: TREE_X + 40, z: 268 });
+  for (const [x, z, w, h] of [[TREE_X - 140, 300, 70, 30], [TREE_X + 190, 330, 64, 28], [TREE_X - 60, 262, 44, 18]]) add('rock', { x, z, w, h, seed: seed() });
+  // 吹抜屋台 halls, gates and earthen walls
+  add('hallB', { x0: HALL.x0, x1: HALL.x1, z0: -24, z1: HALL.back, H: HALL, oni: true, key: HALL.back });
+  add('hallF', { x0: HALL.x0, x1: HALL.x1, z0: -24, z1: DOOR.z1, H: HALL, oni: true, key: -24 }, true);
+  add('hallB', { x0: YAKATA.x0, x1: YAKATA.x1, z0: -24, z1: YAKATA.back, H: YAKATA, oni: false, key: YAKATA.back });
+  add('hallF', { x0: YAKATA.x0, x1: YAKATA.x1, z0: -24, z1: -20, H: YAKATA, oni: false, key: -24 }, true);
+  for (const m of MON) {
+    add('monB', { x0: m.x - 30, x1: m.x + 30, z0: m.z1, z1: 350, M: m, key: m.z1 });
+    add('monF', { x0: m.x - 60, x1: m.x + 60, z0: -160, z1: m.z1 + 20, M: m, key: m.z0 }, true);
+  }
+  add('tsuijiX', { x0: MON[0].x, x1: YAKATA.x0, z0: 342, z1: 342, z: 342, dark: false });
+  add('tsuijiX', { x0: HALL.x1 - 20, x1: MON[1].x, z0: 342, z1: 342, z: 342, dark: true });
+  for (const H of [HALL, YAKATA]) for (let x = H.x0 - 140; x < H.x1; x += 280 + R() * 120) add('cloud', { x, z: H.back - 10, hc: 214 + R() * 12, w: 260 + R() * 160, hh: 26 + R() * 8, seed: seed() });
+  // roofs of the capital beyond the mansion wall
+  for (let x = 5880; x < 7300; x += 80 + R() * 70) { if (x > 6440 && x < 6560) continue; const w = 60 + R() * 50, d = 36 + R() * 24, z = 400 + R() * 200; add('house', { x0: x, x1: x + w, z0: z, z1: z + d, w, d, hgt: 26 + R() * 12 }); }
+  PROPS_B.sort((a, b) => b.key - a.key); PROPS_F.sort((a, b) => b.key - a.key);
+})();
+function sc_vis(o, V, X0, X1) { const a = V.p(o.xL, o.zL, 0)[0] - o.mL * V.s, b = V.p(o.xR, o.zR, 0)[0] + o.mR * V.s; return b > X0 && a < X1; }
+function sc_paintProp(g, V, o) {
+  const p = o.x !== undefined ? V.p(o.x, o.z, o.hc || 0) : null;
+  switch (o.kind) {
+    case 'mtn': sc_mountain(g, p[0], p[1], o.w * V.s, o.h * V.s, Object.assign({}, sc_pal(o.pal), { seed: o.seed, pine: o.pine })); break;
+    case 'cloud': { const w = Math.round(o.w * V.s), h = Math.round(o.hh * V.s); if (V === V_WORLD) kinunCached(g, p[0], p[1], w, h, o.seed); else kinun(g, p[0], p[1], w, h, mulberry(o.seed)); break; }
+    case 'pine': pine(g, p[0], p[1] + 3 * V.s, o.s * V.s, mulberry(o.seed)); break;
+    case 'rock': rock(g, p[0], p[1] + 3 * V.s, o.w * V.s, o.h * V.s, mulberry(o.seed)); break;
+    case 'dopa': sc_dopa(g, V, o.x, o.z, o.L, o.hh, mulberry(o.seed)); break;
+    case 'house': sc_house(g, V, o.x0, o.z0, o.w, o.d, o.hgt); break;
+    case 'tree': bigTree(g, p[0], p[1], 0.62 * V.s, mulberry(77)); break;
+    case 'torii': sc_torii(g, V, o.x, o.z, 70, 104); break;
+    case 'river': sc_river(g, V); break;
+    case 'bridgeB': sc_bridgeBack(g, V); break;
+    case 'bridgeF': sc_bridgeFront(g, V); break;
+    case 'hallB': sc_hallBack(g, V, o.H, o.oni); break;
+    case 'hallF': sc_hallFront(g, V, o.H, o.oni); break;
+    case 'monB': sc_monBack(g, V, o.M); break;
+    case 'monF': sc_monFront(g, V, o.M); break;
+    case 'tsuijiX': sc_tsuijiX(g, V, o.x0, o.x1, o.z0, o.dark); break;
+  }
+}
+// paints the props of one layer that fall in [X0, X1]; the road band goes in between the far and near props
+function sc_paintRange(g, V, X0, X1, layer, band) {
+  const list = (layer ? PROPS_F : PROPS_B).filter(o => sc_vis(o, V, X0, X1));
+  let done = !band;
+  for (const o of list) { if (!done && o.key < ZMAX - 0.5) { sc_band(g, V, band[0], band[1]); done = true; } sc_paintProp(g, V, o); }
+  if (!done) sc_band(g, V, band[0], band[1]);
+  return list.length;
+}
+// ------------------------------------------------------------ game world: static art cached in tiles
+const TILE_W = 256;
+const TILES = { S: 0, m: new Map(), job: null };
+function sc_job(S, layer, i) {
+  const X0 = i * TILE_W, X1 = X0 + TILE_W + 2, key = layer * 1e5 + i;
+  const list = (layer ? PROPS_F : PROPS_B).filter(o => sc_vis(o, V_WORLD, X0, X1));
+  if (layer && !list.length) return { key, c: null, done: true };
+  const [c, g] = mk(Math.ceil((TILE_W + 2) * S), Math.ceil(H * S));
+  g.imageSmoothingEnabled = true; g.setTransform(S, 0, 0, S, -X0 * S, 0);
+  g.beginPath(); g.rect(X0, 0, TILE_W + 2, H); g.clip();
+  return { key, layer, c, g, list, k: -1, X0, X1, band: layer ? null : [X0 - ZMAX * KX - 60, X1 + 60], done: false };
+}
+// paints the job's props in order until the time runs out; the band goes between the far and near props
+function sc_step(J, until) {
+  const g = J.g;
+  if (J.k < 0) { if (!J.layer) for (let k = Math.floor(J.X0 / W); k * W < J.X1; k++) { g.save(); g.translate(k * W, 0); drawPaper(g, W, H); g.restore(); } J.k = 0; J.bandDone = !J.band; }
+  while (J.k < J.list.length) {
+    const o = J.list[J.k];
+    if (!J.bandDone && o.key < ZMAX - 0.5) { sc_band(g, V_WORLD, J.band[0], J.band[1]); J.bandDone = true; }
+    else { sc_paintProp(g, V_WORLD, o); J.k++; }
+    if (performance.now() > until) return false;
+  }
+  if (!J.bandDone) { sc_band(g, V_WORLD, J.band[0], J.band[1]); J.bandDone = true; }
+  J.done = true; J.g = null; return true;
+}
+function sc_keep(key, c) { TILES.m.set(key, c); while (TILES.m.size > 22) TILES.m.delete(TILES.m.keys().next().value); }
+function sc_tile(S, layer, i) {
+  if (TILES.S !== S) { TILES.S = S; TILES.m.clear(); TILES.job = null; }
+  const key = layer * 1e5 + i;
+  if (TILES.m.has(key)) { const t = TILES.m.get(key); TILES.m.delete(key); TILES.m.set(key, t); return t; }
+  const J = TILES.job && TILES.job.key === key ? TILES.job : sc_job(S, layer, i);
+  if (!J.done) sc_step(J, Infinity);
+  if (TILES.job === J) TILES.job = null;
+  sc_keep(key, J.c);
+  return J.c;
+}
+// a little of the next tile each frame, so walking never waits on a whole tile being painted
+function sc_prefetch(S, i0, i1) {
+  let J = TILES.job;
+  if (!J) for (const i of [i0 - 1, i1 + 1, i0 - 2, i1 + 2]) for (const layer of [0, 1]) if (!J && !TILES.m.has(layer * 1e5 + i)) J = TILES.job = sc_job(S, layer, i);
+  if (J && (J.done || sc_step(J, performance.now() + 3))) { sc_keep(J.key, J.c); TILES.job = null; }
+}
+function sc_tiles(g, camX, layer) {
+  const S = sc_scaleOf(g), i0 = Math.floor(camX / TILE_W), i1 = Math.floor((camX + W) / TILE_W);
+  for (let i = i0; i <= i1; i++) { const t = sc_tile(S, layer, i); if (t) g.drawImage(t, i * TILE_W, 0, TILE_W + 2, H); }
+  if (!layer) sc_prefetch(S, i0, i1);
+}
+// back layer (ground, everything behind the figures); called before the figures, untranslated
+function drawWorld(g, camX, time, gateOpen) {
+  g.save(); g.imageSmoothingEnabled = true; g.translate(-camX, 0);
+  sc_tiles(g, camX, 0);
+  if (camX < DOOR.x + 420) sc_door(g, V_WORLD, gateOpen, false);
+  g.restore();
+  void time;
+}
+// front layer (railings, near pillars and walls); called after the figures, in world coordinates
+function drawWorldFront(g, camX, gateOpen) {
+  g.save(); g.imageSmoothingEnabled = true;
+  sc_tiles(g, camX, 1);
+  if (camX < DOOR.x + 420) sc_door(g, V_WORLD, gateOpen, true);
+  g.restore();
+}
+function drawRecordMarker(g, p, done, time, near) {
+  const P = sc_P(), V = V_WORLD;
+  g.save(); g.lineJoin = g.lineCap = 'round';
+  if (!done) {
+    const a = clamp((0.25 + 0.15 * Math.sin(time * 4) + (near ? 0.2 : 0)) * 1.6, 0, 1), x0 = p.x - ZONE_HALF, x1 = p.x + ZONE_HALF;
+    g.globalAlpha = a * 0.5; sc_q(g, V, [[x0, 3, 0], [x1, 3, 0], [x1, ZMAX - 3, 0], [x0, ZMAX - 3, 0]]); g.fillStyle = P.kin; g.fill();
+    g.globalAlpha = a; g.strokeStyle = P.kinD; g.lineWidth = 1.4; g.stroke();
+    g.fillStyle = P.kinS; for (let k = 0; k < 30; k++) { const q = V.p(x0 + 6 + sc_hash(p.x + k * 3.1) * (x1 - x0 - 12), 8 + sc_hash(p.x * 0.7 + k * 5.3) * (ZMAX - 16), 0); g.fillRect(q[0], q[1], 1.6, 1.6); }
+    g.globalAlpha = 1;
+  }
+  const b = V.p(p.x, ZMAX + 24, 0);
+  g.translate(b[0], b[1]); g.scale(0.85, 0.85);
+  g.strokeStyle = P.ink; g.lineWidth = 3; g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -150); g.stroke();
+  g.fillStyle = P.kin; g.lineWidth = 1; g.beginPath(); g.moveTo(0, -161); g.quadraticCurveTo(5.5, -155, 0, -149); g.quadraticCurveTo(-5.5, -155, 0, -161); g.fill(); g.stroke();
+  const sway = Math.sin(time * 1.6 + p.x) * 2;
+  g.lineWidth = 2; g.beginPath(); g.moveTo(0, -146); g.lineTo(30 + sway * 0.5, -146); g.stroke();
+  g.fillStyle = done ? SHU : '#f6f0e2'; g.strokeStyle = INK; g.lineWidth = 1.5;
+  g.beginPath(); g.moveTo(3, -146); g.lineTo(29 + sway, -144); g.lineTo(27 + sway, -64); g.lineTo(5, -66); g.closePath(); g.fill(); g.stroke();
+  g.strokeStyle = done ? 'rgba(251,243,226,.55)' : 'rgba(184,65,46,.7)'; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(6.5, -141); g.lineTo(25.5 + sway, -139.5); g.lineTo(24 + sway, -69); g.lineTo(8, -70.5); g.closePath(); g.stroke();
+  g.fillStyle = done ? '#7d2a1d' : SHU; for (let k = 0; k < 4; k++) g.fillRect(-2.5, -138 + k * 20, 6, 3.5);
+  g.fillStyle = done ? '#fbf3e2' : INK; g.font = `26px ${FONT_BRUSH}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText('記', 16 + sway * 0.5, -124);
+  g.font = `14px ${FONT_BRUSH}`; g.fillText(p.short, 16 + sway * 0.5, -92);
+  g.restore();
+}
+// ------------------------------------------------------------ emaki scenes: the same layout, squeezed into the scene
+const EY0 = 532, EM_ZS = 0.94;
+function sc_sceneV(it) {
+  const k = (it.w - 120) / (it.sec.x1 - it.sec.x0), ex = it.x0 + 60 - it.sec.x0 * k, zx = KX * EM_ZS, zy = KY * EM_ZS;
+  return { p: (x, z, h) => [ex + x * k + z * zx, EY0 - z * zy - (h || 0) * EM_ZS], s: EM_ZS, zs: EM_ZS };
+}
+function sceneBackground(g, it, rng) {
+  const V = it.V || (it.V = sc_sceneV(it)), { x0, w, sec } = it;
+  g.save(); g.beginPath(); g.rect(x0, 0, w, PH); g.clip(); g.lineJoin = g.lineCap = 'round';
+  sc_paintRange(g, V, x0, x0 + w, 0, [sec.x0 - 900, sec.x1 + 200]);
+  if (sec.id === 'oni') sc_door(g, V, 1, false);
+  kinun(g, x0 - 60, 4 + rng() * 12, w * 0.6, 40, rng);
+  kinun(g, x0 + w * 0.45, 12 + rng() * 12, w * 0.62, 36, rng);
+  g.restore();
+}
+function sceneForeground(g, it) {
+  const V = it.V || (it.V = sc_sceneV(it)), { x0, x1, w, sec } = it;
+  g.save(); g.beginPath(); g.rect(x0, 0, w, PH); g.clip(); g.lineJoin = g.lineCap = 'round';
+  sc_paintRange(g, V, x0, x1, 1, null);
+  if (sec.id === 'oni') sc_door(g, V, 1, true);
   for (const [sx, dir] of [[x0, 1], [x1, -1]]) {
     const fg = g.createLinearGradient(sx, 0, sx + dir * 70, 0);
     fg.addColorStop(0, 'rgba(236,223,190,1)'); fg.addColorStop(1, 'rgba(236,223,190,0)');
@@ -1885,21 +2081,11 @@ function sceneBackground(g, it, rng) {
 }
 
 
-// ============================================================ game world layers
-const WR = mulberry(1180);
-const FAR = [], MID = [], NEAR_PINES = [], NEAR_ROCKS = [], CLOUDS = [];
-for (let x = -200; x < WORLD_W * 0.18 + W + 400; x += 170 + WR() * 150) FAR.push({ x, w: 260 + WR() * 260, h: 120 + WR() * 110 });
-for (let x = -200; x < WORLD_W * 0.42 + W + 400; x += 190 + WR() * 180) MID.push({ x, w: 240 + WR() * 200, h: 90 + WR() * 90, pine: WR() < 0.6, s: WR() });
-for (let x = 120; x < WORLD_W; x += 220 + WR() * 260) { if ((x > RIVER.x0 - 60 && x < RIVER.x1 + 60) || Math.abs(x - TREE_X) < 260 || (x > ARENA.x0 && x < ARENA.x1) || x < 520) continue; NEAR_PINES.push({ x, s: 0.8 + WR() * 0.5, seed: Math.floor(WR() * 1e6) }); }
-for (let x = 200; x < WORLD_W; x += 300 + WR() * 400) { if (x > RIVER.x0 - 40 && x < RIVER.x1 + 40) continue; NEAR_ROCKS.push({ x, w: 40 + WR() * 50, h: 20 + WR() * 26, seed: Math.floor(WR() * 1e6) }); }
-for (let x = -300; x < WORLD_W * 0.1 + W + 600; x += 360 + WR() * 300) CLOUDS.push({ x, y: 18 + WR() * 60, w: 240 + WR() * 260, h: 26 + WR() * 14, seed: Math.floor(WR() * 1e6) });
-for (const p of PLATFORMS) if (p.x0 > 4000 || p.x0 < 2200) NEAR_ROCKS.push({ plat: p });
-
 
 // ============================================================ input
 const keys = new Set();
-const input = { left: false, right: false, jump: false, atk: false, jumpP: false, atkP: false };
-const KEYMAP = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'jump', KeyW: 'jump', Space: 'jump', KeyZ: 'jump', KeyX: 'atk', KeyJ: 'atk', KeyK: 'jump' };
+const input = { left: false, right: false, up: false, down: false, jump: false, atk: false, jumpP: false, atkP: false };
+const KEYMAP = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', Space: 'jump', KeyZ: 'jump', KeyK: 'jump', KeyX: 'atk', KeyJ: 'atk' };
 addEventListener('keydown', e => {
   if (e.code === 'KeyM') { toggleMute(); return; }
   if (state === 'emaki') { emakiKey(e); return; }
@@ -1911,14 +2097,14 @@ addEventListener('keydown', e => {
   input[k] = true; if (k === 'jump') input.jumpP = true; if (k === 'atk') input.atkP = true;
 });
 addEventListener('keyup', e => { keys.delete(e.code); const k = KEYMAP[e.code]; if (k) input[k] = [...keys].some(c => KEYMAP[c] === k); });
-addEventListener('blur', () => { keys.clear(); input.left = input.right = input.jump = input.atk = input.jumpP = input.atkP = false; });
+addEventListener('blur', () => { keys.clear(); input.left = input.right = input.up = input.down = input.jump = input.atk = input.jumpP = input.atkP = false; });
 function bindTouch(id, k) {
   const b = $(id);
   const on = e => { e.preventDefault(); ac(); input[k] = true; if (k === 'jump') input.jumpP = true; if (k === 'atk') input.atkP = true; b.classList.add('on'); };
   const off = e => { e.preventDefault(); input[k] = false; b.classList.remove('on'); };
   b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('pointerleave', off);
 }
-bindTouch('tL', 'left'); bindTouch('tR', 'right'); bindTouch('tJ', 'jump'); bindTouch('tA', 'atk');
+bindTouch('tL', 'left'); bindTouch('tR', 'right'); bindTouch('tU', 'up'); bindTouch('tD', 'down'); bindTouch('tJ', 'jump'); bindTouch('tA', 'atk');
 const coarse = matchMedia('(pointer: coarse)').matches;
 
 // ============================================================ history
@@ -1943,19 +2129,22 @@ function saveHistory() { try { localStorage.setItem(STORE_KEY, JSON.stringify(hi
 loadHistory();
 
 // ============================================================ game state
-const G = { player: null, enemies: [], camX: WORLD_W - W, time: 0, runT: 0, shake: 0, hitstop: 0, slow: 1, particles: [], gate: 0, bossIntro: 0, bossSeen: false, arenaLock: false, stamp: null, banner: null, endT: 0, run: null, prevX: 0, zone: null };
+const G = { player: null, enemies: [], camX: CAM_MAX, time: 0, runT: 0, shake: 0, hitstop: 0, slow: 1, particles: [], gate: 0, bossIntro: 0, bossSeen: false, arenaLock: false, stamp: null, banner: null, endT: 0, run: null, prevX: 0, zone: null };
 let state = 'title';
-const SPEED = 235, JUMP = 640, GRAV = 1750;
+const SPEED = 235, ZSPEED = 150, JUMP = 600, GRAV = 1750;
 const ATK_DUR = 0.34;
+const RS = 3.2;
 
 function newRun() {
   const n = history.reduce((m, r) => Math.max(m, r.n), 0) + 1;
-  G.player = { x: 7440, y: groundY(7440), vx: 0, vy: 0, face: -1, ground: true, hp: 5, maxhp: 5, atkT: 0, atkAir: false, hurtT: 0, inv: 0, walkT: 0, dead: false, downT: 0, hitSet: new Set(), idleT: 0, plat: null, victory: false };
-  G.enemies = ENEMY_DEFS.map((d, i) => ({ id: i, type: d.type, boss: !!d.boss, x: d.x, y: groundY(d.x), vx: 0, vy: 0, face: -1, a: d.a, b: d.b, hp: d.boss ? 12 : 3, maxhp: d.boss ? 12 : 3, st: 'patrol', t: 0, walkT: 0, dir: -1, ground: true, hurtT: 0, cd: 0, hitDone: false, alive: true, deadT: 0, flash: 0, hits: 0, leapTX: 0 }));
-  G.camX = clamp(G.player.x - W * 0.62, 0, WORLD_W - W);
+  G.player = { x: 7440, z: 120, h: 0, vx: 0, vz: 0, vh: 0, face: -1, ground: true, hp: 5, maxhp: 5, atkT: 0, atkAir: false, hurtT: 0, inv: 0, walkT: 0, dead: false, downT: 0, hitSet: new Set(), idleT: 0, victory: false };
+  G.enemies = ENEMY_DEFS.map((d, i) => ({ id: i, type: d.type, boss: !!d.boss, x: d.x, z: d.z, hz: d.z, h: 0, vx: 0, vz: 0, vh: 0, face: -1, a: d.a, b: d.b, hp: d.boss ? 12 : 3, maxhp: d.boss ? 12 : 3, st: 'patrol', t: 0, walkT: 0, dir: -1, ground: true, hurtT: 0, cd: 0, hitDone: false, alive: true, deadT: 0, flash: 0, hits: 0 }));
+  G.camX = clamp(PX(G.player.x, G.player.z) - W * 0.62, 0, CAM_MAX);
   Object.assign(G, { time: 0, runT: 0, shake: 0, hitstop: 0, slow: 1, particles: [], gate: 0, bossIntro: 0, bossSeen: false, arenaLock: false, stamp: null, banner: { text: '源頼光、大江山へ', t: 2.6 }, endT: 0, prevX: G.player.x, zone: null });
   G.run = { n, records: {}, end: null, outcome: null, minX: G.player.x, date: (() => { const d = new Date(); return [d.getFullYear(), d.getMonth() + 1, d.getDate()]; })() };
 }
+// screen position of a body: [X, Y of the feet (lifted by jumps and the bridge), Y of its spot on the ground]
+function figAt(x, z, h) { const el = elev(x, z); return [PX(x, z), PY(z, h + el), PY(z, el)]; }
 
 // ------------------------------------------------------------ pose helpers
 function playerPose(p) {
@@ -1964,7 +2153,7 @@ function playerPose(p) {
   if (p.hurtT > 0) return { n: 'hurt', f: 0 };
   if (p.atkT > 0) { const e = ATK_DUR - p.atkT; const f = e < 0.08 ? 0 : e < 0.2 ? 1 : 2; return { n: p.atkAir ? 'jatk' : 'atk', f }; }
   if (!p.ground) return { n: 'jump', f: 0 };
-  if (Math.abs(p.vx) > 10) return { n: 'walk', f: Math.floor(p.walkT * 9) % 4 };
+  if (Math.abs(p.vx) > 10 || Math.abs(p.vz) > 10) return { n: 'walk', f: Math.floor(p.walkT * 9) % 4 };
   return { n: 'idle', f: Math.floor(G.time * 1.6) % 2 };
 }
 function enemyPose(e) {
@@ -1975,15 +2164,14 @@ function enemyPose(e) {
   if (e.st === 'recover') return { n: 'recover', f: 0 };
   if (e.st === 'leap' || !e.ground) return { n: 'jump', f: 0 };
   if (e.st === 'roar') return { n: 'roar', f: 0 };
-  if (Math.abs(e.vx) > 5) return { n: 'walk', f: Math.floor(e.walkT * 7) % 4 };
+  if (Math.abs(e.vx) > 5 || Math.abs(e.vz) > 5) return { n: 'walk', f: Math.floor(e.walkT * 7) % 4 };
   return { n: 'idle', f: Math.floor(G.time * 1.3) % 2 };
 }
-const enemyScale = e => e.boss ? 6 : 4;
-function playerBox(p) { return { x0: p.x - 20, x1: p.x + 20, y0: p.y - 118, y1: p.y }; }
-function enemyBox(e) { return e.boss ? { x0: e.x - 62, x1: e.x + 62, y0: e.y - 225, y1: e.y } : { x0: e.x - 34, x1: e.x + 34, y0: e.y - 150, y1: e.y }; }
-const overlap = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
+const enemyScale = e => e.boss ? 4.8 : 3.2;
+// in front of the attacker (along its facing) within [r0, r1], and close enough in depth
+function inReach(a, b, r0, r1, dz) { const dx = (b.x - a.x) * a.face; return dx > r0 && dx < r1 && Math.abs(b.z - a.z) < dz; }
 
-// ------------------------------------------------------------ particles
+// ------------------------------------------------------------ particles (screen coordinates)
 function burst(x, y, n, color, sp = 260) { for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, v = sp * (0.3 + Math.random() * 0.7); G.particles.push({ k: 'drop', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 120, life: 0.5 + Math.random() * 0.3, max: 0.8, c: color, s: 3 + Math.random() * 4 }); } }
 function dust(x, y) { for (let i = 0; i < 6; i++) G.particles.push({ k: 'dust', x: x + (Math.random() - 0.5) * 30, y, vx: (Math.random() - 0.5) * 80, vy: -20 - Math.random() * 40, life: 0.5, max: 0.5, c: 'rgba(168,130,79,', s: 6 + Math.random() * 6 }); }
 
@@ -1997,59 +2185,54 @@ function updatePlay(dt) {
   const sdt = dt * G.slow;
   G.prevX = p.x;
   // player
-  if (p.dead) { p.downT += sdt; p.vx *= 0.9; }
-  else if (p.victory) { p.vx = -SPEED * 0.6; p.face = -1; p.walkT += sdt; }
-  else if (p.hurtT > 0) { p.hurtT -= sdt; }
+  if (p.dead) { p.downT += sdt; p.vx *= 0.9; p.vz *= 0.9; }
+  else if (p.victory) { p.vx = -SPEED * 0.6; p.face = -1; p.walkT += sdt; p.vz = clamp((125 - p.z) * 3, -ZSPEED, ZSPEED); }
+  else if (p.hurtT > 0) { p.hurtT -= sdt; p.vz *= 0.9; }
   else {
-    const mv = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-    if (p.atkT > 0 && p.ground) p.vx *= 0.8; else p.vx = mv * SPEED;
+    const mv = (input.right ? 1 : 0) - (input.left ? 1 : 0), mz = (input.up ? 1 : 0) - (input.down ? 1 : 0);
+    if (p.atkT > 0 && p.ground) { p.vx *= 0.8; p.vz *= 0.8; } else { p.vx = mv * SPEED; p.vz = mz * ZSPEED; }
     if (mv && p.atkT <= 0) p.face = mv;
-    if (input.jumpP && p.ground) { p.vy = -JUMP; p.ground = false; p.plat = null; SFX.jump(); }
+    if (input.jumpP && p.ground) { p.vh = JUMP; p.ground = false; SFX.jump(); }
     if (input.atkP && p.atkT <= 0) { p.atkT = ATK_DUR; p.atkAir = !p.ground; p.hitSet.clear(); SFX.slash(); }
-    if (!input.jump && p.vy < -300) p.vy = -300;
+    if (!input.jump && p.vh > 300) p.vh = 300;
   }
   input.jumpP = input.atkP = false;
   if (p.atkT > 0) { p.atkT -= sdt; if (p.atkT <= 0) { p.atkT = 0; p.atkAir = false; } }
   p.inv = Math.max(0, p.inv - sdt);
-  if (Math.abs(p.vx) > 10 && p.ground) p.walkT += sdt;
-  const wasGround = p.ground, oldY = p.y;
-  p.vy += GRAV * sdt; p.x += p.vx * sdt; p.y += p.vy * sdt;
+  if ((Math.abs(p.vx) > 10 || Math.abs(p.vz) > 10) && p.ground) p.walkT += sdt;
+  const wasGround = p.ground;
+  if (!p.ground) { p.vh -= GRAV * sdt; p.h += p.vh * sdt; if (p.h <= 0) { p.h = 0; p.vh = 0; p.ground = true; } }
   let minX = 40, maxX = WORLD_W - 120;
   if (G.arenaLock) { minX = ARENA.x0 + 10; maxX = ARENA.x1; }
-  if (G.enemies.find(e => e.boss).alive) minX = Math.max(minX, ARENA.x0 + 10);
-  p.x = clamp(p.x, minX, maxX);
-  p.ground = false;
-  if (p.vy >= 0) for (const pl of PLATFORMS) if (p.x > pl.x0 && p.x < pl.x1 && oldY <= pl.y + 1 && p.y >= pl.y) { p.y = pl.y; p.vy = 0; p.ground = true; p.plat = pl; }
-  const gy = groundY(p.x);
-  if (p.y >= gy) { p.y = gy; p.vy = 0; p.ground = true; p.plat = null; }
-  if (p.ground && !wasGround && oldY < p.y + 1) dust(p.x, p.y);
+  const boss = G.enemies.find(e => e.boss);
+  if (boss.alive) minX = Math.max(minX, ARENA.x0 + 10); else if (G.gate < 0.95) minX = Math.max(minX, DOOR.x + 18);
+  moveBody(p, clamp(p.x + p.vx * sdt, minX, maxX), p.z + p.vz * sdt);
+  if (p.ground && !wasGround) { const f = figAt(p.x, p.z, 0); dust(f[0], f[2]); }
   G.run.minX = Math.min(G.run.minX, p.x);
-  if (!p.dead && p.ground && Math.abs(p.vx) < 10 && p.atkT <= 0 && p.hurtT <= 0) p.idleT += sdt; else p.idleT = 0;
+  if (!p.dead && p.ground && Math.abs(p.vx) < 10 && Math.abs(p.vz) < 10 && p.atkT <= 0 && p.hurtT <= 0) p.idleT += sdt; else p.idleT = 0;
   // player attack
   if (p.atkT > 0 && !p.dead) {
     const e = ATK_DUR - p.atkT;
     if (e >= 0.08 && e < 0.2) {
-      const hb = p.atkAir ? { x0: p.x + (p.face > 0 ? 0 : -112), x1: p.x + (p.face > 0 ? 112 : 0), y0: p.y - 120, y1: p.y + 30 }
-                          : { x0: p.x + (p.face > 0 ? 8 : -118), x1: p.x + (p.face > 0 ? 118 : -8), y0: p.y - 130, y1: p.y - 10 };
       for (const en of G.enemies) {
         if (!en.alive || p.hitSet.has(en.id)) continue;
-        if (overlap(hb, enemyBox(en))) { p.hitSet.add(en.id); damageEnemy(en, p.atkAir ? 2 : 1, p.face); }
+        const rw = en.boss ? 50 : 26;
+        if (inReach(p, en, (p.atkAir ? 0 : 6) - rw, (p.atkAir ? 104 : 112) + rw, (p.atkAir ? 40 : 34) + (en.boss ? 14 : 0)) && p.h < (en.boss ? 200 : 140)) { p.hitSet.add(en.id); damageEnemy(en, p.atkAir ? 2 : 1, p.face); }
       }
     }
   }
   // enemies
   for (const e of G.enemies) updateEnemy(e, sdt, p);
   // arena
-  const boss = G.enemies.find(e => e.boss);
   if (!G.bossSeen && p.x < ARENA.x1 - 20) { G.bossSeen = true; G.arenaLock = true; boss.st = 'roar'; boss.t = 0; G.banner = { text: '大鬼、現る', t: 2.2 }; SFX.roar(); G.shake = 0.5; }
   if (!boss.alive && G.arenaLock) { G.arenaLock = false; }
   if (!boss.alive) { G.gate = Math.min(1, G.gate + sdt * 0.8); }
   // record zones
   checkRecords(p);
   // camera
-  let tx = p.x - W * 0.62;
-  if (G.arenaLock) tx = ARENA.x0 - 18;
-  tx = clamp(tx, 0, WORLD_W - W);
+  let tx = PX(p.x, p.z) - W * 0.62;
+  if (G.arenaLock) tx = ARENA.x0 - 8;
+  tx = clamp(tx, 0, CAM_MAX);
   G.camX = lerp(G.camX, tx, Math.min(1, dt * 5));
   G.shake = Math.max(0, G.shake - dt);
   // particles
@@ -2062,94 +2245,106 @@ function updatePlay(dt) {
   if (!boss.alive && G.gate >= 1 && !p.dead && p.x < GATE_X + 60 && !G.run.outcome) {
     if (!p.victory) { p.victory = true; }
   }
-  if (p.victory && p.x < GATE_X - 20 && !G.run.outcome) endRun('clear');
+  if (p.victory && p.x < GATE_X - 40 && !G.run.outcome) endRun('clear');
 }
 function damageEnemy(e, dmg, face) {
   e.hp -= dmg; e.flash = 0.12; G.hitstop = 0.06; SFX.hit();
-  burst(e.x - face * 10, e.y - (e.boss ? 140 : 90), 10, Math.random() < 0.5 ? SHU : INK);
-  if (e.hp <= 0) { e.alive = false; e.deadT = 0; e.vx = 0; G.shake = e.boss ? 0.6 : 0.2; if (e.boss) { G.banner = { text: '大鬼を討ち果たす', t: 2.6 }; SFX.gate(); } return; }
+  const f = figAt(e.x, e.z, e.h);
+  burst(f[0] - face * 10, f[1] - (e.boss ? 120 : 78), 10, Math.random() < 0.5 ? SHU : INK);
+  if (e.hp <= 0) { e.alive = false; e.deadT = 0; e.vx = 0; e.vz = 0; G.shake = e.boss ? 0.6 : 0.2; if (e.boss) { G.banner = { text: '大鬼を討ち果たす', t: 2.6 }; SFX.gate(); } return; }
   if (e.boss) { e.hits++; if (e.hits % 3 === 0 && e.st !== 'leap' && e.ground) { e.hurtT = 0.45; e.st = 'chase'; } }
   else { e.hurtT = 0.3; e.vx = face * 160; e.st = 'chase'; }
 }
 function hurtPlayer(p, dmg, fromX) {
   if (p.inv > 0 || p.dead || p.victory) return;
   p.hp -= dmg; p.inv = 1.1; p.hurtT = 0.4; p.atkT = 0; p.atkAir = false;
-  const dir = p.x < fromX ? -1 : 1; p.vx = dir * 230; p.vy = -300; p.ground = false; p.face = -dir;
-  burst(p.x, p.y - 70, 12, SHU); SFX.hurt(); G.shake = 0.25;
+  const dir = p.x < fromX ? -1 : 1; p.vx = dir * 230; p.vz = 0; p.vh = 300; p.ground = false; p.face = -dir;
+  const f = figAt(p.x, p.z, p.h);
+  burst(f[0], f[1] - 60, 12, SHU); SFX.hurt(); G.shake = 0.25;
   if (p.hp <= 0) { p.hp = 0; p.dead = true; p.downT = 0; p.hurtT = 0; SFX.down(); G.banner = { text: '無念……', t: 3 }; }
 }
 function updateEnemy(e, dt, p) {
   e.flash = Math.max(0, e.flash - dt);
-  if (!e.alive) { e.deadT += dt; e.vx *= 0.85; e.x += e.vx * dt; e.y = groundY(e.x); return; }
+  if (!e.alive) { e.deadT += dt; e.vx *= 0.85; moveBody(e, e.x + e.vx * dt, e.z); e.h = 0; return; }
   e.cd = Math.max(0, e.cd - dt);
-  const dx = p.x - e.x, ad = Math.abs(dx);
+  const dx = p.x - e.x, ad = Math.abs(dx), dz = p.z - e.z;
   const target = !p.dead && !p.victory;
-  if (e.hurtT > 0) { e.hurtT -= dt; e.x += e.vx * dt; e.vx *= 0.9; if (e.boss) e.x = clamp(e.x, ARENA.x0 + 40, ARENA.x1 - 40); }
-  else if (e.boss) updateBoss(e, dt, p, dx, ad, target);
+  if (e.hurtT > 0) { e.hurtT -= dt; e.vx *= 0.9; e.vz = 0; moveBody(e, e.x + e.vx * dt, e.z); if (e.boss) e.x = clamp(e.x, ARENA.x0 + 40, ARENA.x1 - 40); }
+  else if (e.boss) updateBoss(e, dt, p, dx, ad, dz, target);
   else {
     switch (e.st) {
       case 'patrol':
-        e.vx = e.dir * 60; e.face = e.dir;
+        e.vx = e.dir * 60; e.face = e.dir; e.vz = clamp((e.hz - e.z) * 2, -40, 40);
         if (e.x < e.a) e.dir = 1; if (e.x > e.b) e.dir = -1;
-        if (target && ad < 380) e.st = 'chase';
+        if (target && ad < 380 && Math.abs(dz) < 200) e.st = 'chase';
         break;
       case 'chase':
         e.face = Math.sign(dx) || e.face;
-        e.vx = ad > 80 ? e.face * 115 : 0;
+        e.vx = ad > 78 ? e.face * 115 : 0; e.vz = clamp(dz * 2.5, -80, 80);
         if (!target || ad > 560) e.st = 'patrol';
-        else if (ad < 100 && e.cd <= 0) { e.st = 'windup'; e.t = 0; e.vx = 0; }
+        else if (ad < 100 && Math.abs(dz) < 22 && e.cd <= 0) { e.st = 'windup'; e.t = 0; e.vx = 0; e.vz = 0; }
         break;
-      case 'windup': e.vx = 0; e.t += dt; if (e.t > 0.5) { e.st = 'swing'; e.t = 0; e.hitDone = false; tone(120, 60, 0.12, 'square', 0.06); } break;
+      case 'windup': e.vx = 0; e.vz = 0; e.t += dt; if (e.t > 0.5) { e.st = 'swing'; e.t = 0; e.hitDone = false; tone(120, 60, 0.12, 'square', 0.06); } break;
       case 'swing':
         e.t += dt;
-        if (!e.hitDone) { const hb = { x0: e.x + (e.face > 0 ? 10 : -120), x1: e.x + (e.face > 0 ? 120 : -10), y0: e.y - 140, y1: e.y }; if (overlap(hb, playerBox(p))) { e.hitDone = true; hurtPlayer(p, 1, e.x); } }
+        if (!e.hitDone && inReach(e, p, -10, 125, 30) && p.h < 70) { e.hitDone = true; hurtPlayer(p, 1, e.x); }
         if (e.t > 0.22) { e.st = 'recover'; e.t = 0; }
         break;
       case 'recover': e.t += dt; if (e.t > 0.55) { e.st = 'chase'; e.cd = 0.7; } break;
     }
-    e.x += e.vx * dt;
+    const ox = e.x, oz = e.z;
+    moveBody(e, e.x + e.vx * dt, e.z + e.vz * dt);
     const lx = clamp(e.x, e.a - 170, e.b + 170); if (lx !== e.x) { e.x = lx; e.vx = 0; }
+    if (e.st === 'patrol' && e.x === ox && e.vx) e.dir = -e.dir;
+    void oz;
   }
-  if (Math.abs(e.vx) > 5) e.walkT += dt;
-  if (e.st !== 'leap') { e.y = groundY(e.x); e.ground = true; }
+  if (Math.abs(e.vx) > 5 || Math.abs(e.vz) > 5) e.walkT += dt;
+  if (e.st !== 'leap') { e.h = 0; e.ground = true; }
 }
-function updateBoss(e, dt, p, dx, ad, target) {
+function updateBoss(e, dt, p, dx, ad, dz, target) {
   switch (e.st) {
-    case 'patrol': e.vx = 0; e.face = 1; break;
-    case 'roar': e.vx = 0; e.face = Math.sign(dx) || 1; e.t += dt; if (e.t > 1.3) { e.st = 'chase'; e.cd = 0.6; } break;
+    case 'patrol': e.vx = 0; e.vz = 0; e.face = 1; break;
+    case 'roar': e.vx = 0; e.vz = 0; e.face = Math.sign(dx) || 1; e.t += dt; if (e.t > 1.3) { e.st = 'chase'; e.cd = 0.6; } break;
     case 'chase':
       e.face = Math.sign(dx) || e.face;
-      e.vx = ad > 140 ? e.face * 85 : 0;
-      if (!target) { e.vx = 0; break; }
-      if (ad < 175 && e.cd <= 0) { e.st = 'windup'; e.t = 0; e.vx = 0; }
-      else if (ad > 330 && e.cd <= 0) { e.st = 'leap'; e.t = 0; e.vy = -760; e.ground = false; e.leapTX = clamp(p.x, ARENA.x0 + 80, ARENA.x1 - 80); e.vx = (e.leapTX - e.x) / 0.87; }
+      e.vx = ad > 140 ? e.face * 85 : 0; e.vz = clamp(dz * 2, -60, 60);
+      if (!target) { e.vx = 0; e.vz = 0; break; }
+      if (ad < 175 && Math.abs(dz) < 34 && e.cd <= 0) { e.st = 'windup'; e.t = 0; e.vx = 0; e.vz = 0; }
+      else if ((ad > 330 || Math.abs(dz) > 150) && e.cd <= 0) {
+        e.st = 'leap'; e.t = 0; e.vh = 760; e.ground = false;
+        const tx = clamp(p.x, ARENA.x0 + 80, ARENA.x1 - 80), tz = clamp(p.z, 20, ZMAX - 20);
+        e.vx = (tx - e.x) / 0.87; e.vz = (tz - e.z) / 0.87;
+      }
       break;
-    case 'windup': e.vx = 0; e.t += dt; if (e.t > 0.75) { e.st = 'swing'; e.t = 0; e.hitDone = false; tone(90, 40, 0.2, 'square', 0.08); } break;
+    case 'windup': e.vx = 0; e.vz = 0; e.t += dt; if (e.t > 0.75) { e.st = 'swing'; e.t = 0; e.hitDone = false; tone(90, 40, 0.2, 'square', 0.08); } break;
     case 'swing':
       e.t += dt;
-      if (!e.hitDone) { const hb = { x0: e.x + (e.face > 0 ? 10 : -205), x1: e.x + (e.face > 0 ? 205 : -10), y0: e.y - 190, y1: e.y }; if (overlap(hb, playerBox(p))) { e.hitDone = true; hurtPlayer(p, 2, e.x); } }
+      if (!e.hitDone && inReach(e, p, -10, 210, 46) && p.h < 90) { e.hitDone = true; hurtPlayer(p, 2, e.x); }
       if (e.t > 0.3) { e.st = 'recover'; e.t = 0; }
       break;
-    case 'recover': e.t += dt; if (e.t > 0.85) { e.st = 'chase'; e.cd = 0.8; } break;
+    case 'recover': e.t += dt; e.vx = 0; e.vz = 0; if (e.t > 0.85) { e.st = 'chase'; e.cd = 0.8; } break;
     case 'leap':
-      e.vy += GRAV * dt; e.y += e.vy * dt;
-      if (e.y >= groundY(e.x) && e.vy > 0) {
-        e.y = groundY(e.x); e.ground = true; e.vx = 0; e.st = 'recover'; e.t = 0; G.shake = 0.5; SFX.slam();
-        G.particles.push({ k: 'ring', x: e.x, y: e.y, vx: 0, vy: 0, life: 0.5, max: 0.5, c: INK, s: 0 }); dust(e.x - 60, e.y); dust(e.x + 60, e.y);
-        if (p.ground && Math.abs(p.x - e.x) < 230) hurtPlayer(p, 1, e.x);
+      e.vh -= GRAV * dt; e.h += e.vh * dt;
+      if (e.h <= 0 && e.vh < 0) {
+        e.h = 0; e.ground = true; e.vx = 0; e.vz = 0; e.st = 'recover'; e.t = 0; G.shake = 0.5; SFX.slam();
+        const f = figAt(e.x, e.z, 0);
+        G.particles.push({ k: 'ring', x: f[0], y: f[2], vx: 0, vy: 0, life: 0.5, max: 0.5, c: INK, s: 0 }); dust(f[0] - 60, f[2]); dust(f[0] + 60, f[2]);
+        if (p.ground && Math.abs(p.x - e.x) < 230 && Math.abs(p.z - e.z) < 110) hurtPlayer(p, 1, e.x);
       }
       break;
   }
-  e.x += e.vx * dt; e.x = clamp(e.x, ARENA.x0 + 40, ARENA.x1 - 40);
+  e.x = clamp(e.x + e.vx * dt, ARENA.x0 + 40, ARENA.x1 - 40); e.z = clamp(e.z + e.vz * dt, 0, ZMAX);
 }
 
-// ------------------------------------------------------------ recording
+// ------------------------------------------------------------ recording (y = -height and gy = 0 keep old saves readable)
+const snapZ = s => Number.isFinite(s.z) ? s.z : 120;
+const snapH = s => Math.max(0, (Number.isFinite(s.gy) ? s.gy : s.y) - s.y);
 function snapshot(focusX, range = 700) {
   const p = G.player, pp = playerPose(p);
   return {
     t: Math.round(G.runT * 10) / 10,
-    player: { x: Math.round(p.x), y: Math.round(p.y), gy: Math.round(groundY(p.x)), face: p.face, pose: pp.n, f: pp.f, air: !p.ground, attacking: p.atkT > 0, hp: p.hp },
-    enemies: G.enemies.filter(e => Math.abs(e.x - focusX) < range).map(e => { const ep = enemyPose(e); return { id: e.id, type: e.type, boss: e.boss, x: Math.round(e.x), y: Math.round(e.y), gy: Math.round(groundY(e.x)), face: e.face, pose: ep.n, f: ep.f, alive: e.alive, hp: Math.max(0, e.hp) }; }),
+    player: { x: Math.round(p.x), z: Math.round(p.z), y: -Math.round(p.h), gy: 0, face: p.face, pose: pp.n, f: pp.f, air: !p.ground, attacking: p.atkT > 0, hp: p.hp },
+    enemies: G.enemies.filter(e => Math.abs(e.x - focusX) < range).map(e => { const ep = enemyPose(e); return { id: e.id, type: e.type, boss: e.boss, x: Math.round(e.x), z: Math.round(e.z), y: -Math.round(e.h), gy: 0, face: e.face, pose: ep.n, f: ep.f, alive: e.alive, hp: Math.max(0, e.hp) }; }),
   };
 }
 function checkRecords(p) {
@@ -2164,7 +2359,7 @@ function checkRecords(p) {
       if (p.atkT > 0 && e >= 0.1) fire = true;
       else if (p.hurtT > 0) fire = true;
       else if (p.idleT > 0.9) fire = true;
-      else if (!p.ground && p.atkT <= 0 && p.vy > -40 && p.vy < 60) fire = true;
+      else if (!p.ground && p.atkT <= 0 && Math.abs(p.vh) < 50) fire = true;
     }
     if (!inside && wasInside && !p.dead) fire = true;
     if (!inside && !wasInside && ((G.prevX > pt.x + ZONE_HALF && p.x < pt.x - ZONE_HALF) || (G.prevX < pt.x - ZONE_HALF && p.x > pt.x + ZONE_HALF))) fire = true;
@@ -2193,6 +2388,7 @@ function endRun(outcome) {
 }
 
 // ------------------------------------------------------------ render game
+function footShadow(g, x, y, w) { g.fillStyle = 'rgba(42,36,32,.16)'; g.beginPath(); g.ellipse(x, y + 1, w, w * 0.3, 0, 0, Math.PI * 2); g.fill(); }
 function renderGame(time) {
   const g = ctx;
   g.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -2204,62 +2400,61 @@ function renderGame(time) {
   const camX = Math.round(G.camX);
   drawWorld(g, camX, time, G.gate);
   g.save(); g.translate(-camX, 0);
-  drawPlatformBranches(g);
-  if (state === 'play' || state === 'story') {
-    for (const pt of POINTS) if (Math.abs(pt.x - camX - W / 2) < W) drawRecordMarker(g, pt, !!G.run.records[pt.id], time, G.zone === pt);
-    drawGhosts(g, camX);
-    const list = [];
-    for (const e of G.enemies) if (e.x > camX - 300 && e.x < camX + W + 300) list.push(e);
-    for (const e of list.filter(e => !e.alive)) { const ep = enemyPose(e); drawSprite(g, e.type, ep.n, ep.f, e.x, e.y + 2, enemyScale(e), e.face, null, 1); }
-    for (const e of list.filter(e => e.alive)) {
-      const ep = enemyPose(e);
-      if (e.st === 'windup') { g.fillStyle = SHU; g.font = `28px ${FONT_BRUSH}`; g.textAlign = 'center'; g.fillText('！', e.x, e.y - (e.boss ? 250 : 170)); }
-      drawSprite(g, e.type, ep.n, ep.f, e.x, e.y + 2, enemyScale(e), e.face, e.flash > 0 ? 'flash' : null, 1);
+  const play = state === 'play' || state === 'story';
+  for (const pt of POINTS) if (Math.abs(PX(pt.x, ZMAX / 2) - camX - W / 2) < W) drawRecordMarker(g, pt, play && !!G.run.records[pt.id], time, play && G.zone === pt);
+  // figures back to front: parallel projection, so only depth decides who overlaps whom
+  const figs = [], seen = x => x > camX - 300 && x < camX + W + 300;
+  if (play) {
+    for (const r of history.slice(-6)) {
+      for (const pt of POINTS) { const s = r.records[pt.id]; if (s && seen(PX(s.player.x, snapZ(s.player)))) figs.push({ z: snapZ(s.player), ghost: s.player, n: r.n }); }
+      if (r.end && r.outcome === 'death' && seen(PX(r.end.player.x, snapZ(r.end.player)))) figs.push({ z: snapZ(r.end.player) + 0.2, ghost: Object.assign({}, r.end.player, { pose: 'down', f: 0, y: 0, gy: 0 }), n: 0 });
     }
-    const p = G.player, pp = playerPose(p);
-    const blink = p.inv > 0 && !p.dead && Math.floor(time * 20) % 2 === 0;
-    if (!blink) drawSprite(g, 'raiko', pp.n, pp.f, p.x, p.y + 2, 4, p.face, null, 1);
-    if (p.atkT > 0) { const e = ATK_DUR - p.atkT; if (e >= 0.06 && e < 0.24) drawSlash(g, p, (e - 0.06) / 0.18); }
-    if (BRIDGE.x1 > camX && BRIDGE.x0 < camX + W) bridgeDeck(g, BRIDGE.x0, BRIDGE.x1, BRIDGE.y, true);
-    for (const q of G.particles) drawParticle(g, q);
-  } else {
-    for (const pt of POINTS) drawRecordMarker(g, pt, false, time, false);
-    for (const e of ENEMY_DEFS) drawSprite(g, e.type, 'idle', Math.floor(time * 1.3) % 2, e.x, groundY(e.x) + 2, e.boss ? 6 : 4, -1, null, 1);
-    bridgeDeck(g, BRIDGE.x0, BRIDGE.x1, BRIDGE.y, true);
+    for (const e of G.enemies) if (seen(PX(e.x, e.z))) figs.push({ z: e.z + (e.alive ? 0 : 0.5), e });
+    figs.push({ z: G.player.z, player: true });
+  } else for (const d of ENEMY_DEFS) figs.push({ z: d.z, def: d });
+  figs.sort((a, b) => b.z - a.z);
+  for (const f of figs) {
+    if (f.player) {
+      const p = G.player, pp = playerPose(p), [sx, sy, gy] = figAt(p.x, p.z, p.h);
+      if (p.h > 2) footShadow(g, sx, gy, 22);
+      const blink = p.inv > 0 && !p.dead && Math.floor(time * 20) % 2 === 0;
+      if (!blink) drawSprite(g, 'raiko', pp.n, pp.f, sx, sy + 2, RS, p.face, null, 1);
+      if (p.atkT > 0) { const e = ATK_DUR - p.atkT; if (e >= 0.06 && e < 0.24) drawSlash(g, p, sx, sy, (e - 0.06) / 0.18); }
+    } else if (f.e) {
+      const e = f.e, ep = enemyPose(e), [sx, sy, gy] = figAt(e.x, e.z, e.h);
+      if (e.h > 2) footShadow(g, sx, gy, e.boss ? 48 : 30);
+      if (e.alive && e.st === 'windup') { g.fillStyle = SHU; g.font = `28px ${FONT_BRUSH}`; g.textAlign = 'center'; g.fillText('！', sx, sy - (e.boss ? 232 : 150)); }
+      drawSprite(g, e.type, ep.n, ep.f, sx, sy + 2, enemyScale(e), e.face, e.alive && e.flash > 0 ? 'flash' : null, 1);
+    } else if (f.ghost) {
+      const s = f.ghost, [sx, sy] = figAt(s.x, snapZ(s), snapH(s));
+      drawSprite(g, 'raiko', s.pose, s.f, sx, sy + 2, RS, s.face, 'ghost', f.n ? 0.28 : 0.22);
+      if (f.n) vtext(g, kn(f.n) + '度目', sx + s.face * -28, sy - 128, 15, 'rgba(42,36,32,.5)');
+    } else {
+      const d = f.def, [sx, sy] = figAt(d.x, d.z, 0);
+      drawSprite(g, d.type, 'idle', Math.floor(time * 1.3) % 2, sx, sy + 2, d.boss ? 4.8 : 3.2, -1, null, 1);
+    }
   }
+  drawWorldFront(g, camX, G.gate);
+  if (play) for (const q of G.particles) drawParticle(g, q);
   g.restore();
-  if (state === 'play' || state === 'story') drawHUD(g, time);
+  if (play) drawHUD(g, time);
   g.restore();
 }
-function drawSlash(g, p, k) {
-  const cx = p.x + p.face * 18, cy = p.y - (p.atkAir ? 60 : 78), r = 78;
+function drawSlash(g, p, sx, sy, k) {
+  const cx = sx + p.face * 14, cy = sy - (p.atkAir ? 48 : 62), r = 62;
   const a0 = p.atkAir ? -1.4 : -1.25, a1 = p.atkAir ? 1.35 : 0.85;
   const end = a0 + (a1 - a0) * Math.min(1, k * 1.4), start = a0 + (a1 - a0) * Math.max(0, k * 1.4 - 0.55);
   g.save(); g.translate(cx, cy); g.scale(p.face, 1);
-  g.strokeStyle = `rgba(255,250,236,${0.95 - k * 0.6})`; g.lineWidth = 10; g.lineCap = 'round';
+  g.strokeStyle = `rgba(255,250,236,${0.95 - k * 0.6})`; g.lineWidth = 8; g.lineCap = 'round';
   g.beginPath(); g.arc(0, 0, r, start, end); g.stroke();
-  g.strokeStyle = `rgba(42,36,32,${0.6 - k * 0.5})`; g.lineWidth = 1.5; g.beginPath(); g.arc(0, 0, r + 6, start, end); g.stroke();
+  g.strokeStyle = `rgba(42,36,32,${0.6 - k * 0.5})`; g.lineWidth = 1.5; g.beginPath(); g.arc(0, 0, r + 5, start, end); g.stroke();
   g.restore();
 }
 function drawParticle(g, q) {
   const a = clamp(q.life / q.max, 0, 1);
   if (q.k === 'drop') { g.fillStyle = q.c; g.globalAlpha = a; g.beginPath(); g.arc(q.x, q.y, q.s * a + 1, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; }
   else if (q.k === 'dust') { g.fillStyle = q.c + (0.5 * a) + ')'; g.beginPath(); g.arc(q.x, q.y, q.s * (1.6 - a), 0, Math.PI * 2); g.fill(); }
-  else if (q.k === 'ring') { g.strokeStyle = `rgba(42,36,32,${a})`; g.lineWidth = 3; g.beginPath(); g.ellipse(q.x, q.y, 240 * (1 - a) + 20, 30 * (1 - a) + 4, 0, 0, Math.PI * 2); g.stroke(); }
-}
-function drawGhosts(g, camX) {
-  const past = history.slice(-6);
-  for (const r of past) {
-    for (const pt of POINTS) {
-      const s = r.records[pt.id]; if (!s || Math.abs(pt.x - camX - W / 2) > W) continue;
-      drawSprite(g, 'raiko', s.player.pose, s.player.f, s.player.x, s.player.y + 2, 4, s.player.face, 'ghost', 0.28);
-      g.fillStyle = 'rgba(42,36,32,.55)'; g.font = `15px ${FONT_BRUSH}`; g.textAlign = 'center';
-      vtext(g, kn(r.n) + '度目', s.player.x + s.player.face * -34, s.player.y - 150, 15, 'rgba(42,36,32,.5)');
-    }
-    if (r.end && r.outcome === 'death' && Math.abs(r.end.player.x - camX - W / 2) < W) {
-      drawSprite(g, 'raiko', 'down', 0, r.end.player.x, r.end.player.gy + 2, 4, r.end.player.face, 'ghost', 0.22);
-    }
-  }
+  else if (q.k === 'ring') { g.strokeStyle = `rgba(42,36,32,${a})`; g.lineWidth = 3; g.beginPath(); g.ellipse(q.x, q.y, 240 * (1 - a) + 20, 60 * (1 - a) + 6, 0, 0, Math.PI * 2); g.stroke(); }
 }
 function drawHUD(g, time) {
   const p = G.player;
@@ -2393,7 +2588,7 @@ function recordSentence(run, sec, snap, many) {
 }
 function endSentence(run) {
   const sec = SECTIONS[run.end ? run.end.sec : 0] || SECTIONS[0];
-  if (run.outcome === 'clear') return '頼光、大鬼を討ち果たし、鬼の岩屋へと踏み入る。';
+  if (run.outcome === 'clear') return '頼光、大鬼を討ち果たし、鬼の館の奥へと踏み入る。';
   return `源頼光、${sec.place}鬼と戦うも……`;
 }
 function textSpec(it, { runs, cur, many }) {
@@ -2415,7 +2610,7 @@ function textSpec(it, { runs, cur, many }) {
       }
       if (t) lines.push(t);
     }
-    if (!sec.point && !lines.length) lines.push('頼光、都の門を発ち、山道へと分け入る。');
+    if (!sec.point && !lines.length) lines.push('頼光、館を出で、門を発ちて山道へと分け入る。');
     if (sec.point && !lines.length) lines.push(`頼光、${sec.place}しばし足をとどむ。`);
     const shown = lines.slice(-4);
     for (const t of shown) paras.push({ text: t, size: 21, after: 10 });
@@ -2489,25 +2684,28 @@ function buildEmaki(currentN, layered, renderScale) {
   return { canvas: c, width: total, scale: s, items };
 }
 function emX(it, worldX) { const { sec } = it; const t = (worldX - sec.x0) / (sec.x1 - sec.x0); return it.x0 + 60 + t * (it.w - 120); }
-const emGround = (it, x) => 470 + Math.sin((x - it.x0) * 0.01) * 10;
-function groundShadow(g, x, y, w) { g.fillStyle = 'rgba(60,44,28,.18)'; g.beginPath(); g.ellipse(x, y + 2, w, w * 0.18, 0, 0, Math.PI * 2); g.fill(); }
-function drawGroupEnemies(g, it, grp) {
-  const sc = grp.scale;
+function groundShadow(g, x, y, w) { g.fillStyle = "rgba(60,44,28,.16)"; g.beginPath(); g.ellipse(x, y + 2, w, w * 0.28, 0, 0, Math.PI * 2); g.fill(); }
+// figures of one recorded moment, queued by depth so that nearer figures overlap farther ones
+function queueGroup(figs, it, grp) {
+  const V = it.V;
   for (const e of grp.snap.enemies) {
     if (grp.skip && grp.skip.has(e.id)) continue;
-    const ex = emX(it, e.x) + grp.dx;
+    const z = snapZ(e), h = snapH(e), el = elev(e.x, z), p = V.p(e.x, z, h + el), ex = p[0] + grp.dx;
     if (ex < it.x0 + 20 || ex > it.x1 - 20) continue;
-    const gy = emGround(it, ex) + grp.dy;
-    groundShadow(g, ex, gy, (e.boss ? 60 : 34) * sc);
-    drawSprite(g, e.type, e.pose, e.f, ex, gy + (e.y - e.gy) * 0.72 * sc + 2, (e.boss ? 5 : 3) * sc, e.face, null, 1);
+    figs.push({ z: z + (e.alive ? 0 : 0.5), draw: g => {
+      if (h > 2) { const q = V.p(e.x, z, el); groundShadow(g, ex, q[1], (e.boss ? 44 : 28)); }
+      drawSprite(g, e.type, e.pose, e.f, ex, p[1] + 2, e.boss ? 4.5 : 3, e.face, null, 1);
+    } });
   }
+  const s = grp.snap.player, z = snapZ(s), h = snapH(s), el = elev(s.x, z), p = V.p(s.x, z, h + el), bx = p[0] + grp.dx;
+  grp.label = [bx, p[1] - (s.pose === 'down' ? 50 : 118)];
+  figs.push({ z: z - 0.1, draw: g => {
+    if (h > 2) { const q = V.p(s.x, z, el); groundShadow(g, bx, q[1], 20); }
+    drawSprite(g, 'raiko', s.pose, s.f, bx, p[1] + 2, 3, s.face, null, 1);
+  } });
 }
-function drawGroupHero(g, it, grp) {
-  const sc = grp.scale, p = grp.snap.player;
-  const bx = emX(it, p.x) + grp.dx, gy = emGround(it, bx) + grp.dy, py = gy + (p.y - p.gy) * 0.72 * sc;
-  groundShadow(g, bx, gy, (p.pose === 'down' ? 40 : 26) * sc);
-  drawSprite(g, 'raiko', p.pose, p.f, bx, py + 2, 3 * sc, p.face, null, 1);
-  const ty = py - (p.pose === 'down' ? 60 : 130) * sc;
+function drawGroupLabel(g, grp) {
+  const [bx, ty] = grp.label;
   if (grp.current) {
     g.fillStyle = SHU; g.fillRect(bx - 13, ty - 16, 26, 26); g.fillStyle = '#fbf3e2'; g.font = `18px ${FONT_BRUSH}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('今', bx, ty - 3);
   } else {
@@ -2546,6 +2744,7 @@ function paintItem(g, it, ctxInfo) {
     return;
   }
   if (it.k === 'scene') {
+    const V = it.V = sc_sceneV(it);
     sceneBackground(g, it, rng);
     const sec = it.sec, groups = [];
     for (const r of runs) {
@@ -2553,34 +2752,38 @@ function paintItem(g, it, ctxInfo) {
       if (r.end && r.end.sec === it.i) groups.push({ run: r, snap: r.end, current: r.n === cur.n, isEnd: true });
     }
     if (sec.id === 'depart' && !groups.length) {
-      drawSprite(g, 'raiko', 'walk', 1, it.x1 - 320, 472, 3, -1, null, 1);
+      const p = V.p(7250, 120, 0); drawSprite(g, 'raiko', 'walk', 1, p[0], p[1] + 2, 3, -1, null, 1);
+      sceneForeground(g, it);
       return;
     }
+    const sx = s => V.p(s.x, snapZ(s), 0)[0];
     for (const grp of groups) {
       if (grp.isEnd) continue;
       const end = groups.find(o => o.isEnd && o.run === grp.run);
       if (!end) continue;
-      if (Math.abs(emX(it, end.snap.player.x) - emX(it, grp.snap.player.x)) < 120) grp.drop = true;
+      if (Math.abs(sx(end.snap.player) - sx(grp.snap.player)) < 120) grp.drop = true;
       else grp.skip = new Set(end.snap.enemies.map(e => e.id));
     }
     const live = groups.filter(g2 => !g2.drop).sort((a, b) => (b.run.n - a.run.n) || (a.isEnd ? -1 : 1)).slice(0, 7);
     const placed = [], lo = it.x0 + 70, hi = it.x1 - 70;
     const OFFS = [0, 1, -1, 2, -2, 3, -3, 4, -4];
     for (const grp of live) {
-      const base = emX(it, grp.snap.player.x);
+      const base = sx(grp.snap.player);
       let best = null;
       for (const k of OFFS) {
-        const x = clamp(base + k * 150, lo, hi);
-        if (placed.every(o => Math.abs(o - x) >= 120)) { best = { k, x }; break; }
+        const x = clamp(base + k * 130, lo, hi);
+        if (placed.every(o => Math.abs(o - x) >= 110)) { best = { k, x }; break; }
       }
-      if (!best) best = { k: OFFS[placed.length % OFFS.length], x: clamp(base + OFFS[placed.length % OFFS.length] * 150, lo, hi) };
-      const depth = Math.abs(best.k);
-      grp.dx = best.x - base; grp.dy = -10 * depth; grp.scale = Math.pow(0.95, depth);
+      if (!best) best = { k: 0, x: clamp(base + OFFS[placed.length % OFFS.length] * 130, lo, hi) };
+      grp.dx = best.x - base;
       placed.push(best.x);
     }
-    const order = live.slice().sort((a, b) => a.dy - b.dy);
-    for (const grp of order) drawGroupEnemies(g, it, grp);
-    for (const grp of order) drawGroupHero(g, it, grp);
+    const figs = [];
+    for (const grp of live) queueGroup(figs, it, grp);
+    figs.sort((a, b) => b.z - a.z);
+    for (const f of figs) f.draw(g);
+    sceneForeground(g, it);
+    for (const grp of live) drawGroupLabel(g, grp);
     return;
   }
   if (it.k === 'okugaki') {
@@ -2710,7 +2913,7 @@ function toTitle() {
   $('emakiBar').hidden = true; $('touch').hidden = true; $('title').hidden = false;
   const st = $('story'); st.classList.remove('show'); st.hidden = true;
   refreshTitle();
-  G.camX = WORLD_W - W;
+  G.camX = CAM_MAX;
   $('rotate').hidden = true; positionMute();
   $('bStart').focus({ preventScroll: true });
 }
@@ -2721,7 +2924,7 @@ function startGame() {
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   positionMute();
   keys.clear();
-  input.left = input.right = input.jump = input.atk = input.jumpP = input.atkP = false;
+  input.left = input.right = input.up = input.down = input.jump = input.atk = input.jumpP = input.atkP = false;
 }
 $('bStart').addEventListener('click', startGame);
 $('bAgain').addEventListener('click', startGame);
@@ -2767,7 +2970,7 @@ function frame(now) {
   try {
     if (state === 'play') updatePlay(dt);
     else if (state === 'story') { G.time += dt; if (G.player) { G.player.downT += dt; } }
-    else if (state === 'title') { titleT += dt; G.camX = (WORLD_W - W) - ((titleT * 40) % (WORLD_W - W)); }
+    else if (state === 'title') { titleT += dt; G.camX = CAM_MAX - ((titleT * 40) % CAM_MAX); }
     if (state === 'emaki') { if (emaki.needsFit && now >= emaki.fitAt) rebuildEmaki(); updateEmaki(dt); renderEmaki(); }
     else renderGame(time);
   } finally { requestAnimationFrame(frame); }
