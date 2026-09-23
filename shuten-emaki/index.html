@@ -1001,11 +1001,11 @@ const ENEMY_DEFS = [
 function sc_P() {
   return sc_P.v || (sc_P.v = {
     ink: '#2a2420', paper: '#efe3c6', gofun: '#f3ecdc', shu: '#b8412e', shuD: '#8f2f22',
-    gunjo: '#2f4d86', gunjoL: '#5d79ab', roku: '#3f7d66', rokuL: '#6f9e7c', rokuD: '#2a5242', byaku: '#a6c4a4',
+    gunjo: '#2c55a2', gunjoL: '#5a7fc0', roku: '#4f8d44', rokuL: '#95c066', rokuD: '#2c5a32', byaku: '#b9d49a',
     kin: '#c9a445', kinL: '#e2c878', kinD: '#9a782c', kinS: '#f4e3a6',
-    earth: '#dcc393', earth2: '#ceb07a', bark: '#634532', pineBark: '#7a4f36',
-    needle: '#3b715a', needleD: '#1d3a2e', leaf: '#35634d', leafL: '#6f9e7c', leafD: '#1f3d31',
-    rock: '#a6977c', rockD: '#7f735e', tile: '#4f4845', wood: '#5b3d28', water: '#b3c7c6', wall: '#e1cc98', plaster: '#f1e8d3',
+    earth: '#e2cb95', earth2: '#c9a86c', bark: '#634532', pineBark: '#7a4f36',
+    needle: '#3e7a45', needleD: '#1d3d24', leaf: '#3a6f40', leafL: '#8cba62', leafD: '#1f4226',
+    rock: '#b89f6c', rockD: '#8a7248', tile: '#4f4845', wood: '#5b3d28', water: '#b3c7c6', wall: '#e1cc98', plaster: '#f1e8d3',
   });
 }
 function sc_rgba(hex, a) { const v = parseInt(hex.slice(1), 16); return 'rgba(' + (v >> 16) + ',' + (v >> 8 & 255) + ',' + (v & 255) + ',' + a + ')'; }
@@ -1013,10 +1013,10 @@ function sc_pal(name) {
   if (!sc_pal.m) {
     const P = sc_P();
     sc_pal.m = {
-      far: { ridge: '#5b77a8', body: '#a9c0a6', inkA: 0.58, lw: 1, moss: 0.22, dot: 0.85, mossCol: '#6f8c7c', fade: 0.5, bandA: 0.9 },
+      far: { ridge: '#4a6fb4', body: '#a9c98c', inkA: 0.58, lw: 1, moss: 0.22, dot: 0.85, mossCol: '#6f8c7c', fade: 0.5, bandA: 0.9 },
       mid: { ridge: P.gunjo, body: P.rokuL, inkA: 0.8, lw: 1.3, moss: 0.5, dot: 1, trees: 0.2, fade: 0.42 },
-      farOni: { ridge: '#50689a', body: '#93ab9c', inkA: 0.5, lw: 1.1, moss: 0.3, dot: 0.9, mossCol: '#4f6b5c', fade: 0.5, peak: 1.25, jag: 0.1 },
-      midOni: { ridge: '#243f73', body: '#4f8a6e', inkA: 0.85, lw: 1.4, moss: 0.6, dot: 1.1, trees: 0.25, fade: 0.4, peak: 1.3, jag: 0.12 },
+      farOni: { ridge: '#3d62a8', body: '#8fb57a', inkA: 0.5, lw: 1.1, moss: 0.3, dot: 0.9, mossCol: '#4f6b5c', fade: 0.5, peak: 1.25, jag: 0.1 },
+      midOni: { ridge: '#2a4f98', body: '#5d9a4c', inkA: 0.85, lw: 1.4, moss: 0.6, dot: 1.1, trees: 0.25, fade: 0.4, peak: 1.3, jag: 0.12 },
     };
   }
   return sc_pal.m[name];
@@ -1078,7 +1078,7 @@ function sc_stains(cg, w, h, r, n) {
 }
 function drawPaper(g, w, h) {
   const s = sc_sprite(sc_scaleOf(g), 'paper:' + w + ':' + h, 0, 0, w, h, cg => {
-    const gr = cg.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#ecdcb6'); gr.addColorStop(1, '#dfc99a');
+    const gr = cg.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#dcc591'); gr.addColorStop(1, '#d2b780');
     cg.fillStyle = gr; cg.fillRect(0, 0, w, h);
     const r = mulberry(5150);
     sc_stains(cg, w, h, r, 16);
@@ -1105,35 +1105,19 @@ function sc_barPath(g, B) {
   g.closePath();
 }
 function kinun(g, x, y, w, h, rng) {
-  const P = sc_P();
-  const bars = [[x, y + h * 0.3, w, h * 0.7, 0.3]];
+  const bars = [[x, y + h * 0.3, w, h * 0.7, 0.05]];
   const bw = w * (0.32 + rng() * 0.28), bx = x + h * 0.5 + rng() * Math.max(1, w - bw - h);
-  bars.push([bx, y, bw, h * 0.52, 0.38]);
-  if (w > h * 6) { const cw = w * (0.2 + rng() * 0.18), left = rng() < 0.5; bars.push([left ? x - h * 0.3 : x + w - cw + h * 0.3, y + h * 0.66, cw, h * 0.4, 0.24]); }
-  const geo = bars.map(b => sc_barGeo(b, rng));
-  g.save(); g.lineJoin = 'round';
-  g.beginPath(); for (const B of geo) sc_barPath(g, B);
-  g.strokeStyle = sc_rgba(P.kinD, 0.8); g.lineWidth = Math.max(1.2, h * 0.05); g.stroke();
-  g.fillStyle = '#d2af58'; g.fill();
-  g.clip();
-  // 砂子 on the leaf
-  const n = Math.floor(w * h / 60);
-  g.fillStyle = sc_rgba(P.kinS, 0.7); for (let k = 0; k < n; k++) { const s = 0.5 + rng() * 1.1; g.fillRect(x - h * 0.4 + rng() * (w + h * 0.8), y + rng() * h * 1.1, s, s); }
-  g.fillStyle = 'rgba(140,104,38,.3)'; for (let k = 0; k < n * 0.35; k++) { const s = 0.5 + rng() * 0.9; g.fillRect(x - h * 0.4 + rng() * (w + h * 0.8), y + rng() * h * 1.1, s, s); }
-  g.restore();
-  // 砂子 drifting off the edges, 切箔 squares and 野毛 slivers
-  g.save();
-  g.fillStyle = sc_rgba(P.kin, 0.85);
-  for (let k = 0, m = Math.floor(w / 2.6); k < m; k++) {
-    const b = bars[Math.floor(rng() * bars.length)], up = rng() < 0.5, d = Math.pow(rng(), 2.2) * h * 0.6;
-    const px2 = b[0] + b[3] * 0.3 + rng() * (b[2] - b[3] * 0.6), py2 = up ? b[1] - 1 - d : b[1] + b[3] + 1 + d, s = 0.5 + rng() * 1.1;
-    g.fillRect(px2, py2, s, s);
-  }
-  g.fillStyle = '#d4b45a';
-  for (let k = 0, m = Math.max(2, Math.floor(w / 55)); k < m; k++) {
-    const b = bars[Math.floor(rng() * bars.length)], up = rng() < 0.5;
-    const px2 = b[0] + rng() * b[2], py2 = up ? b[1] - 2 - rng() * h * 0.45 : b[1] + b[3] + 2 + rng() * h * 0.45, s = 1.6 + rng() * 2.2;
-    g.save(); g.translate(px2, py2); g.rotate(rng() * 1.5); if (rng() < 0.7) g.fillRect(-s / 2, -s / 2, s, s); else g.fillRect(-s * 1.6, -0.4, s * 3.2, 0.8); g.restore();
+  bars.push([bx, y, bw, h * 0.52, 0.06]);
+  if (w > h * 6) { const cw = w * (0.2 + rng() * 0.18), left = rng() < 0.5; bars.push([left ? x - h * 0.3 : x + w - cw + h * 0.3, y + h * 0.66, cw, h * 0.4, 0.04]); }
+  const geo = bars.map(bb => sc_barGeo(bb, rng));
+  g.save(); g.lineJoin = g.lineCap = 'round';
+  for (const B of geo) { // each band painted on its own so the white contours of the lower bands show through
+    g.beginPath(); sc_barPath(g, B); g.fillStyle = '#a9bdb8'; g.fill();
+    g.save(); g.clip();
+    g.fillStyle = 'rgba(236,240,232,.16)'; g.fillRect(B.x - B.h, B.y, B.w + 2 * B.h, B.h * 0.4);
+    g.translate(B.h * 0.5, B.h * 0.22); g.beginPath(); sc_barPath(g, B); g.strokeStyle = 'rgba(250,250,242,.55)'; g.lineWidth = Math.max(0.7, B.h * 0.035); g.stroke();
+    g.restore();
+    g.beginPath(); sc_barPath(g, B); g.strokeStyle = 'rgba(250,250,242,.95)'; g.lineWidth = Math.max(1, B.h * 0.05); g.stroke();
   }
   g.restore();
 }
@@ -1496,7 +1480,7 @@ function sc_X() {
   return sc_X.v || (sc_X.v = {
     floor: '#dcc59b', floorD: '#b5946a', floorE: '#6b4a33', shiraki: '#cfb287', shirakiD: '#a2825a',
     lac: '#2e2724', lacD: '#171311', tatami: '#d3c689', misu: '#dcd0a2', misuL: '#8a7446', mokou: '#2f5d4b',
-    kabe: '#f1e8d3', kabeD: '#d8ccaf', iron: '#474d52', ironD: '#2a2e31', earthF: '#d2b27e', inner: '#5a4636', innerOni: '#3b2c25',
+    kabe: '#f1e8d3', kabeD: '#d8ccaf', iron: '#474d52', ironD: '#2a2e31', tatamiF: '#c3cc8a', earthF: '#d2b27e', inner: '#5a4636', innerOni: '#3b2c25',
   });
 }
 const sc_hash = c => { const h = Math.sin(c * 12.9898 + 78.233) * 43758.5453; return h - Math.floor(h); };
@@ -1630,6 +1614,19 @@ function sc_lattice(g, V, x, za, zb, h0, h1, alongZ) {
   else for (let xx = za + 5; xx < zb; xx += 6) sc_line(g, V, [xx, x, h0], [xx, x, h1]);
   g.strokeStyle = sc_rgba(sc_P().ink, 0.7); g.lineWidth = 0.9 * V.s; g.stroke();
 }
+// 敷き詰めた畳 with 高麗縁 (white borders dotted in black), as on the floor of 酒呑童子's hall
+function sc_tatamiFloor(g, V, x0, x1, z0, z1) {
+  const P = sc_P(), rows = [], TZ = 46, TX = 92;
+  g.save(); sc_q(g, V, [[x0, z0, 0], [x1, z0, 0], [x1, z1, 0], [x0, z1, 0]]); g.clip();
+  g.beginPath(); for (let z = z0 + 3; z < z1; z += 3.2) sc_line(g, V, [x0, z, 0], [x1, z, 0]); g.strokeStyle = sc_rgba(P.roku, 0.12); g.lineWidth = 0.6 * V.s; g.stroke();
+  g.beginPath();
+  for (let z = z0; z <= z1 + 0.1; z += TZ) { sc_line(g, V, [x0, z, 0], [x1, z, 0]); rows.push(z); }
+  rows.forEach((z, i) => { if (z >= z1) return; for (let x = x0 + (i % 2 ? TX / 2 : 0); x < x1; x += TX) sc_line(g, V, [x, z, 0], [x, Math.min(z1, z + TZ), 0]); });
+  g.strokeStyle = sc_rgba(P.ink, 0.6); g.lineWidth = 4.4 * V.s; g.stroke();
+  g.strokeStyle = '#f2ecd9'; g.lineWidth = 3.2 * V.s; g.stroke();
+  g.setLineDash([1.4 * V.s, 3.2 * V.s]); g.strokeStyle = P.ink; g.lineWidth = 1.5 * V.s; g.stroke(); g.setLineDash([]);
+  g.restore();
+}
 function sc_hallBack(g, V, H, oni) {
   const P = sc_P(), X = sc_X(), zf = -24, zb = H.back, x0 = H.x0, x1 = H.x1, HN = SC_HN, HT = SC_HT;
   const col = oni ? P.shu : X.shiraki, side = oni ? P.shuD : X.shirakiD;
@@ -1638,8 +1635,9 @@ function sc_hallBack(g, V, H, oni) {
   sc_q(g, V, [[x0, zf, 0], [x1, zf, 0], [x1, zf, -16], [x0, zf, -16]]); sc_fill(g, X.floorE, P.ink, sc_lw(V, 1));
   g.beginPath(); for (let x = x0 + 28; x < x1; x += 56) sc_line(g, V, [x, zf, -2], [x, zf, -16]); g.strokeStyle = sc_rgba(P.ink, 0.55); g.lineWidth = 1.8 * V.s; g.stroke();
   if (oni) { sc_q(g, V, [[x1, zf, 0], [x1, zb, 0], [x1, zb, -16], [x1, zf, -16]]); sc_fill(g, X.floorE, P.ink, sc_lw(V, 1)); }
-  sc_q(g, V, [[x0, zf, 0], [x1, zf, 0], [x1, zb, 0], [x0, zb, 0]]); g.fillStyle = oni ? X.floorD : X.floor; g.fill();
-  g.beginPath(); for (let x = x0 + 21; x < x1; x += 21) sc_line(g, V, [x, zf, 0], [x, zb, 0]); g.strokeStyle = sc_rgba(P.ink, 0.2); g.lineWidth = 0.6 * V.s; g.stroke();
+  sc_q(g, V, [[x0, zf, 0], [x1, zf, 0], [x1, zb, 0], [x0, zb, 0]]); g.fillStyle = oni ? X.tatamiF : X.floor; g.fill();
+  if (oni) sc_tatamiFloor(g, V, x0, x1, zf + 30, zb);
+  else { g.beginPath(); for (let x = x0 + 21; x < x1; x += 21) sc_line(g, V, [x, zf, 0], [x, zb, 0]); g.strokeStyle = sc_rgba(P.ink, 0.2); g.lineWidth = 0.6 * V.s; g.stroke(); }
   sc_q(g, V, [[x0, zf, 0], [x1, zf, 0], [x1, zf + 30, 0], [x0, zf + 30, 0]]); g.fillStyle = sc_rgba(P.bark, 0.14); g.fill();
   g.beginPath(); sc_line(g, V, [x0, zf + 30, 0], [x1, zf + 30, 0]); g.strokeStyle = sc_rgba(P.ink, 0.45); g.lineWidth = sc_lw(V, 0.8); g.stroke();
   sc_q(g, V, [[x0, zf, 0], [x1, zf, 0], [x1, zb, 0], [x0, zb, 0]]); g.strokeStyle = P.ink; g.lineWidth = sc_lw(V, 1.2); g.stroke();
@@ -1844,6 +1842,18 @@ function sc_crag(g, X, Y, w, h, s, r) {
   if (r() < 0.5 && h > 60 * s) { const t = parts[0]; pine(g, t[0] + (r() - 0.5) * t[2] * 0.4, t[1] - t[3] * 0.7, (0.34 + r() * 0.16) * s, r); }
   const items = []; for (let k = 0; k < 4; k++) { const q = parts[Math.floor(r() * parts.length)]; items.push([q[0] + (r() - 0.5) * q[2] * 0.6, q[1] - q[3] * (0.3 + r() * 0.4), r]); } sc_grass(g, items);
 }
+function sc_momiji(g, X, Y, s, r) {
+  const P = sc_P(), th = (70 + r() * 30) * s, lean = (r() - 0.5) * 0.5;
+  const tr = []; for (let i = 0; i <= 6; i++) { const t = i / 6; tr.push([X + lean * th * t + Math.sin(t * 3 + r()) * 4 * s, Y - th * t]); }
+  g.save(); g.lineJoin = g.lineCap = 'round';
+  sc_taper(g, tr, 7 * s, 2.2 * s); g.fillStyle = P.bark; g.fill(); g.strokeStyle = P.ink; g.lineWidth = 0.9 * s; g.stroke();
+  const tips = [];
+  for (let i = 0; i < 5; i++) { const p = tr[2 + Math.floor(r() * 4)], d = r() < 0.5 ? -1 : 1, e = [p[0] + d * (16 + r() * 22) * s, p[1] - (8 + r() * 16) * s]; g.beginPath(); g.moveTo(p[0], p[1]); g.quadraticCurveTo((p[0] + e[0]) / 2, p[1] - 2 * s, e[0], e[1]); g.strokeStyle = P.ink; g.lineWidth = 2.4 * s; g.stroke(); g.strokeStyle = P.bark; g.lineWidth = 1.2 * s; g.stroke(); tips.push(e); }
+  tips.push(tr[6]);
+  const cols = ['#d4532a', '#e0742e', '#c23b24', '#e9a23a', '#b8412e'];
+  for (const c of cols) { g.beginPath(); for (const t of tips) for (let k = 0; k < 9; k++) { const a = r() * 6.283, rr = r() * 15 * s, px = t[0] + Math.cos(a) * rr * 1.3, py = t[1] + Math.sin(a) * rr * 0.8, q = (1.8 + r() * 1.4) * s; for (let j = 0; j < 5; j++) { const b = j / 5 * 6.283 + a; g.moveTo(px, py); g.lineTo(px + Math.cos(b) * q, py + Math.sin(b) * q); } } g.strokeStyle = c; g.lineWidth = 1.5 * s; g.stroke(); }
+  g.restore();
+}
 function sc_dopa(g, V, x, z, L, hh, r) { // 土坡: an earthen bank with 緑青 on its crest
   const P = sc_P(), pts = [];
   for (let i = 0; i <= 10; i++) { const u = i / 10, e = Math.pow(Math.sin(Math.PI * u), 0.7) * (0.8 + r() * 0.3); pts.push(V.p(x - L / 2 + L * u, z + (r() - 0.5) * 10, hh * e)); }
@@ -1876,7 +1886,7 @@ function sc_bandSeg(g, V, a, b) {
   const poly = (A, B) => { g.beginPath(); A.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); for (let i = B.length - 1; i >= 0; i--) g.lineTo(B[i][0], B[i][1]); g.closePath(); };
   const line = A => { g.beginPath(); A.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); };
   g.save(); g.lineJoin = g.lineCap = 'round';
-  poly(T, F); g.fillStyle = sc_rgba(P.earth, 0.3); g.fill();
+  poly(T, F); g.fillStyle = 'rgba(236,216,164,.42)'; g.fill();
   line(T); g.strokeStyle = sc_rgba(P.rokuL, 0.38); g.lineWidth = 9 * V.s; g.stroke();
   g.strokeStyle = sc_rgba(P.roku, 0.7); g.lineWidth = 3.2 * V.s; g.stroke();
   g.strokeStyle = sc_rgba(P.ink, 0.6); g.lineWidth = sc_lw(V, 0.9); g.stroke();
@@ -1911,18 +1921,19 @@ const PROPS_B = [], PROPS_F = [];
     else if (kind === 'rock') o.mL = o.mR = o.w / 2 + 10;
     else if (kind === 'tree') o.mL = o.mR = 210;
     else if (kind === 'crag') o.mL = o.mR = o.w * 0.95 + 20;
+    else if (kind === 'momiji') o.mL = o.mR = 70 * o.s + 40;
     else o.mL = o.mR = 50;
     (front ? PROPS_F : PROPS_B).push(o);
   };
   const busy = x => (x > HALL.x0 - 50 && x < HALL.x1 + 30) || x > YAKATA.x0 - 50 || (x > RIVER.x0 - 60 && x < RIVER.x1 + 50) || MON.some(m => Math.abs(x - m.x) < 70);
   // far 青緑 mountains, the 霞 over their feet and along the top of the picture
   for (let x = -900; x < WORLD_W + 600; x += 170 + R() * 150) { const oni = x < 2700; add('mtn', { x, z: 650 + R() * 110, w: 240 + R() * 240, h: (oni ? 110 : 70) + R() * 80, pal: oni ? 'farOni' : 'far', seed: seed() }); }
-  for (let x = -1000; x < WORLD_W + 600; x += 420 + R() * 380) add('cloud', { x, z: 640 + R() * 40, hc: 12 + R() * 22, w: 380 + R() * 320, hh: 24 + R() * 8, seed: seed() });
-  for (let x = -1200; x < WORLD_W + 600; x += 420 + R() * 260) add('cloud', { x, z: 960 + R() * 30, hc: 0, w: 620 + R() * 360, hh: 34 + R() * 12, seed: seed() });
+  for (let x = -1000; x < WORLD_W + 600; x += 420 + R() * 380) add('cloud', { x, z: 640 + R() * 40, hc: 12 + R() * 22, w: 420 + R() * 360, hh: 40 + R() * 12, seed: seed() });
+  for (let x = -1200; x < WORLD_W + 600; x += 420 + R() * 260) add('cloud', { x, z: 960 + R() * 30, hc: 0, w: 700 + R() * 400, hh: 58 + R() * 16, seed: seed() });
   // nearer hills: the rugged 大江山 on the left, gentle 青緑 hills elsewhere
   for (let x = -500; x < 2800; x += 210 + R() * 150) add('mtn', { x, z: 450 + R() * 110, w: 300 + R() * 200, h: 150 + R() * 90, pal: 'midOni', seed: seed(), pine: R() < 0.55 ? { u: R() - 0.5, s: 0.5, seed: seed() } : null });
   for (let x = 2800; x < WORLD_W + 400; x += 260 + R() * 220) add('mtn', { x, z: 540 + R() * 90, w: 260 + R() * 200, h: 80 + R() * 70, pal: 'mid', seed: seed(), pine: R() < 0.4 ? { u: R() - 0.5, s: 0.45, seed: seed() } : null });
-  for (let x = -900; x < WORLD_W + 400; x += 560 + R() * 420) add('cloud', { x, z: 400 + R() * 110, hc: 40 + R() * 50, w: 360 + R() * 300, hh: 24 + R() * 8, seed: seed() });
+  for (let x = -900; x < WORLD_W + 400; x += 560 + R() * 420) add('cloud', { x, z: 400 + R() * 110, hc: 40 + R() * 50, w: 420 + R() * 320, hh: 38 + R() * 10, seed: seed() });
   // 岩組: jagged 青緑 rock masses crowding the road into 大江山, fewer and lower further from the mountain
   for (let x = -300; x < 4600; x += 150 + R() * 170) {
     if (busy(x) || Math.abs(x - TREE_X) < 240) continue;
@@ -1942,7 +1953,9 @@ const PROPS_B = [], PROPS_F = [];
     if (r < 0.4) add('rock', { x, z: -60 - R() * 26, w: 36 + R() * 40, h: 14 + R() * 14, seed: seed() });
     else if (r < 0.75) { const z = -64 - R() * 24; add('dopa', { x, z, x0: x - 80, x1: x + 80, z0: z - 10, z1: z + 10, L: 120 + R() * 140, hh: 8 + R() * 10, seed: seed() }); }
   }
-  for (let x = -800; x < WORLD_W + 400; x += 520 + R() * 360) add('cloud', { x, z: -52, hc: 0, w: 480 + R() * 320, hh: 28 + R() * 8, seed: seed() });
+  for (let x = -800; x < WORLD_W + 400; x += 520 + R() * 360) add('cloud', { x, z: -52, hc: 0, w: 560 + R() * 360, hh: 44 + R() * 10, seed: seed() });
+  // 紅葉 along the road into 大江山 and around the demon's hall
+  for (let x = -200; x < 4400; x += 260 + R() * 340) { if (busy(x) && !(x > HALL.x0 && x < HALL.x1)) continue; add('momiji', { x, z: (x > HALL.x0 && x < HALL.x1 ? HALL.back + 40 : ZMAX + 40) + R() * 90, s: 0.9 + R() * 0.5, seed: seed() }); }
   // the lower edge is framed by stones, small 岩組 and grasses as in the scrolls
   for (let x = -300; x < WORLD_W + 200; x += 200 + R() * 260) {
     if (busy(x)) continue;
@@ -1970,7 +1983,7 @@ const PROPS_B = [], PROPS_F = [];
   }
   add('tsuijiX', { x0: MON[0].x, x1: YAKATA.x0, z0: 342, z1: 342, z: 342, dark: false });
   add('tsuijiX', { x0: HALL.x1 - 20, x1: MON[1].x, z0: 342, z1: 342, z: 342, dark: true });
-  for (const H of [HALL, YAKATA]) for (let x = H.x0 - 140; x < H.x1; x += 280 + R() * 120) add('cloud', { x, z: H.back - 10, hc: 214 + R() * 12, w: 260 + R() * 160, hh: 26 + R() * 8, seed: seed() });
+  for (const H of [HALL, YAKATA]) for (let x = H.x0 - 140; x < H.x1; x += 280 + R() * 120) add('cloud', { x, z: H.back - 10, hc: 214 + R() * 12, w: 320 + R() * 200, hh: 40 + R() * 10, seed: seed() });
   // roofs of the capital beyond the mansion wall
   for (let x = 5880; x < 7300; x += 80 + R() * 70) { if (x > 6440 && x < 6560) continue; const w = 60 + R() * 50, d = 36 + R() * 24, z = 400 + R() * 200; add('house', { x0: x, x1: x + w, z0: z, z1: z + d, w, d, hgt: 26 + R() * 12 }); }
   PROPS_B.sort((a, b) => b.key - a.key); PROPS_F.sort((a, b) => b.key - a.key);
@@ -1983,6 +1996,7 @@ function sc_paintProp(g, V, o) {
     case 'cloud': { const w = Math.round(o.w * V.s), h = Math.round(o.hh * V.s); if (V === V_WORLD) kinunCached(g, p[0], p[1], w, h, o.seed); else kinun(g, p[0], p[1], w, h, mulberry(o.seed)); break; }
     case 'pine': pine(g, p[0], p[1] + 3 * V.s, o.s * V.s, mulberry(o.seed)); break;
     case 'rock': rock(g, p[0], p[1] + 3 * V.s, o.w * V.s, o.h * V.s, mulberry(o.seed)); break;
+    case 'momiji': sc_momiji(g, p[0], p[1] + 3 * V.s, o.s * V.s, mulberry(o.seed)); break;
     case 'crag': sc_crag(g, p[0], p[1] + 3 * V.s, o.w * V.s, o.h * V.s, V.s, mulberry(o.seed)); break;
     case 'dopa': sc_dopa(g, V, o.x, o.z, o.L, o.hh, mulberry(o.seed)); break;
     case 'house': sc_house(g, V, o.x0, o.z0, o.w, o.d, o.hgt); break;
@@ -2103,10 +2117,12 @@ function sc_sceneV(it) {
 function sceneBackground(g, it, rng) {
   const V = it.V || (it.V = sc_sceneV(it)), { x0, w, sec } = it;
   g.save(); g.beginPath(); g.rect(x0, 0, w, PH); g.clip(); g.lineJoin = g.lineCap = 'round';
+  g.fillStyle = 'rgba(210,182,124,.78)'; g.fillRect(x0, 0, w, PH);
   sc_paintRange(g, V, x0, x0 + w, 0, [sec.x0 - 900, sec.x1 + 200]);
   if (sec.id === 'oni') sc_door(g, V, 1, false);
-  kinun(g, x0 - 60, 4 + rng() * 12, w * 0.6, 40, rng);
-  kinun(g, x0 + w * 0.45, 12 + rng() * 12, w * 0.62, 36, rng);
+  kinun(g, x0 - 60, -14 + rng() * 10, w * 0.62, 66, rng);
+  kinun(g, x0 + w * 0.42, 4 + rng() * 12, w * 0.66, 58, rng);
+  kinun(g, x0 + w * 0.2, PH - 50 + rng() * 8, w * 0.7, 62, rng);
   g.restore();
 }
 function sceneForeground(g, it) {
