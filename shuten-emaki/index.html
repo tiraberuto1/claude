@@ -19,7 +19,7 @@
 html,body{height:100%}
 body{margin:0;background:var(--lacquer);color:var(--ink);font-family:var(--mincho);overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
 #cv{position:fixed;inset:0;display:block;width:100%;height:100%;touch-action:none}
-.ov{position:fixed;inset:0;display:grid;place-items:center;padding-inline:16px}
+.ov{position:fixed;inset:0;display:grid;place-items:safe center;padding:12px 16px;overflow-y:auto;box-sizing:border-box}
 button{font-family:var(--mincho)}
 .btn{font:700 15px/1 var(--mincho);letter-spacing:.12em;color:var(--ink);background:rgba(239,227,198,.92);border:1.5px solid var(--ink);border-radius:2px;padding:12px 18px;cursor:pointer}
 .btn:hover{background:#f6ecd4}
@@ -74,6 +74,22 @@ button{font-family:var(--mincho)}
   .keys{display:none}
 }
 @media (orientation:landscape),(min-width:700px){#rotate{display:none}}
+@media (max-height:520px){
+  .tcard{grid-template-columns:auto minmax(0,400px);gap:18px;padding:14px 18px}
+  .tcard h1{font-size:40px}
+  .tcard h1 small{font-size:18px}
+  .lead{font-size:19px}
+  .desc{font-size:12.5px;line-height:1.6}
+  .tside{gap:9px}
+  .keys{display:none}
+  .btn{padding:10px 14px}
+}
+@media (pointer:coarse){.keys{display:none}}
+@media (pointer:coarse) and (orientation:landscape){
+  #touch{padding:0 10px calc(env(safe-area-inset-bottom,0px) + 8px)}
+  #touch .grp{gap:8px}
+  #touch button{width:56px;height:56px;font-size:20px;background:rgba(239,227,198,.32);border-color:rgba(42,36,32,.55)}
+}
 @media (prefers-reduced-motion:reduce){#story,#story h2,#story p{transition:none}}
 </style>
 
@@ -121,7 +137,7 @@ button{font-family:var(--mincho)}
   <div class="grp"><button id="tJ" type="button" aria-label="跳ぶ">跳</button><button id="tA" type="button" aria-label="斬る">斬</button></div>
 </div>
 <button id="mute" type="button" aria-pressed="false">音　入</button>
-<p id="rotate">横向きにすると遊びやすくなります</p>
+<p id="rotate" hidden>横向きにすると遊びやすくなります</p>
 
 <script>
 (() => {
@@ -136,7 +152,7 @@ const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const lerp = (a, b, t) => a + (b - a) * t;
 function mulberry(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 const KNUM = ['〇','一','二','三','四','五','六','七','八','九','十','十一','十二','十三','十四','十五','十六','十七','十八','十九','二十'];
-const kn = n => KNUM[n] || String(n);
+const kn = n => { if (n <= 20) return KNUM[n] || String(n); if (n < 100) { const t = Math.floor(n / 10), o = n % 10; return (t > 1 ? KNUM[t] : '') + '十' + (o ? KNUM[o] : ''); } return String(n); };
 const FONT_BRUSH = '"Yuji Syuku","Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif';
 const FONT_MIN = '"Zen Old Mincho","Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif';
 const INK = '#2a2420', SHU = '#b8412e', KIN = '#c9a445', PAPER = '#efe3c6';
@@ -146,7 +162,8 @@ function resize() {
   VW = innerWidth; VH = innerHeight;
   cv.width = Math.round(VW * DPR); cv.height = Math.round(VH * DPR);
   gS = Math.min(VW / W, VH / H); gOX = (VW - W * gS) / 2; gOY = (VH - H * gS) / 2;
-  if (emaki.canvas) emaki.needsFit = true;
+  if (emaki.canvas) { emaki.needsFit = true; emaki.fitAt = performance.now() + 220; }
+  positionMute();
 }
 addEventListener('resize', resize);
 
@@ -184,6 +201,11 @@ const SFX = {
   gate() { tone(110, 80, 1.4, 'square', 0.06); noise(1.2, 0.05, 300); },
   win() { [392, 523, 659].forEach((f, i) => tone(f, f, 0.5, 'triangle', 0.1, i * 0.18)); },
 };
+function positionMute() {
+  const m = $('mute'); if (!m) return;
+  if (state === 'play' || state === 'story') { m.style.top = Math.round(gOY + 62 * gS) + 'px'; m.style.right = Math.max(12, Math.round(VW - gOX - W * gS + 16 * gS)) + 'px'; }
+  else { m.style.top = ''; m.style.right = ''; }
+}
 function toggleMute() {
   audio.muted = !audio.muted;
   $('mute').textContent = audio.muted ? '音　切' : '音　入';
@@ -375,7 +397,7 @@ const GATE_X = 250, ARENA = { x0: 620, x1: 1545 };
 const POINTS = [
   { id: 'A', name: '橋の前', short: '橋', x: 5460 },
   { id: 'B', name: '大木の前', short: '木', x: 3360 },
-  { id: 'C', name: '大鬼の前', short: '鬼', x: 1600 },
+  { id: 'C', name: '大鬼の前', short: '鬼', x: 1660 },
 ];
 const ZONE_HALF = 75;
 const SECTIONS = [
@@ -636,12 +658,13 @@ addEventListener('keydown', e => {
   if (state === 'emaki') { emakiKey(e); return; }
   const k = KEYMAP[e.code]; if (!k) return;
   if (state === 'play') e.preventDefault();
+  keys.add(e.code);
   if (e.repeat) return;
   ac();
   input[k] = true; if (k === 'jump') input.jumpP = true; if (k === 'atk') input.atkP = true;
 });
-addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) input[k] = false; });
-addEventListener('blur', () => { input.left = input.right = input.jump = input.atk = false; });
+addEventListener('keyup', e => { keys.delete(e.code); const k = KEYMAP[e.code]; if (k) input[k] = [...keys].some(c => KEYMAP[c] === k); });
+addEventListener('blur', () => { keys.clear(); input.left = input.right = input.jump = input.atk = input.jumpP = input.atkP = false; });
 function bindTouch(id, k) {
   const b = $(id);
   const on = e => { e.preventDefault(); ac(); input[k] = true; if (k === 'jump') input.jumpP = true; if (k === 'atk') input.atkP = true; b.classList.add('on'); };
@@ -654,11 +677,19 @@ const coarse = matchMedia('(pointer: coarse)').matches;
 // ============================================================ history
 const STORE_KEY = 'shuten-emaki-v1';
 let history = [];
+const validSnap = s => !!s && typeof s === 'object' && !!s.player && typeof s.player === 'object' && Number.isFinite(s.player.x) && Number.isFinite(s.player.y) && typeof s.player.pose === 'string' && Array.isArray(s.enemies);
+function validRun(r) {
+  if (!r || typeof r !== 'object' || !Number.isFinite(r.n) || !r.records || typeof r.records !== 'object') return false;
+  for (const k of Object.keys(r.records)) if (!validSnap(r.records[k])) return false;
+  if (!validSnap(r.end) || !Number.isFinite(r.end.sec) || !(r.outcome === 'death' || r.outcome === 'clear')) return false;
+  if (!Number.isFinite(r.minX)) r.minX = r.end.player.x;
+  return true;
+}
 function loadHistory() {
   try {
     const raw = localStorage.getItem(STORE_KEY);
     const arr = raw ? JSON.parse(raw) : [];
-    history = Array.isArray(arr) ? arr.filter(r => r && typeof r.n === 'number' && r.records && typeof r.records === 'object') : [];
+    history = Array.isArray(arr) ? arr.filter(validRun) : [];
   } catch (e) { history = []; }
 }
 function saveHistory() { try { localStorage.setItem(STORE_KEY, JSON.stringify(history.slice(-12))); } catch (e) { /* storage unavailable: keep in memory */ } }
@@ -676,7 +707,7 @@ function newRun() {
   G.enemies = ENEMY_DEFS.map((d, i) => ({ id: i, type: d.type, boss: !!d.boss, x: d.x, y: groundY(d.x), vx: 0, vy: 0, face: -1, a: d.a, b: d.b, hp: d.boss ? 12 : 3, maxhp: d.boss ? 12 : 3, st: 'patrol', t: 0, walkT: 0, dir: -1, ground: true, hurtT: 0, cd: 0, hitDone: false, alive: true, deadT: 0, flash: 0, hits: 0, leapTX: 0 }));
   G.camX = clamp(G.player.x - W * 0.62, 0, WORLD_W - W);
   Object.assign(G, { time: 0, runT: 0, shake: 0, hitstop: 0, slow: 1, particles: [], gate: 0, bossIntro: 0, bossSeen: false, arenaLock: false, stamp: null, banner: { text: '源頼光、大江山へ', t: 2.6 }, endT: 0, prevX: G.player.x, zone: null });
-  G.run = { n, records: {}, end: null, outcome: null, minX: G.player.x, date: new Date().toISOString().slice(0, 10) };
+  G.run = { n, records: {}, end: null, outcome: null, minX: G.player.x, date: (() => { const d = new Date(); return [d.getFullYear(), d.getMonth() + 1, d.getDate()]; })() };
 }
 
 // ------------------------------------------------------------ pose helpers
@@ -736,7 +767,7 @@ function updatePlay(dt) {
   if (Math.abs(p.vx) > 10 && p.ground) p.walkT += sdt;
   const wasGround = p.ground, oldY = p.y;
   p.vy += GRAV * sdt; p.x += p.vx * sdt; p.y += p.vy * sdt;
-  let minX = 40, maxX = WORLD_W - 40;
+  let minX = 40, maxX = WORLD_W - 120;
   if (G.arenaLock) { minX = ARENA.x0 + 10; maxX = ARENA.x1; }
   if (G.enemies.find(e => e.boss).alive) minX = Math.max(minX, ARENA.x0 + 10);
   p.x = clamp(p.x, minX, maxX);
@@ -790,7 +821,7 @@ function damageEnemy(e, dmg, face) {
   e.hp -= dmg; e.flash = 0.12; G.hitstop = 0.06; SFX.hit();
   burst(e.x - face * 10, e.y - (e.boss ? 140 : 90), 10, Math.random() < 0.5 ? SHU : INK);
   if (e.hp <= 0) { e.alive = false; e.deadT = 0; e.vx = 0; G.shake = e.boss ? 0.6 : 0.2; if (e.boss) { G.banner = { text: '大鬼を討ち果たす', t: 2.6 }; SFX.gate(); } return; }
-  if (e.boss) { e.hits++; if (e.hits % 3 === 0) { e.hurtT = 0.45; e.st = 'chase'; } }
+  if (e.boss) { e.hits++; if (e.hits % 3 === 0 && e.st !== 'leap' && e.ground) { e.hurtT = 0.45; e.st = 'chase'; } }
   else { e.hurtT = 0.3; e.vx = face * 160; e.st = 'chase'; }
 }
 function hurtPlayer(p, dmg, fromX) {
@@ -806,7 +837,7 @@ function updateEnemy(e, dt, p) {
   e.cd = Math.max(0, e.cd - dt);
   const dx = p.x - e.x, ad = Math.abs(dx);
   const target = !p.dead && !p.victory;
-  if (e.hurtT > 0) { e.hurtT -= dt; e.x += e.vx * dt; e.vx *= 0.9; }
+  if (e.hurtT > 0) { e.hurtT -= dt; e.x += e.vx * dt; e.vx *= 0.9; if (e.boss) e.x = clamp(e.x, ARENA.x0 + 40, ARENA.x1 - 40); }
   else if (e.boss) updateBoss(e, dt, p, dx, ad, target);
   else {
     switch (e.st) {
@@ -830,7 +861,7 @@ function updateEnemy(e, dt, p) {
       case 'recover': e.t += dt; if (e.t > 0.55) { e.st = 'chase'; e.cd = 0.7; } break;
     }
     e.x += e.vx * dt;
-    e.x = clamp(e.x, e.a - 170, e.b + 170);
+    const lx = clamp(e.x, e.a - 170, e.b + 170); if (lx !== e.x) { e.x = lx; e.vx = 0; }
   }
   if (Math.abs(e.vx) > 5) e.walkT += dt;
   if (e.st !== 'leap') { e.y = groundY(e.x); e.ground = true; }
@@ -871,7 +902,7 @@ function snapshot(focusX, range = 700) {
   return {
     t: Math.round(G.runT * 10) / 10,
     player: { x: Math.round(p.x), y: Math.round(p.y), gy: Math.round(groundY(p.x)), face: p.face, pose: pp.n, f: pp.f, air: !p.ground, attacking: p.atkT > 0, hp: p.hp },
-    enemies: G.enemies.filter(e => Math.abs(e.x - focusX) < range).map(e => { const ep = enemyPose(e); return { type: e.type, boss: e.boss, x: Math.round(e.x), y: Math.round(e.y), gy: Math.round(groundY(e.x)), face: e.face, pose: ep.n, f: ep.f, alive: e.alive, hp: Math.max(0, e.hp) }; }),
+    enemies: G.enemies.filter(e => Math.abs(e.x - focusX) < range).map(e => { const ep = enemyPose(e); return { id: e.id, type: e.type, boss: e.boss, x: Math.round(e.x), y: Math.round(e.y), gy: Math.round(groundY(e.x)), face: e.face, pose: ep.n, f: ep.f, alive: e.alive, hp: Math.max(0, e.hp) }; }),
   };
 }
 function checkRecords(p) {
@@ -886,7 +917,7 @@ function checkRecords(p) {
       if (p.atkT > 0 && e >= 0.1) fire = true;
       else if (p.hurtT > 0) fire = true;
       else if (p.idleT > 0.9) fire = true;
-      else if (!p.ground && p.vy > -40 && p.vy < 60) fire = true;
+      else if (!p.ground && p.atkT <= 0 && p.vy > -40 && p.vy < 60) fire = true;
     }
     if (!inside && wasInside && !p.dead) fire = true;
     if (!inside && !wasInside && ((G.prevX > pt.x + ZONE_HALF && p.x < pt.x - ZONE_HALF) || (G.prevX < pt.x - ZONE_HALF && p.x > pt.x + ZONE_HALF))) fire = true;
@@ -1017,9 +1048,10 @@ function drawHUD(g, time) {
     const a = 0.8;
     g.strokeStyle = `rgba(201,164,69,${a})`; g.lineWidth = 3; const m = 22, L = 44;
     for (const [x, y, sx, sy] of [[m, 64, 1, 1], [W - m, 64, -1, 1], [m, H - 44, 1, -1], [W - m, H - 44, -1, -1]]) { g.beginPath(); g.moveTo(x, y + sy * L); g.lineTo(x, y); g.lineTo(x + sx * L, y); g.stroke(); }
-    g.fillStyle = 'rgba(42,36,32,.82)'; g.fillRect(W / 2 - 230, H - 86, 460, 34);
-    g.fillStyle = '#f0d98c'; g.textAlign = 'center'; g.font = `17px ${FONT_BRUSH}`;
-    g.fillText(`記録の場「${G.zone.name}」── 斬る・跳ぶ・佇む、その姿が絵になる`, W / 2, H - 69);
+    const zt = `記録の場「${G.zone.name}」── 斬る・跳ぶ・佇む、その姿が絵になる`;
+    g.font = `17px ${FONT_BRUSH}`; const tw = g.measureText(zt).width;
+    g.fillStyle = 'rgba(42,36,32,.82)'; g.fillRect(W / 2 - tw / 2 - 18, H - 86, tw + 36, 34);
+    g.fillStyle = '#f0d98c'; g.textAlign = 'center'; g.fillText(zt, W / 2, H - 69);
   }
   if (G.banner) {
     const a = clamp(G.banner.t, 0, 1);
@@ -1059,14 +1091,16 @@ function vwidth(paragraphs, colH, size, gap) {
   for (const para of paragraphs) { const s = para.size || size, per = Math.max(1, Math.floor(colH / (s * 1.1))); w += Math.ceil([...para.text].length / per) * (s + gap) + (para.after || 0); }
   return w;
 }
+const HANG = new Set(['、', '。', '」', '）', '…']);
 function vcolumns(g, paragraphs, xRight, yTop, colH, size, color, gap) {
-  const per = Math.max(1, Math.floor(colH / (size * 1.1)));
   let x = xRight;
   for (const para of paragraphs) {
-    const chars = [...para.text];
-    for (let i = 0; i < chars.length; i += per) {
-      vtext(g, chars.slice(i, i + per).join(''), x, yTop + (para.indent || 0), para.size || size, para.color || color);
-      x -= (para.size || size) + gap;
+    const s = para.size || size, per = Math.max(1, Math.floor(colH / (s * 1.1))), chars = [...para.text];
+    for (let i = 0; i < chars.length;) {
+      let n = Math.min(per, chars.length - i);
+      while (i + n < chars.length && HANG.has(chars[i + n])) n++;
+      vtext(g, chars.slice(i, i + n).join(''), x, yTop + (para.indent || 0), s, para.color || color);
+      x -= s + gap; i += n;
     }
     x -= para.after || 0;
   }
@@ -1090,12 +1124,12 @@ function phraseAction(s) {
   }
 }
 function phraseEnemies(snap) {
-  const px0 = snap.player.x;
+  const px0 = snap.player.x, striking = snap.player.attacking || snap.player.pose === 'atk' || snap.player.pose === 'jatk';
   const near = snap.enemies.filter(e => Math.abs(e.x - px0) < 520).sort((a, b) => Math.abs(a.x - px0) - Math.abs(b.x - px0));
   if (!near.length) return '';
   const e = near[0], who = e.boss ? '大鬼' : e.type === 'aooni' ? '青鬼' : '赤鬼';
   const dead = near.filter(x => !x.alive).length;
-  if (!e.alive) return dead > 1 ? `鬼ども、すでに斃れ伏す` : `${who}はすでに斃れ伏す`;
+  if (!e.alive) return striking && Math.abs(e.x - px0) < 200 ? `${who}、斬り伏せらる` : dead > 1 ? '鬼ども、すでに斃れ伏す' : `${who}はすでに斃れ伏す`;
   switch (e.pose) {
     case 'hurt': return `${who}、斬られてのけぞる`;
     case 'windup': return `${who}、金棒を振りかぶる`;
@@ -1111,7 +1145,7 @@ function recordSentence(run, sec, snap, many) {
   return who + sec.place + phraseAction(snap.player) + '。' + (en ? en + '。' : '');
 }
 function endSentence(run) {
-  const sec = SECTIONS[run.end.sec] || SECTIONS[0];
+  const sec = SECTIONS[run.end ? run.end.sec : 0] || SECTIONS[0];
   if (run.outcome === 'clear') return '頼光、大鬼を討ち果たし、鬼の岩屋へと踏み入る。';
   return `源頼光、${sec.place}鬼と戦うも……`;
 }
@@ -1126,30 +1160,37 @@ function textSpec(it, { runs, cur, many }) {
     const sec = it.sec, paras = [{ text: sec.title, size: 30, color: SHU, after: 14 }], lines = [];
     for (const r of runs) {
       const snap = sec.point && r.records[sec.point];
-      if (snap) lines.push(recordSentence(r, sec, snap, many));
-      if (r.end && r.end.sec === it.i && (many || r.outcome === 'death')) lines.push((many ? `${kn(r.n)}度目の` : '') + (r.outcome === 'clear' ? '頼光、大鬼を討ち果たす。' : `頼光、${sec.place}鬼に打たれ、倒れ伏す。`));
+      const died = r.end && r.end.sec === it.i;
+      let t = snap ? recordSentence(r, sec, snap, many) : '';
+      if (died && (many || r.outcome === 'death')) {
+        const endT = r.outcome === 'clear' ? '大鬼を討ち果たす。' : `${snap ? 'されど' : sec.place}鬼に打たれ、倒れ伏す。`;
+        t += snap ? endT : (many ? `${kn(r.n)}度目の頼光、` : '頼光、') + endT;
+      }
+      if (t) lines.push(t);
     }
     if (!sec.point && !lines.length) lines.push('頼光、都の門を発ち、山道へと分け入る。');
     if (sec.point && !lines.length) lines.push(`頼光、${sec.place}しばし足をとどむ。`);
-    const shown = lines.slice(-5);
+    const shown = lines.slice(-4);
     for (const t of shown) paras.push({ text: t, size: 21, after: 10 });
-    if (lines.length > shown.length) paras.push({ text: `（ほか${kn(lines.length - shown.length)}つの姿は省く）`, size: 16, color: '#5a4e42' });
+    if (lines.length > shown.length) paras.push({ text: `（ほか${kn(lines.length - shown.length)}たびの姿は詞を省く）`, size: 16, color: '#5a4e42' });
     return { pad: 40, top: 64, colH: 470, size: 21, gap: 12, paras };
   }
   if (it.k === 'final') {
     const hurts = cur.end ? Math.max(0, 5 - cur.end.player.hp) : 0, recs = Object.keys(cur.records).length;
+    const recT = recs ? `記せし場は${kn(recs)}つ` : 'いまだ記せし場なし';
     return { pad: 50, top: 70, colH: 460, size: 26, gap: 16, paras: [
       { text: cur.outcome === 'clear' ? '結びの段' : '途切れの段', size: 30, color: SHU, after: 14 },
-      { text: endSentence(cur), after: 12 },
-      { text: cur.outcome === 'clear' ? `その身に受けし傷は${kn(hurts)}つ、記せし場は${kn(recs)}つなり。` : `記せし場は${kn(recs)}つ。物語はここにて途切れたり。`, size: 19, color: '#5a4e42' },
+      { text: (many ? `${kn(cur.n)}度目の` : '') + endSentence(cur).replace(/^源?頼光、/, many ? '頼光、' : '$&'), after: 12 },
+      { text: cur.outcome === 'clear' ? `${hurts ? `その身に受けし傷は${kn(hurts)}つ` : 'その身に傷ひとつ負わず'}、${recT}なり。` : `${recT}。物語はここにて途切れたり。`, size: 19, color: '#5a4e42' },
     ] };
   }
   if (it.k === 'okugaki') return { pad: 60, top: 80, colH: 440, size: 24, gap: 16, paras: [
     { text: '右、源頼光大江山鬼退治の図なり。', after: 10 },
-    { text: `其の${kn(cur.n)}　${cur.date || ''}`, size: 18, color: '#5a4e42' },
+    { text: `其の${kn(cur.n)}　${Array.isArray(cur.date) ? kanjiYear(cur.date[0]) + '年' + kn(cur.date[1]) + '月' + kn(cur.date[2]) + '日' : ''}`, size: 18, color: '#5a4e42' },
   ] };
   return null;
 }
+const kanjiYear = y => String(y).split('').map(d => '〇一二三四五六七八九'[+d]).join('');
 function runsForEmaki(currentN, layered) {
   if (!layered) return history.filter(r => r.n === currentN);
   const list = history.slice(-6);
@@ -1172,7 +1213,7 @@ function buildEmaki(currentN, layered, renderScale) {
     items.push({ k: 'scene', w: i === 0 ? 1000 : 1200, sec, i });
   }
   items.push({ k: 'final', w: 320 });
-  items.push({ k: anyClear ? 'okugaki' : 'torn', w: anyClear ? 380 : 300 });
+  items.push({ k: cur.outcome === 'clear' ? 'okugaki' : 'torn', w: cur.outcome === 'clear' ? 380 : 300 });
   for (const it of items) {
     const spec = textSpec(it, { runs, cur, many });
     if (spec) { it.spec = spec; it.w = Math.max(it.w, Math.ceil(vwidth(spec.paras, spec.colH, spec.size, spec.gap) + spec.pad + 50)); }
@@ -1220,25 +1261,35 @@ function sceneBackground(g, it, rng) {
   }
   if (sec.id === 'tree') { bigTree(g, x0 + w * 0.42, gy + 4, 0.95, rng); rock(g, x0 + w * 0.78, gy + 6, 80, 40, rng); pine(g, x1 - 90, gy + 6, 1, rng); pine(g, x0 + 90, gy + 6, 0.85, rng); }
   if (sec.id === 'oni') { cave(g, x0 + 250, gy + 4, 1); for (let i = 0; i < 3; i++) rock(g, x0 + 520 + i * 180 + rng() * 60, gy + 6, 70 + rng() * 40, 30 + rng() * 30, rng); pine(g, x1 - 100, gy + 6, 1.05, rng); }
-  g.restore();
   kinun(g, x0 - 60, 18 + rng() * 20, w * 0.55, 46, rng);
   kinun(g, x0 + w * 0.5, 30 + rng() * 20, w * 0.6, 40, rng);
   kinun(g, x0 + w * 0.15, PH - 70 + rng() * 10, w * 0.5, 44, rng);
+  for (const [sx, dir] of [[x0, 1], [x1, -1]]) {
+    const fg = g.createLinearGradient(sx, 0, sx + dir * 70, 0);
+    fg.addColorStop(0, 'rgba(236,223,190,1)'); fg.addColorStop(1, 'rgba(236,223,190,0)');
+    g.fillStyle = fg; g.fillRect(dir > 0 ? sx : sx - 70, 0, 70, PH);
+  }
+  g.restore();
 }
 function emX(it, worldX) { const { sec } = it; const t = (worldX - sec.x0) / (sec.x1 - sec.x0); return it.x0 + 60 + t * (it.w - 120); }
 const emGround = (it, x) => 470 + Math.sin((x - it.x0) * 0.01) * 10;
-function drawGroup(g, it, grp) {
-  const snap = grp.snap, sc = grp.scale;
-  const bx = emX(it, snap.player.x) + grp.dx;
-  const yOf = (x, y, ground) => emGround(it, x) + grp.dy + (y - ground) * 0.72 * sc;
-  for (const e of snap.enemies) {
+function groundShadow(g, x, y, w) { g.fillStyle = 'rgba(60,44,28,.18)'; g.beginPath(); g.ellipse(x, y + 2, w, w * 0.18, 0, 0, Math.PI * 2); g.fill(); }
+function drawGroupEnemies(g, it, grp) {
+  const sc = grp.scale;
+  for (const e of grp.snap.enemies) {
+    if (grp.skip && grp.skip.has(e.id)) continue;
     const ex = emX(it, e.x) + grp.dx;
     if (ex < it.x0 + 20 || ex > it.x1 - 20) continue;
-    drawSprite(g, e.type, e.pose, e.f, ex, yOf(ex, e.y, e.gy) + 2, (e.boss ? 5 : 3) * sc, e.face, null, grp.alpha);
+    const gy = emGround(it, ex) + grp.dy;
+    groundShadow(g, ex, gy, (e.boss ? 60 : 34) * sc);
+    drawSprite(g, e.type, e.pose, e.f, ex, gy + (e.y - e.gy) * 0.72 * sc + 2, (e.boss ? 5 : 3) * sc, e.face, null, 1);
   }
-  const p = snap.player;
-  const py = yOf(bx, p.y, p.gy);
-  drawSprite(g, 'raiko', p.pose, p.f, bx, py + 2, 3 * sc, p.face, null, grp.alpha);
+}
+function drawGroupHero(g, it, grp) {
+  const sc = grp.scale, p = grp.snap.player;
+  const bx = emX(it, p.x) + grp.dx, gy = emGround(it, bx) + grp.dy, py = gy + (p.y - p.gy) * 0.72 * sc;
+  groundShadow(g, bx, gy, (p.pose === 'down' ? 40 : 26) * sc);
+  drawSprite(g, 'raiko', p.pose, p.f, bx, py + 2, 3 * sc, p.face, null, 1);
   const ty = py - (p.pose === 'down' ? 60 : 130) * sc;
   if (grp.current) {
     g.fillStyle = SHU; g.fillRect(bx - 13, ty - 16, 26, 26); g.fillStyle = '#fbf3e2'; g.font = `18px ${FONT_BRUSH}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('今', bx, ty - 3);
@@ -1249,6 +1300,7 @@ function drawGroup(g, it, grp) {
     vtext(g, label, bx, ty - hgt + 11, 14, INK);
   }
 }
+
 function paintItem(g, it, ctxInfo) {
   const { runs, cur, many, rng, anyClear } = ctxInfo;
   const { x0, x1, w } = it;
@@ -1287,17 +1339,31 @@ function paintItem(g, it, ctxInfo) {
       drawSprite(g, 'raiko', 'walk', 1, it.x1 - 320, 472, 3, -1, null, 1);
       return;
     }
-    groups.sort((a, b) => (b.run.n - a.run.n) || (a.isEnd ? -1 : 1));
-    const placed = [];
-    for (const grp of groups.slice(0, 7)) {
-      grp.dx = 0; grp.dy = 0; grp.scale = 1; grp.alpha = 1;
-      const bx = () => emX(it, grp.snap.player.x) + grp.dx;
-      for (let tries = 0; tries < 6 && placed.some(o => Math.abs(o.x - bx()) < 118 && Math.abs(o.dy - grp.dy) < 30); tries++) { grp.dx += 150; grp.dy -= 32; grp.scale *= 0.93; }
-      if (bx() > it.x1 - 60) { grp.dx -= (bx() - (it.x1 - 60)); }
-      placed.push({ x: bx(), dy: grp.dy });
+    for (const grp of groups) {
+      if (grp.isEnd) continue;
+      const end = groups.find(o => o.isEnd && o.run === grp.run);
+      if (!end) continue;
+      if (Math.abs(emX(it, end.snap.player.x) - emX(it, grp.snap.player.x)) < 120) grp.drop = true;
+      else grp.skip = new Set(end.snap.enemies.map(e => e.id));
     }
-    const order = groups.slice(0, 7).sort((a, b) => a.dy - b.dy);
-    for (const grp of order) drawGroup(g, it, grp);
+    const live = groups.filter(g2 => !g2.drop).sort((a, b) => (b.run.n - a.run.n) || (a.isEnd ? -1 : 1)).slice(0, 7);
+    const placed = [], lo = it.x0 + 70, hi = it.x1 - 70;
+    const OFFS = [0, 1, -1, 2, -2, 3, -3, 4, -4];
+    for (const grp of live) {
+      const base = emX(it, grp.snap.player.x);
+      let best = null;
+      for (const k of OFFS) {
+        const x = clamp(base + k * 150, lo, hi);
+        if (placed.every(o => Math.abs(o - x) >= 120)) { best = { k, x }; break; }
+      }
+      if (!best) best = { k: OFFS[placed.length % OFFS.length], x: clamp(base + OFFS[placed.length % OFFS.length] * 150, lo, hi) };
+      const depth = Math.abs(best.k);
+      grp.dx = best.x - base; grp.dy = -10 * depth; grp.scale = Math.pow(0.95, depth);
+      placed.push(best.x);
+    }
+    const order = live.slice().sort((a, b) => a.dy - b.dy);
+    for (const grp of order) drawGroupEnemies(g, it, grp);
+    for (const grp of order) drawGroupHero(g, it, grp);
     return;
   }
   if (it.k === 'okugaki') {
@@ -1324,20 +1390,23 @@ function openEmaki(currentN, fromRun) {
   emaki.current = currentN; emaki.auto = !matchMedia('(prefers-reduced-motion: reduce)').matches; emaki.layered = true;
   rebuildEmaki();
   emaki.scrollX = emaki.width;
-  emaki.openT = 0;
-  $('title').hidden = true; $('touch').hidden = true; $('emakiBar').hidden = false;
+  emaki.openT = fromRun ? -1.0 : 0;
+  $('title').hidden = true; $('touch').hidden = true; $('rotate').hidden = true;
   $('bAuto').setAttribute('aria-pressed', emaki.auto ? 'true' : 'false');
   $('bLayer').setAttribute('aria-pressed', 'true');
   $('saveMsg').textContent = '';
-  const st = $('story');
-  if (fromRun) { setTimeout(() => { st.classList.remove('show'); setTimeout(() => { st.hidden = true; }, 900); }, 150); }
-  else { st.hidden = true; st.classList.remove('show'); }
+  $('emakiHint').textContent = coarse ? '絵巻は右から左へ読む ── 指でなぞって巻き進める' : '絵巻は右から左へ読む ── ドラッグ・ホイール・← → キーで巻き進める';
+  const st = $('story'), bar = $('emakiBar');
+  const showBar = () => { if (state !== 'emaki') return; bar.hidden = false; emaki.fitAt = 0; emaki.needsFit = true; positionMute(); $('bAuto').focus({ preventScroll: true }); };
+  if (fromRun) { setTimeout(() => { st.classList.remove('show'); setTimeout(() => { st.hidden = true; showBar(); }, 900); }, 150); }
+  else { st.hidden = true; st.classList.remove('show'); showBar(); }
 }
 function viewMetrics() {
-  const barH = 96;
-  const vs = clamp((VH - barH - 40) / PH, 0.35, 1.6);
+  const bar = $('emakiBar'), barH = bar.hidden ? 96 : (bar.offsetHeight || 96), top = 44;
+  let vs = clamp((VH - barH - top - 36) / PH, 0.35, 1.6);
+  if (VW < VH) vs = Math.min(vs, (VW - 32) / (PH * 0.9));
   const paperW = Math.min(VW - 32, emaki.width * vs);
-  const x = (VW - paperW) / 2, y = Math.max(16, (VH - barH - PH * vs) / 2);
+  const x = (VW - paperW) / 2, y = Math.max(top, top + (VH - barH - top - 36 - PH * vs) / 2);
   return { vs, paperW, x, y, winW: paperW / vs };
 }
 function rebuildEmaki() {
@@ -1351,17 +1420,15 @@ function rebuildEmaki() {
 function updateEmaki(dt) {
   emaki.openT += dt;
   const m = viewMetrics();
-  const maxLeft = Math.max(0, emaki.width - m.winW);
   if (emaki.auto && !emaki.drag && emaki.openT > 0.6) emaki.scrollX -= 95 * dt;
   emaki.scrollX = clamp(emaki.scrollX, m.winW, Math.max(m.winW, emaki.width));
   if (emaki.scrollX <= m.winW + 0.5 && emaki.auto) { emaki.auto = false; $('bAuto').setAttribute('aria-pressed', 'false'); }
-  void maxLeft;
 }
 function renderEmaki() {
   const g = ctx;
   g.setTransform(DPR, 0, 0, DPR, 0, 0);
   const bg = g.createLinearGradient(0, 0, 0, VH); bg.addColorStop(0, '#2b211b'); bg.addColorStop(1, '#171210'); g.fillStyle = bg; g.fillRect(0, 0, VW, VH);
-  g.strokeStyle = 'rgba(255,230,190,.03)'; g.lineWidth = 1; for (let y = 0; y < VH; y += 7) { g.beginPath(); g.moveTo(0, y + Math.sin(y) * 2); g.lineTo(VW, y); g.stroke(); }
+  g.strokeStyle = 'rgba(255,230,190,.03)'; g.lineWidth = 1; g.beginPath(); for (let y = 0; y < VH; y += 7) { g.moveTo(0, y + Math.sin(y) * 2); g.lineTo(VW, y); } g.stroke();
   if (!emaki.canvas) return;
   const m = viewMetrics();
   const reveal = clamp(emaki.openT / 1.2, 0, 1), ease = 1 - Math.pow(1 - reveal, 3);
@@ -1371,9 +1438,9 @@ function renderEmaki() {
   g.imageSmoothingEnabled = true;
   const s = emaki.scale;
   if (winW > 1) {
-    g.save(); g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = 24; g.shadowOffsetY = 8;
+    g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(dx + 4, m.y + 10, winW * m.vs, PH * m.vs);
+    g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(dx + 8, m.y + 16, winW * m.vs, PH * m.vs);
     g.drawImage(emaki.canvas, Math.max(0, left * s), 0, winW * s, PH * s, dx, m.y, winW * m.vs, PH * m.vs);
-    g.restore();
   }
   const rollW = 22 * Math.max(0.7, m.vs);
   const roller = (x, label) => {
@@ -1388,17 +1455,23 @@ function renderEmaki() {
   const prog = 1 - (emaki.scrollX - m.winW) / Math.max(1, emaki.width - m.winW);
   g.fillStyle = 'rgba(239,227,198,.25)'; g.fillRect(m.x, m.y + PH * m.vs + 22, m.paperW, 2);
   g.fillStyle = '#c9a445'; g.fillRect(m.x + m.paperW * (1 - clamp(prog, 0, 1)), m.y + PH * m.vs + 20, Math.max(4, m.paperW * clamp(prog, 0, 1)), 6);
-  if (emaki.openT < 2.4 && emaki.openT > 0.3) {
-    g.globalAlpha = clamp(Math.min(emaki.openT - 0.3, 2.4 - emaki.openT), 0, 1);
-    g.fillStyle = '#efe3c6'; g.font = `18px ${FONT_BRUSH}`; g.textAlign = 'center'; g.fillText('── 右から左へ、あなたの冒険を読む ──', VW / 2, Math.max(14, m.y - 2) + 4);
+  if (emaki.openT < 3.2 && emaki.openT > 0.3) {
+    g.globalAlpha = clamp(Math.min(emaki.openT - 0.3, 3.2 - emaki.openT), 0, 1);
+    g.fillStyle = '#efe3c6'; g.font = `18px ${FONT_BRUSH}`; g.textAlign = 'center'; g.textBaseline = 'bottom';
+    g.fillText('── 右から左へ、あなたの冒険を読む ──', VW / 2, m.y - 12);
     g.globalAlpha = 1;
   }
 }
 function emakiKey(e) {
+  if (e.code === 'Space') {
+    e.preventDefault(); if (e.repeat) return;
+    if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+    emaki.auto = !emaki.auto; $('bAuto').setAttribute('aria-pressed', emaki.auto ? 'true' : 'false'); return;
+  }
+  if (e.repeat && emaki.openT < 1.5) return;
   const m = viewMetrics();
   if (e.code === 'ArrowLeft' || e.code === 'KeyA') { emaki.scrollX -= m.winW * 0.35; stopAuto(); e.preventDefault(); }
   else if (e.code === 'ArrowRight' || e.code === 'KeyD') { emaki.scrollX += m.winW * 0.35; stopAuto(); e.preventDefault(); }
-  else if (e.code === 'Space' && e.target === document.body) { emaki.auto = !emaki.auto; $('bAuto').setAttribute('aria-pressed', emaki.auto ? 'true' : 'false'); e.preventDefault(); }
 }
 function stopAuto() { if (emaki.auto) { emaki.auto = false; $('bAuto').setAttribute('aria-pressed', 'false'); } }
 cv.addEventListener('pointerdown', e => { if (state !== 'emaki') return; cv.setPointerCapture(e.pointerId); emaki.drag = { x: e.clientX }; stopAuto(); });
@@ -1411,7 +1484,7 @@ cv.addEventListener('wheel', e => { if (state !== 'emaki') return; e.preventDefa
 function refreshTitle() {
   const n = history.length;
   const last = history[history.length - 1];
-  $('hist').textContent = n ? `これまでに${kn(Math.min(n, 20))}たび、頼光は大江山を目指した。前回は${last.outcome === 'clear' ? '大鬼を討ち果たした' : `「${(SECTIONS[last.end ? last.end.sec : 0] || SECTIONS[0]).title}」で倒れた`}。同じ場所に、いまの頼光と過去の頼光が並んで描かれる。` : '';
+  $('hist').textContent = n ? `これまでに${kn(last.n)}たび、頼光は大江山を目指した。前回は${last.outcome === 'clear' ? '大鬼を討ち果たした' : `「${(SECTIONS[last.end ? last.end.sec : 0] || SECTIONS[0]).title}」で倒れた`}。同じ場所に、いまの頼光と過去の頼光が並んで描かれる。` : '';
   $('bView').hidden = !n; $('bClear').hidden = !n;
   $('bClear').classList.remove('arm'); $('bClear').textContent = 'これまでの記録を消す';
 }
@@ -1421,11 +1494,16 @@ function toTitle() {
   const st = $('story'); st.classList.remove('show'); st.hidden = true;
   refreshTitle();
   G.camX = WORLD_W - W;
+  $('rotate').hidden = true; positionMute();
+  $('bStart').focus({ preventScroll: true });
 }
 function startGame() {
   ac(); newRun(); state = 'play';
   $('title').hidden = true; $('emakiBar').hidden = true; $('story').hidden = true; $('story').classList.remove('show');
-  $('touch').hidden = !coarse;
+  $('touch').hidden = !coarse; $('rotate').hidden = false;
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  positionMute();
+  keys.clear();
   input.left = input.right = input.jump = input.atk = input.jumpP = input.atkP = false;
 }
 $('bStart').addEventListener('click', startGame);
@@ -1440,7 +1518,6 @@ $('bClear').addEventListener('click', e => {
 $('bAuto').addEventListener('click', e => { emaki.auto = !emaki.auto; e.currentTarget.setAttribute('aria-pressed', emaki.auto ? 'true' : 'false'); });
 $('bLayer').addEventListener('click', e => {
   emaki.layered = !emaki.layered; e.currentTarget.setAttribute('aria-pressed', emaki.layered ? 'true' : 'false');
-  e.currentTarget.textContent = emaki.layered ? '異時同図（すべての回を重ねる）' : '今回の絵巻のみ';
   const readFromRight = emaki.width - emaki.scrollX;
   rebuildEmaki(); emaki.scrollX = clamp(emaki.width - readFromRight, 0, emaki.width);
 });
@@ -1470,12 +1547,13 @@ let last = performance.now(), titleT = 0;
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   const time = now / 1000;
-  if (state === 'play') updatePlay(dt);
-  else if (state === 'story') { G.time += dt; if (G.player) { G.player.downT += dt; } }
-  else if (state === 'title') { titleT += dt; G.camX = (WORLD_W - W) - ((titleT * 40) % (WORLD_W - W)); }
-  if (state === 'emaki') { if (emaki.needsFit) rebuildEmaki(); updateEmaki(dt); renderEmaki(); }
-  else renderGame(time);
-  requestAnimationFrame(frame);
+  try {
+    if (state === 'play') updatePlay(dt);
+    else if (state === 'story') { G.time += dt; if (G.player) { G.player.downT += dt; } }
+    else if (state === 'title') { titleT += dt; G.camX = (WORLD_W - W) - ((titleT * 40) % (WORLD_W - W)); }
+    if (state === 'emaki') { if (emaki.needsFit && now >= emaki.fitAt) rebuildEmaki(); updateEmaki(dt); renderEmaki(); }
+    else renderGame(time);
+  } finally { requestAnimationFrame(frame); }
 }
 resize();
 refreshTitle();
