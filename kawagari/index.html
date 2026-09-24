@@ -1,0 +1,1913 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>川狩り 木材流送</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+:root{
+  color-scheme:dark;
+  --ground:#0b1110;
+  --panel:rgba(10,16,15,.66);
+  --paper:#ece6d4;
+  --body:#d6d1c0;
+  --muted:#9fa295;
+  --faint:rgba(236,230,212,.14);
+  --gold:#d9b765;
+  --water:#6fc0b4;
+  --warn:#ef8a4c;
+  --serif:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;
+  --sans:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic","Noto Sans JP",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--ground);color:var(--paper);font-family:var(--sans);overflow:hidden;-webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none}
+#gl{position:fixed;inset:0;display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
+#gl.drag{cursor:grabbing}
+#gl.aim{cursor:pointer}
+.vignette{position:fixed;inset:0;pointer-events:none;
+  background:radial-gradient(120% 90% at 50% 45%,transparent 60%,rgba(4,8,7,.45) 100%)}
+.hud{position:fixed;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;
+  padding:calc(env(safe-area-inset-top,0px) + 14px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 12px) max(16px,env(safe-area-inset-left,0px))}
+.panel{background:var(--panel);border:1px solid var(--faint);border-radius:4px;-webkit-backdrop-filter:blur(10px) saturate(1.1);backdrop-filter:blur(10px) saturate(1.1)}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.stats{padding:12px 14px 12px;min-width:196px}
+.eyebrow{margin:0 0 6px;font:500 11px/1.4 var(--mono);letter-spacing:.16em;color:var(--gold)}
+.eyebrow span{color:var(--muted);margin-left:.7em}
+.big{display:flex;align-items:baseline;gap:6px;margin:0 0 8px;font-family:var(--serif)}
+.big b{font-size:38px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.big span{color:var(--body);font-size:14px}
+.row{display:grid;grid-template-columns:5.2em 1fr;gap:2px 8px;font-size:13px;line-height:1.75;color:var(--muted)}
+.row b{color:var(--paper);font:500 13px/1.75 var(--mono);font-variant-numeric:tabular-nums}
+.row b.warn{color:var(--warn)}
+.row b.flush{color:var(--water);letter-spacing:.2em}
+.mapbox{padding:6px;line-height:0}
+#map{width:200px;height:200px;display:block}
+#toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 22px);transform:translateX(-50%);pointer-events:none;
+  font:700 22px/1.3 var(--serif);letter-spacing:.12em;color:var(--paper);text-shadow:0 2px 14px rgba(0,0,0,.7);opacity:0;transition:opacity .35s ease;white-space:nowrap}
+#toast.on{opacity:1}
+.bottom{display:flex;justify-content:center}
+.keys{padding:7px 14px;font-size:12px;line-height:1.6;color:var(--body);text-align:center;max-width:860px}
+.keys kbd{font:500 11px/1 var(--mono);color:var(--gold);border:1px solid var(--faint);border-radius:3px;padding:2px 5px;margin:0 2px}
+.overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;
+  background:linear-gradient(180deg,rgba(6,10,9,.35),rgba(6,10,9,.72))}
+.card{max-width:560px;width:100%;padding:28px 30px 24px;background:rgba(10,16,15,.8);border:1px solid var(--faint);border-radius:6px;
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);max-height:calc(100vh - 40px);overflow:auto;box-sizing:border-box}
+.card h1{margin:0;font:800 56px/1.05 var(--serif);letter-spacing:.14em}
+.card h1 small{display:block;margin-top:10px;font:600 17px/1.4 var(--serif);letter-spacing:.3em;color:var(--gold)}
+.card p{margin:14px 0 0;font-size:14px;line-height:1.85;color:var(--body)}
+.card ul{margin:14px 0 0;padding:0 0 0 1.1em;font-size:13.5px;line-height:1.85;color:var(--body)}
+.card li::marker{color:var(--gold)}
+.ctl{margin:16px 0 0;display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px;color:var(--muted)}
+.ctl kbd{font:500 12px/1.6 var(--mono);color:var(--gold)}
+.btn{margin-top:22px;appearance:none;border:1px solid var(--gold);background:rgba(217,183,101,.14);color:var(--paper);
+  font:700 17px/1 var(--serif);letter-spacing:.3em;padding:14px 26px 14px 32px;border-radius:4px;cursor:pointer;pointer-events:auto}
+.btn:hover{background:rgba(217,183,101,.26)}
+.btn:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.res{margin-top:16px;display:grid;grid-template-columns:auto 1fr;gap:6px 18px;font-size:15px;color:var(--muted)}
+.res b{color:var(--paper);font:500 15px/1.5 var(--mono)}
+.rank{margin-top:10px;font:800 44px/1.2 var(--serif);letter-spacing:.2em;color:var(--gold)}
+#loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font:600 18px/1.5 var(--serif);letter-spacing:.3em;color:var(--muted);background:var(--ground)}
+#touch{position:fixed;inset:0;pointer-events:none}
+.joy{position:absolute;left:max(22px,env(safe-area-inset-left,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 64px);width:128px;height:128px;border-radius:50%;
+  border:1px solid var(--faint);background:rgba(10,16,15,.35);pointer-events:auto;touch-action:none}
+.joy i{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(236,230,212,.22);border:1px solid rgba(236,230,212,.35)}
+.tbtns{position:absolute;right:max(20px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 70px);display:flex;flex-direction:column;gap:12px;pointer-events:auto}
+.tbtns button{width:78px;height:78px;border-radius:50%;border:1px solid var(--gold);background:rgba(10,16,15,.5);color:var(--paper);font:700 16px/1 var(--serif);letter-spacing:.1em;touch-action:none}
+.tbtns button.w{border-color:var(--water)}
+@media (pointer:coarse){.ctl{display:none}}
+@media (pointer:fine){.touchonly{display:none}}
+@media (max-width:700px){
+  #toast{top:calc(env(safe-area-inset-top,0px) + 196px);font-size:18px}
+  .stats{min-width:0;padding:9px 11px}
+  .big b{font-size:28px}
+  .row{font-size:12px}
+  #map{width:120px;height:120px}
+  .keys{display:none}
+  .card{padding:22px 20px}
+  .card h1{font-size:42px}
+}
+</style>
+</head>
+<body>
+<canvas id="gl" aria-label="川狩り：木材流送ゲームの画面"></canvas>
+<div class="vignette"></div>
+<div class="hud" id="hud" hidden>
+  <div class="top">
+    <div class="panel stats">
+      <p class="eyebrow">木材流送<span>KAWAGARI</span></p>
+      <div class="big"><b id="hDel">0</b><span id="hTot">/ 24 本 着</span></div>
+      <div class="row">
+        <span>流下中</span><b id="hDrift">0</b>
+        <span>滞留</span><b id="hStuck" class="warn">0</b>
+        <span>残り時間</span><b id="hTime">8:00</b>
+        <span>鉄砲水</span><b id="hFlush" class="flush">●●●</b>
+        <span>舟の流速</span><b id="hSpeed">0.0 m/s</b>
+      </div>
+    </div>
+    <div class="panel mapbox"><canvas id="map" width="400" height="400" aria-label="川の見取り図"></canvas></div>
+  </div>
+  <div class="bottom"><div class="panel keys">
+    <kbd>W</kbd><kbd>S</kbd>漕ぐ　<kbd>A</kbd><kbd>D</kbd>舵　<kbd>クリック</kbd>材を鳶口で突く　<kbd>Space</kbd>近くの材を突く／棹をさす　<kbd>F</kbd>鉄砲堰を切る　<kbd>ドラッグ</kbd>視点　<kbd>ホイール</kbd>寄り引き
+  </div></div>
+</div>
+<div id="toast"></div>
+<div id="touch" hidden>
+  <div class="joy" id="joy"><i id="joyK"></i></div>
+  <div class="tbtns"><button id="tPush">突く</button><button id="tFlush" class="w">鉄砲</button></div>
+</div>
+<div class="overlay" id="title" hidden>
+  <div class="card">
+    <h1>川狩り<small>木材流送</small></h1>
+    <p>山で伐り出した杉を、川の流れに託して麓の貯木場まで送り届ける。道も鉄道もなかった頃、木材はこうして川を下った。</p>
+    <ul>
+      <li>上流の土場から次々に落とされる24本の丸太を、下流の網場（あば）まで流しきる。</li>
+      <li>岩に掛かった材、淵の渦に捕まった材、浅瀬に乗り上げた材は、川舟から鳶口で突いて流れへ戻す。</li>
+      <li>鉄砲堰を切ると、溜めた水が鉄砲水となって川を駆け下り、詰まった材を押し流す。使えるのは3回まで。</li>
+    </ul>
+    <div class="ctl">
+      <kbd>W / S</kbd><span>漕ぐ・戻す</span>
+      <kbd>A / D</kbd><span>舵を切る</span>
+      <kbd>クリック</kbd><span>届く範囲の材を鳶口で突く（端を突くと回る）</span>
+      <kbd>Space</kbd><span>いちばん近い材を突く。材がなければ川底に棹をさして進む</span>
+      <kbd>F</kbd><span>鉄砲堰を切る</span>
+      <kbd>ドラッグ／ホイール</kbd><span>視点の回転／寄り引き</span>
+    </div>
+    <p class="touchonly">左下のスティックで漕ぐ・舵を切る。材をタップすると鳶口で突く。「突く」は近くの材を突くか棹をさす、「鉄砲」で堰を切る。1本指のドラッグで視点、2本指で寄り引き。</p>
+    <button class="btn" id="start">川へ出る</button>
+  </div>
+</div>
+<div class="overlay" id="result" hidden>
+  <div class="card">
+    <h1 id="rTitle">川狩り終い</h1>
+    <div class="rank" id="rRank">上</div>
+    <div class="res">
+      <span>着いた材</span><b id="rDel">0 / 24</b>
+      <span>かかった時間</span><b id="rTime">0:00</b>
+      <span>鉄砲水</span><b id="rFlush">0 回</b>
+      <span>突いた回数</span><b id="rPush">0</b>
+    </div>
+    <p id="rNote"></p>
+    <button class="btn" id="again">もう一度</button>
+  </div>
+</div>
+<div id="loading">川を拓いています</div>
+
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { Sky } from 'three/addons/objects/Sky.js';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+
+/* =====================================================================
+   小道具
+   ===================================================================== */
+const TAU = Math.PI * 2;
+const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
+const lerp = (a, b, t) => a + (b - a) * t;
+const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const rnd = mulberry32(20260924);
+function hash2(i, j) { let h = (Math.imul(i, 374761393) + Math.imul(j, 668265263)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
+function vnoise(x, y) {
+  const i = Math.floor(x), j = Math.floor(y), fx = x - i, fy = y - j;
+  const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
+  const a = hash2(i, j), b = hash2(i + 1, j), c = hash2(i, j + 1), d = hash2(i + 1, j + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+function fbm(x, y, o = 4) { let s = 0, a = 0.5, n = 0; for (let k = 0; k < o; k++) { s += a * vnoise(x, y); n += a; x = x * 2.03 + 17.1; y = y * 2.03 - 9.7; a *= 0.5; } return s / n; }
+function blur1(arr, rad) {
+  const n = arr.length, out = new Float32Array(n);
+  for (let i = 0; i < n; i++) { let s = 0, c = 0; for (let k = -rad; k <= rad; k++) { const j = clamp(i + k, 0, n - 1); s += arr[j]; c++; } out[i] = s / c; }
+  arr.set(out);
+}
+const srgb = (r, g, b) => [Math.pow(r, 2.2), Math.pow(g, 2.2), Math.pow(b, 2.2)];
+
+/* =====================================================================
+   川の平面形と断面：中心線・川幅・水深・勾配（マニング式）
+   ===================================================================== */
+const CTRL = [[-300, 0], [-235, 12], [-170, -6], [-110, -42], [-45, -58], [15, -34], [58, 12], [112, 46], [178, 44], [232, 6], [292, -30], [360, -40], [430, -34], [500, -30], [570, -28]];
+const SCALE = 0.74;
+const curve = new THREE.CatmullRomCurve3(CTRL.map(p => new THREE.Vector3(p[0] * SCALE, 0, p[1] * SCALE)), false, 'centripetal');
+curve.arcLengthDivisions = 6000;
+const DS = 0.5;                       // 中心線サンプル間隔 [m]
+const NS = Math.floor(curve.getLength() / DS) + 1;
+const L = (NS - 1) * DS;
+const Q = 50;                         // 流量 [m3/s]
+const CX = new Float32Array(NS), CZ = new Float32Array(NS), TX = new Float32Array(NS), TZ = new Float32Array(NS);
+const KA = new Float32Array(NS), KL = new Float32Array(NS);
+const W = new Float32Array(NS), D = new Float32Array(NS), RG = new Float32Array(NS), ED = new Float32Array(NS), CL = new Float32Array(NS);
+const UM = new Float32Array(NS), HH = new Float32Array(NS);
+{
+  const pts = curve.getSpacedPoints(NS - 1);
+  for (let i = 0; i < NS; i++) { CX[i] = pts[i].x; CZ[i] = pts[i].z; }
+  for (let i = 0; i < NS; i++) {
+    const a = Math.max(0, i - 1), b = Math.min(NS - 1, i + 1);
+    const tx = CX[b] - CX[a], tz = CZ[b] - CZ[a], l = Math.hypot(tx, tz);
+    TX[i] = tx / l; TZ[i] = tz / l;
+  }
+  const K0 = new Float32Array(NS);
+  for (let i = 0; i < NS; i++) {
+    const a = Math.max(0, i - 2), b = Math.min(NS - 1, i + 2);
+    let d = Math.atan2(TZ[b], TX[b]) - Math.atan2(TZ[a], TX[a]);
+    if (d > Math.PI) d -= TAU; if (d < -Math.PI) d += TAU;
+    K0[i] = d / ((b - a) * DS);
+  }
+  blur1(K0, 30); blur1(K0, 30);
+  KA.set(K0);
+  for (let i = 0; i < NS; i++) KL[i] = KA[Math.max(0, i - 26)];   // 流速の偏りは曲がりより少し遅れて現れる
+}
+// 区間ごとの断面： [位置(割合), 川幅, 水深, 荒れ, 淵の渦, 崖]
+const PROF = [
+  [0.00, 24, 1.6, 0.00, 0, 0.0],
+  [0.07, 22, 1.5, 0.05, 0, 0.0],
+  [0.11, 19, 1.5, 0.20, 0, 0.2],
+  [0.16, 17, 1.35, 0.30, 0, 0.3],
+  [0.19, 16, 1.15, 1.00, 0, 0.8],   // 一の瀬
+  [0.27, 16, 1.1, 1.00, 0, 0.8],
+  [0.30, 22, 1.9, 0.30, 0.2, 0.4],
+  [0.34, 25, 2.3, 0.00, 0.7, 0.2],  // 淵
+  [0.42, 24, 2.2, 0.00, 0.7, 0.2],
+  [0.46, 19, 1.6, 0.15, 0.1, 0.2],
+  [0.51, 18, 1.45, 0.20, 0, 0.1],
+  [0.55, 28, 0.95, 0.55, 0, 0.0],   // 浅瀬
+  [0.63, 28, 0.95, 0.55, 0, 0.0],
+  [0.67, 13, 1.4, 1.00, 0, 1.0],    // 峡谷の瀬
+  [0.75, 12, 1.4, 1.00, 0, 1.0],
+  [0.79, 24, 2.0, 0.25, 0, 0.3],
+  [0.84, 54, 2.6, 0.00, 0, 0.0],    // 貯木場
+  [1.00, 58, 2.6, 0.00, 0, 0.0],
+];
+function profAt(f) {
+  let k = 0; while (k < PROF.length - 2 && f > PROF[k + 1][0]) k++;
+  const a = PROF[k], b = PROF[k + 1], t = sstep(0, 1, (f - a[0]) / (b[0] - a[0]));
+  return a.map((v, i) => lerp(v, b[i], t));
+}
+for (let i = 0; i < NS; i++) {
+  const p = profAt(i / (NS - 1));
+  W[i] = p[1]; D[i] = p[2]; RG[i] = p[3]; ED[i] = p[4]; CL[i] = p[5];
+  UM[i] = Q / (W[i] * D[i] * 0.72);                   // 連続式：断面平均流速
+}
+HH[NS - 1] = 0;
+for (let i = NS - 2; i >= 0; i--) {                   // マニング式で水面勾配を積分
+  const U = 0.5 * (UM[i] + UM[i + 1]), R = 0.5 * (D[i] + D[i + 1]) * 0.72, nm = 0.03 + 0.022 * RG[i];
+  HH[i] = HH[i + 1] + Math.max(0.0005, nm * nm * U * U / Math.pow(R, 4 / 3)) * DS;
+}
+const H0 = HH[0], RES_H = H0 + 2.4;
+const S_FIN = 0.8 * L, S_BOOM = L - 22;
+const idxS = s => clamp(Math.round(s / DS), 0, NS - 1);
+function Hs(s) { const f = clamp(s / DS, 0, NS - 1.0001), i = f | 0, t = f - i; return HH[i] * (1 - t) + HH[i + 1] * t; }
+function bedAt(s, nn) {
+  const i = idxS(s), a = Math.abs(nn);
+  return a < 1 ? Hs(s) - D[i] * Math.pow(1 - a * a, 0.6) : Hs(s) + (a - 1) * W[i] * 0.5 * 0.12;
+}
+
+/* 最近点投影：世界座標 → 川座標 (s, n) */
+const PQ = { s: 0, n: 0, i: 0, over: 0, end: 0 };
+function project(x, z, hint) {
+  let bi = -1, bd = 1e30;
+  if (hint >= 0) {
+    const a = Math.max(0, hint - 40), b = Math.min(NS - 1, hint + 40);
+    for (let i = a; i <= b; i++) { const dx = x - CX[i], dz = z - CZ[i], d = dx * dx + dz * dz; if (d < bd) { bd = d; bi = i; } }
+    if ((bi === a && a > 0) || (bi === b && b < NS - 1)) bi = -1;
+  }
+  if (bi < 0) {
+    bd = 1e30;
+    for (let i = 0; i < NS; i += 16) { const dx = x - CX[i], dz = z - CZ[i], d = dx * dx + dz * dz; if (d < bd) { bd = d; bi = i; } }
+    const a = Math.max(0, bi - 16), b = Math.min(NS - 1, bi + 16);
+    for (let i = a; i <= b; i++) { const dx = x - CX[i], dz = z - CZ[i], d = dx * dx + dz * dz; if (d < bd) { bd = d; bi = i; } }
+  }
+  const dx = x - CX[bi], dz = z - CZ[bi];
+  let s = bi * DS + dx * TX[bi] + dz * TZ[bi];
+  PQ.over = 0; PQ.end = 0;
+  if (s < 0) { PQ.over = -s; PQ.end = -1; s = 0; } else if (s > L) { PQ.over = s - L; PQ.end = 1; s = L; }
+  PQ.s = s; PQ.i = bi; PQ.n = -dx * TZ[bi] + dz * TX[bi];
+  return PQ;
+}
+const worldX = (i, n) => CX[i] - TZ[i] * n;
+const worldZ = (i, n) => CZ[i] + TX[i] * n;
+
+/* =====================================================================
+   岩
+   ===================================================================== */
+const rocks = [];
+function canPlace(s, n, r, gap) {
+  for (const o of rocks) { if (Math.abs(o.s - s) > 24) continue; if (Math.hypot(o.s - s, o.n - n) < r + o.r + gap) return false; }
+  return true;
+}
+function addRock(s, n, r, top) {
+  const i = idxS(s), hw = W[i] * 0.5, H = Hs(s);
+  const bed = bedAt(s, n / hw);
+  const topA = H + top, bottom = Math.min(bed, H) - 0.4;
+  const ry = (topA - bottom) / 2, cy = bottom + ry;
+  const at = y => r * Math.sqrt(Math.max(0, 1 - ((y - cy) / ry) ** 2));
+  const emerged = top > 0;
+  const rw = at(H);
+  const col = emerged ? rw * 0.92 : (top > -0.22 ? at(H - 0.22) * 0.85 : 0);
+  rocks.push({ s, n, r, top, emerged, x: worldX(i, n), z: worldZ(i, n), cy, ry, col, flowR: emerged ? Math.max(rw, 0.4) : Math.max(r * 0.55, 0.4), acc: 0 });
+}
+{
+  let s = 34;
+  while (s < S_FIN - 18) {
+    const i = idxS(s), rg = RG[i], hw = W[i] * 0.5;
+    if (rg > 0.3) {
+      const cnt = rnd() < rg ? (rnd() < 0.45 * rg ? 2 : 1) : 0;
+      for (let k = 0; k < cnt; k++) {
+        const r = 0.55 + rnd() * 0.9 + rg * 0.35, n = (rnd() * 2 - 1) * (hw - 1.2), em = rnd() < 0.62;
+        if (Math.abs(n) + r > hw + 0.5) continue;
+        if (canPlace(s, n, r, 3.3)) addRock(s, n, r, em ? 0.25 + rnd() * 0.95 : -(0.1 + rnd() * 0.22));
+      }
+    }
+    s += 4 + rnd() * 5 + (1 - rg) * 6;
+  }
+  // 材が掛かりやすい「門」：隙間 3m ほどの岩の対
+  for (const f of [0.232, 0.712]) {
+    const sg = f * L;
+    for (let k = rocks.length - 1; k >= 0; k--) if (Math.abs(rocks[k].s - sg) < 7) rocks.splice(k, 1);
+    const off = (rnd() - 0.5) * 3;
+    addRock(sg, off - 1.55 - 1.1, 1.1, 0.7);
+    addRock(sg + 0.8, off + 1.55 + 1.3, 1.3, 0.9);
+  }
+  // 淵や外岸に構える大岩
+  for (let s2 = 60; s2 < S_FIN - 20; s2 += 22) {
+    const i = idxS(s2); if (RG[i] > 0.3 || rnd() > 0.45) continue;
+    const hw = W[i] * 0.5, side = KA[i] !== 0 ? -Math.sign(KA[i]) : (rnd() < 0.5 ? -1 : 1);
+    const r = 1.5 + rnd() * 1.6, n = side * (hw - r * 0.25);
+    if (canPlace(s2, n, r, 1.5)) addRock(s2, n, r, 0.5 + rnd() * 1.4);
+  }
+}
+
+/* =====================================================================
+   流れ場 (s, n) グリッド：速度分布・二次流・淵の反流・岩のまわりの流れ・白波
+   ===================================================================== */
+const NC = 48, NR = 1.3, NG = NS * NC;
+const FU = new Float32Array(NG), FV = new Float32Array(NG), FF = new Float32Array(NG), FB = new Float32Array(NG), FR = new Float32Array(NG);
+const nnOf = j => -NR + 2 * NR * j / (NC - 1);
+{
+  let phase = 0;
+  for (let i = 0; i < NS; i++) {
+    const s = i * DS, hw = W[i] * 0.5, U = UM[i] * 1.2, k = KL[i], E = ED[i], r = RG[i];
+    const dE = (ED[Math.min(NS - 1, i + 4)] - ED[Math.max(0, i - 4)]) / (8 * DS);
+    const inner = Math.abs(KA[i]) > 1e-4 ? Math.sign(KA[i]) : 1;
+    const shift = clamp(-k * hw * 2.4, -0.32, 0.32);            // 最大流速は外岸へ寄る
+    const lam = clamp(TAU * U * U / 9.81, 2.5, 9);             // 定在波の波長
+    phase += TAU * DS / lam;
+    for (let j = 0; j < NC; j++) {
+      const nn = nnOf(j), g = j * NS + i;
+      if (Math.abs(nn) >= 1) continue;
+      const x = nn > shift ? (nn - shift) / (1 - shift) : (nn - shift) / (1 + shift);
+      const f = Math.pow(Math.max(0, 1 - Math.pow(Math.abs(x), 3.6)), 0.36);
+      let u = U * f;
+      let v = -k * hw * 0.35 * U * (1 - nn * nn);              // 湾曲部の二次流：表層は外岸へ
+      if (E > 0.01) {                                          // 淵の内岸側の反流（渦）
+        const ge = sstep(0.42, 0.88, nn * inner);
+        u = u * (1 - ge * E) - ge * E * U * 0.26 * sstep(1.0, 0.85, Math.abs(nn));
+        v += -inner * dE * U * 1.8 * Math.exp(-(((nn * inner - 0.65) / 0.25) ** 2));
+      }
+      FU[g] = u; FV[g] = v;
+      FB[g] = r * (0.04 + 0.03 * U) * Math.sin(phase + 1.3 * Math.sin(nn * 2.1 + s * 0.05)) * (1 - nn * nn) * (0.55 + 0.45 * vnoise(s * 0.09, nn * 2.7));
+      FF[g] = r * clamp((U - 1.6) / 3, 0, 1) * 0.55 * (0.5 + 0.5 * vnoise(s * 0.13 + 5, nn * 3.1)) + Math.max(0, FB[g] - 0.04) * 3;
+      FR[g] = r;
+      if (s < 10) { FF[g] += 0.55 * Math.exp(-s / 3.5); FR[g] = Math.max(FR[g], 0.5 * Math.exp(-s / 5)); }
+    }
+  }
+  // 岩のまわり：ポテンシャル流（円柱）＋後流＋反流、泡と盛り上がり
+  for (const R of rocks) {
+    const ri = idxS(R.s), U = UM[ri] * 1.2, Re = R.flowR;
+    const i0 = Math.max(0, Math.floor((R.s - 5 * Re - 2) / DS)), i1 = Math.min(NS - 1, Math.ceil((R.s + 16 * Re + 4) / DS));
+    const sf = clamp(U / 3, 0.2, 1.4);
+    for (let i = i0; i <= i1; i++) {
+      const s = i * DS, hw = W[i] * 0.5;
+      for (let j = 0; j < NC; j++) {
+        const nn = nnOf(j); if (Math.abs(nn) >= 1) continue;
+        const dx = s - R.s, dy = nn * hw - R.n, rho2 = dx * dx + dy * dy;
+        if (rho2 > (16 * Re) ** 2) continue;
+        const g = j * NS + i, rho = Math.sqrt(rho2);
+        let du = 0, dv = 0;
+        if (rho < Re) { const k = R.emerged ? 1 : 0.7; du = -FU[g] * k; dv = -FV[g] * k; }
+        else {
+          const kk = Re * Re / rho2, c2 = (dx * dx - dy * dy) / rho2, s2 = 2 * dx * dy / rho2;
+          const fade = 1 - sstep(4 * Re, 7 * Re, rho), st = R.emerged ? 1 : 0.55;
+          du -= U * kk * c2 * fade * st; dv -= U * kk * s2 * fade * st;
+        }
+        if (dx > 0) {
+          const b = Re * (0.95 + 0.13 * dx / Re);
+          const gw = Math.exp(-(dy * dy) / (b * b)) * Math.exp(-dx / (7 * Re));
+          const gr = Math.exp(-(dy * dy) / (0.5 * Re * Re)) * Math.exp(-dx / (2.2 * Re));
+          const st = R.emerged ? 1 : 0.4;
+          du -= (FU[g] * 0.8 * gw + U * 0.4 * gr) * st;
+        }
+        FU[g] += du; FV[g] += dv;
+        const pil = Math.exp(-((dx + Re * 1.05) ** 2 + dy * dy) / ((0.7 * Re) ** 2));
+        const eline = Math.exp(-(((Math.abs(dy) - Re) / (0.4 * Re)) ** 2)) * Math.exp(-Math.max(dx, 0) / (5 * Re)) * (dx > -0.4 * Re ? 1 : 0);
+        const boil = R.emerged ? 0 : Math.exp(-((dx - 0.9 * Re) ** 2 + dy * dy) / (Re * Re * 1.6));
+        FF[g] += (pil * 0.9 + eline * 0.55 + boil * 0.8) * sf;
+        if (R.emerged) FB[g] += 0.045 * U * U * pil * 0.6 - 0.03 * U * U * Math.exp(-((dx - 1.6 * Re) ** 2 + dy * dy) / ((1.1 * Re) ** 2));
+        else FB[g] += 0.06 * U * U * Math.exp(-((dx - 0.3 * Re) ** 2 + dy * dy) / ((1.1 * Re) ** 2)) - 0.045 * U * U * Math.exp(-((dx - 2.3 * Re) ** 2 + dy * dy) / ((1.4 * Re) ** 2));
+        FR[g] = Math.max(FR[g], clamp(pil + eline + boil, 0, 1) * 0.9);
+      }
+    }
+  }
+  const blur2 = (A, n) => {
+    const T = new Float32Array(NG);
+    for (let p = 0; p < n; p++) {
+      for (let j = 0; j < NC; j++) for (let i = 0; i < NS; i++) { const g = j * NS + i; T[g] = (A[j * NS + Math.max(0, i - 1)] + 2 * A[g] + A[j * NS + Math.min(NS - 1, i + 1)]) * 0.25; }
+      for (let j = 0; j < NC; j++) for (let i = 0; i < NS; i++) { const g = j * NS + i; A[g] = (T[Math.max(0, j - 1) * NS + i] + 2 * T[g] + T[Math.min(NC - 1, j + 1) * NS + i]) * 0.25; }
+    }
+  };
+  blur2(FU, 1); blur2(FV, 1);
+  for (let j = 1; j < NC - 1; j++) for (let i = 0; i < NS; i++) {       // せん断の強い所に泡
+    const g = j * NS + i, dn = 2 * NR * W[i] * 0.5 / (NC - 1);
+    if (Math.abs(nnOf(j)) < 1) FF[g] += clamp(Math.abs(FU[g + NS] - FU[g - NS]) / (2 * dn) * 0.06, 0, 0.4);
+  }
+  blur2(FF, 2); blur2(FB, 1); blur2(FR, 1);
+  for (let g = 0; g < NG; g++) {
+    const j = (g / NS) | 0;
+    if (Math.abs(nnOf(j)) >= 1) { FU[g] = FV[g] = FB[g] = FF[g] = FR[g] = 0; continue; }
+    FF[g] = clamp(FF[g], 0, 1); FB[g] = clamp(FB[g], -0.35, 0.35);
+  }
+}
+function gs(A, fi, fj) {
+  fi = clamp(fi, 0, NS - 1.001); fj = clamp(fj, 0, NC - 1.001);
+  const i = fi | 0, j = fj | 0, a = fi - i, b = fj - j, k = j * NS + i;
+  return (A[k] * (1 - a) + A[k + 1] * a) * (1 - b) + (A[k + NS] * (1 - a) + A[k + NS + 1] * a) * b;
+}
+
+/* 鉄砲水：流量が波として下流へ伝わる */
+const SURGE = { t0: -1e6, amp: 0, c: 4.6, w: 45 };
+let simT = 0;
+function surgeF(s) {
+  const dt = simT - SURGE.t0; if (dt < 0) return 0;
+  const x = (s - (SURGE.c * dt - SURGE.w)) / SURGE.w;
+  return SURGE.amp * Math.exp(-x * x) * Math.exp(-s / 1400);
+}
+/* 任意点の水：流速・水面高さ・河床 */
+const FL = { vx: 0, vz: 0, y: 0, bed: 0, s: 0, n: 0, nn: 0, i: 0, rough: 0, foam: 0 };
+function fluid(x, z, hint) {
+  const q = project(x, z, hint), i = q.i, s = q.s, hw = W[i] * 0.5, nn = q.n / hw;
+  const fi = s / DS, fj = (nn + NR) / (2 * NR) * (NC - 1);
+  const sf = surgeF(s), sc = 1 + sf, rough = gs(FR, fi, fj);
+  const mask = clamp((1 - Math.abs(nn)) * 5, 0, 1);
+  const Uc = UM[i] * 1.2 * mask;
+  const tu = rough * Uc * 0.2 * (vnoise(s * 0.12 - simT * 0.9, nn * 1.7 + simT * 0.25) - 0.5) * 2;
+  const tv = rough * Uc * 0.26 * (vnoise(s * 0.12 - simT * 0.9 + 17.3, nn * 1.7 - simT * 0.2) - 0.5) * 2;
+  const u = (gs(FU, fi, fj) + tu) * sc, v = (gs(FV, fi, fj) + tv) * sc;
+  FL.vx = u * TX[i] - v * TZ[i]; FL.vz = u * TZ[i] + v * TX[i];
+  FL.y = Hs(s) + gs(FB, fi, fj) + sf * 0.45;
+  FL.bed = bedAt(s, nn);
+  FL.s = s; FL.n = q.n; FL.nn = nn; FL.i = i; FL.rough = rough; FL.foam = gs(FF, fi, fj);
+  return FL;
+}
+
+/* =====================================================================
+   地形の高さ
+   ===================================================================== */
+const TQ = { h: 0, wy: 0, e: 0, bw: 0 };
+const y0 = b => b * 0.07;   // 層理：高さで模様をずらす
+function terrainAt(x, z) {
+  const q = project(x, z, -1), i = q.i, s = q.s, an = Math.abs(q.n);
+  let hw = W[i] * 0.5, d = D[i], H = Hs(s), rough = RG[i], cliff = CL[i], e;
+  if (q.end < 0) { H = RES_H; d = 3.0; rough = 0; e = Math.max(an - hw, q.over - 70); }
+  else if (q.end > 0) e = Math.max(an - hw, q.over);
+  else e = an - hw;
+  const inner = clamp(Math.sign(q.n) * KA[i] * 70, 0, 1);
+  const bw = 1.5 + 11 * inner * (1 - cliff) + 2 * (1 - cliff);
+  let h;
+  if (e < 0) {
+    const t = an / hw;
+    h = H - d * Math.pow(Math.max(0, 1 - t * t), 0.6) + rough * 0.35 * (fbm(x * 0.35, z * 0.35, 3) - 0.5) * sstep(1, 0.8, t);
+  } else {
+    let b = e < bw ? e * 0.12 : bw * 0.12 + (5 + 15 * cliff) * (1 - Math.exp(-(e - bw) / (11 - 7 * cliff))) + 0.12 * (e - bw);
+    b += fbm(x * 0.018, z * 0.018, 4) * 9 * sstep(4, 30, e) + (fbm(x * 0.15, z * 0.15, 3) - 0.5) * 0.6 * sstep(0.5, 4, e);
+    b += sstep(20, 260, e) * (30 + 80 * fbm(x * 0.0045 + 3, z * 0.0045 - 2, 5));
+    b += (0.4 + cliff) * (fbm(x * 0.09, z * 0.09 + y0(b), 4) - 0.5) * 5 * sstep(1.5, 7, e) * sstep(40, 12, e);
+    h = H + b;
+  }
+  TQ.h = h; TQ.wy = H; TQ.e = e; TQ.bw = bw;
+  return TQ;
+}
+
+/* =====================================================================
+   描画の土台
+   ===================================================================== */
+const canvas = document.getElementById('gl');
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+} catch (err) {
+  document.getElementById('loading').textContent = 'WebGL2 が使えない環境です';
+  throw err;
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.62;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.autoClear = false;
+
+const scene = new THREE.Scene();
+const overlay = new THREE.Scene();          // 水面・しぶき（シーン色と深度を読んで最後に描く）
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.5, 3200);
+const SUN = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - 34), THREE.MathUtils.degToRad(215));
+const SUN_I = 3.2;
+const sunCol = new THREE.Color(1.0, 0.95, 0.86);
+scene.fog = new THREE.FogExp2(new THREE.Color(0.55, 0.66, 0.74), 0.0019);
+
+const sky = new Sky();
+sky.scale.setScalar(2600);
+sky.material.uniforms.turbidity.value = 3.2;
+sky.material.uniforms.rayleigh.value = 1.3;
+sky.material.uniforms.mieCoefficient.value = 0.004;
+sky.material.uniforms.mieDirectionalG.value = 0.86;
+sky.material.uniforms.sunPosition.value.copy(SUN).multiplyScalar(1000);
+scene.add(sky);
+
+const skyScene = new THREE.Scene();
+const sky2 = new Sky(); sky2.scale.setScalar(2600); sky2.material = sky.material; skyScene.add(sky2);
+const cubeRT = new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
+const cubeCam = new THREE.CubeCamera(1, 5000, cubeRT);
+cubeCam.update(renderer, skyScene);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(skyScene, 0.04).texture;
+scene.environmentIntensity = 0.55;
+
+const sun = new THREE.DirectionalLight(sunCol, SUN_I);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -55, right: 55, top: 55, bottom: -55, near: 1, far: 400 });
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04;
+scene.add(sun, sun.target);
+scene.add(new THREE.HemisphereLight(0xbfd6e6, 0x3a4a2a, 0.35));
+
+// シーン色＋深度のレンダーターゲット（屈折・水の厚み・岸の泡に使う）
+function makeRT() {
+  const w = renderer.domElement.width, h = renderer.domElement.height;
+  const dt = new THREE.DepthTexture(w, h, THREE.FloatType);
+  return new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, depthTexture: dt, samples: 4 });
+}
+let rt = makeRT();
+
+/* =====================================================================
+   手続きテクスチャ
+   ===================================================================== */
+function makeWaveNormalTex() {
+  const S = 256, r = mulberry32(99), waves = [];
+  while (waves.length < 80) {
+    const fx = Math.round((r() * 2 - 1) * 16), fy = Math.round((r() * 2 - 1) * 16), f = Math.hypot(fx, fy);
+    if (f < 1.5 || f > 16) continue;
+    waves.push([fx, fy, Math.pow(f, -1.5) * (0.6 + 0.8 * r()), r() * TAU]);
+  }
+  const gx = new Float32Array(S * S), gy = new Float32Array(S * S); let ss = 0;
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    let dx = 0, dy = 0;
+    for (const [fx, fy, a, p] of waves) { const c = Math.cos(TAU * (fx * x + fy * y) / S + p) * a; dx += c * fx; dy += c * fy; }
+    gx[y * S + x] = dx; gy[y * S + x] = dy; ss += dx * dx + dy * dy;
+  }
+  const k = 0.55 / Math.sqrt(ss / (S * S));
+  const data = new Uint8Array(S * S * 4);
+  for (let p = 0; p < S * S; p++) {
+    let nx = -gx[p] * k, ny = -gy[p] * k, nz = 1; const l = Math.hypot(nx, ny, nz); nx /= l; ny /= l; nz /= l;
+    data[p * 4] = (nx * 0.5 + 0.5) * 255; data[p * 4 + 1] = (ny * 0.5 + 0.5) * 255; data[p * 4 + 2] = (nz * 0.5 + 0.5) * 255; data[p * 4 + 3] = 255;
+  }
+  const t = new THREE.DataTexture(data, S, S, THREE.RGBAFormat);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter;
+  t.anisotropy = 8; t.needsUpdate = true;
+  return t;
+}
+function makeNoiseTex() {
+  const S = 256, data = new Uint8Array(S * S * 4);
+  const worley = (P, seed) => {
+    const r = mulberry32(seed), pts = new Float32Array(P * P * 2);
+    for (let k = 0; k < P * P * 2; k++) pts[k] = r();
+    const out = new Float32Array(S * S * 2);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+      const u = x / S * P, v = y / S * P, ci = Math.floor(u), cj = Math.floor(v);
+      let f1 = 9, f2 = 9;
+      for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) {
+        const ii = ci + a, jj = cj + b, wi = ((ii % P) + P) % P, wj = ((jj % P) + P) % P, k = (wj * P + wi) * 2;
+        const d = Math.hypot(ii + pts[k] - u, jj + pts[k + 1] - v);
+        if (d < f1) { f2 = f1; f1 = d; } else if (d < f2) f2 = d;
+      }
+      out[(y * S + x) * 2] = f1; out[(y * S + x) * 2 + 1] = f2;
+    }
+    return out;
+  };
+  const pv = (x, y, p) => {
+    const i = Math.floor(x), j = Math.floor(y), fx = x - i, fy = y - j, u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
+    const h = (a, b) => hash2(((a % p) + p) % p, ((b % p) + p) % p + 911 * p);
+    const A = h(i, j), B = h(i + 1, j), C = h(i, j + 1), Dd = h(i + 1, j + 1);
+    return A + (B - A) * u + (C - A) * v + (A - B - C + Dd) * u * v;
+  };
+  const w1 = worley(10, 5), w2 = worley(22, 9);
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const p = y * S + x;
+    let fb = 0, a = 0.5, n = 0;
+    for (let o = 0; o < 5; o++) { const per = 8 << o; fb += a * pv(x / S * per, y / S * per, per); n += a; a *= 0.5; }
+    fb /= n;
+    const lace = 1 - sstep(0, 0.22, w1[p * 2 + 1] - w1[p * 2]);
+    const bub = 1 - sstep(0.05, 0.5, w2[p * 2]);
+    data[p * 4] = clamp(0.5 * lace + 0.25 * bub + 0.45 * fb - 0.1, 0, 1) * 255;
+    data[p * 4 + 1] = fb * 255;
+    data[p * 4 + 2] = clamp(0.6 * (1 - sstep(0, 0.3, w2[p * 2 + 1] - w2[p * 2])) + 0.4 * fb, 0, 1) * 255;
+    data[p * 4 + 3] = 255;
+  }
+  const t = new THREE.DataTexture(data, S, S, THREE.RGBAFormat);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter;
+  t.anisotropy = 8; t.needsUpdate = true;
+  return t;
+}
+function makeBarkTex() {
+  const c = document.createElement('canvas'); c.width = 128; c.height = 512; const g = c.getContext('2d');
+  g.fillStyle = '#c7a174'; g.fillRect(0, 0, 128, 512);
+  for (let k = 0; k < 700; k++) {
+    const x = rnd() * 128, w = 0.5 + rnd() * 2.5, l = 40 + rnd() * 300, y = rnd() * 512;
+    g.fillStyle = `rgba(${110 + rnd() * 70 | 0},${72 + rnd() * 45 | 0},${38 + rnd() * 30 | 0},${0.06 + rnd() * 0.2})`;
+    g.fillRect(x, y, w, l); g.fillRect(x, y - 512, w, l);
+  }
+  for (let k = 0; k < 16; k++) {           // 剥ぎ残しの樹皮
+    const x = rnd() * 128, w = 5 + rnd() * 20, y = rnd() * 512, l = 30 + rnd() * 170;
+    g.fillStyle = 'rgba(88,54,34,0.9)';
+    g.beginPath();
+    for (let t = 0; t <= 1; t += 0.1) g.lineTo(x + Math.sin(t * 9 + k) * 2, y + t * l);
+    for (let t = 1; t >= 0; t -= 0.1) g.lineTo(x + w + Math.sin(t * 7 + k) * 2, y + t * l);
+    g.fill();
+    for (let m = 0; m < 10; m++) { g.fillStyle = 'rgba(50,30,20,0.6)'; g.fillRect(x + rnd() * w, y, 0.8, l); }
+  }
+  for (let k = 0; k < 7; k++) {            // 節
+    const x = rnd() * 128, y = rnd() * 512, r = 3 + rnd() * 5;
+    g.fillStyle = 'rgba(95,55,30,0.85)'; g.beginPath(); g.ellipse(x, y, r, r * 1.6, 0, 0, TAU); g.fill();
+    g.strokeStyle = 'rgba(60,35,20,0.6)'; g.lineWidth = 1.2; g.beginPath(); g.ellipse(x, y, r * 1.7, r * 3, 0, 0, TAU); g.stroke();
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8;
+  return t;
+}
+function makeEndTex() {
+  const S = 128, c = document.createElement('canvas'); c.width = c.height = S; const g = c.getContext('2d');
+  const img = g.createImageData(S, S);
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const dx = (x + 0.5) / S * 2 - 1, dy = (y + 0.5) / S * 2 - 1, r = Math.hypot(dx, dy), a = Math.atan2(dy, dx);
+    const heart = sstep(0.66, 0.56, r);
+    let cr = lerp(222, 172, heart), cg = lerp(194, 92, heart), cb = lerp(146, 60, heart);
+    const ring = Math.pow(0.5 + 0.5 * Math.sin(r * 58 + vnoise(a * 3, r * 4) * 3), 6);
+    const k = 1 - 0.16 * ring - 0.1 * (vnoise(a * 20, r * 30) - 0.5);
+    const crack = Math.abs(Math.sin(a * 2.5 + 1.3)) < 0.02 && r > 0.25 && r < 0.9 ? 0.55 : 1;
+    const bark = r > 0.95 ? 0.4 : 1;
+    const p = (y * S + x) * 4;
+    img.data[p] = cr * k * crack * bark; img.data[p + 1] = cg * k * crack * bark; img.data[p + 2] = cb * k * crack * bark; img.data[p + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const texWaveN = makeWaveNormalTex();
+const texNoise = makeNoiseTex();
+const texBark = makeBarkTex();
+const texEnd = makeEndTex();
+const timeU = { value: 0 };
+
+// 流れ場テクスチャ (R: 流下方向流速, G: 横断方向流速, B: 泡, A: 荒れ)
+const flowTex = (() => {
+  const data = new Uint16Array(NG * 4), h = THREE.DataUtils.toHalfFloat;
+  for (let g = 0; g < NG; g++) { data[g * 4] = h(FU[g]); data[g * 4 + 1] = h(FV[g]); data[g * 4 + 2] = h(FF[g]); data[g * 4 + 3] = h(FR[g]); }
+  const t = new THREE.DataTexture(data, NS, NC, THREE.RGBAFormat, THREE.HalfFloatType);
+  t.minFilter = t.magFilter = THREE.LinearFilter; t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; t.needsUpdate = true;
+  return t;
+})();
+
+/* =====================================================================
+   地形メッシュ（水中の河床にはコースティクス）
+   ===================================================================== */
+const terrainMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.94, metalness: 0 });
+terrainMat.onBeforeCompile = sh => {
+  sh.uniforms.uTime = timeU; sh.uniforms.uDetail = { value: texNoise };
+  sh.vertexShader = sh.vertexShader
+    .replace('#include <common>', '#include <common>\nattribute float aWaterY;\nvarying float vWaterY;\nvarying vec3 vWPos;')
+    .replace('#include <fog_vertex>', '#include <fog_vertex>\nvWaterY = aWaterY;\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+  sh.fragmentShader = sh.fragmentShader
+    .replace('#include <common>', `#include <common>
+uniform float uTime; uniform sampler2D uDetail;
+varying float vWaterY; varying vec3 vWPos;
+float caustic(vec2 uv, float time){
+  vec2 p = mod(uv * 6.2831853, 6.2831853) - 250.0;
+  vec2 i = p; float c = 1.0; float inten = 0.005;
+  for (int n = 0; n < 4; n++) {
+    float t = time * (1.0 - (3.5 / float(n + 1)));
+    i = p + vec2(cos(t - i.x) + sin(t + i.y), sin(t - i.y) + cos(t + i.x));
+    c += 1.0 / length(vec2(p.x / (sin(i.x + t) / inten), p.y / (cos(i.y + t) / inten)));
+  }
+  c /= 4.0; c = 1.17 - pow(c, 1.4);
+  return clamp(pow(abs(c), 8.0), 0.0, 1.0);
+}`)
+    .replace('#include <color_fragment>', `#include <color_fragment>
+{
+  float det = texture2D(uDetail, vWPos.xz * 0.23).g * 0.55 + texture2D(uDetail, vWPos.xz * 0.047).g * 0.45;
+  diffuseColor.rgb *= 0.62 + 0.76 * det;
+  float dw = vWaterY - vWPos.y;
+  diffuseColor.rgb *= mix(1.0, 0.6, smoothstep(-0.35, 0.02, dw));
+  if (dw > 0.0) {
+    float c = caustic(vWPos.xz * 0.11, uTime * 0.55) * 0.6 + caustic(vWPos.xz * 0.23 + 3.1, uTime * 0.8) * 0.4;
+    diffuseColor.rgb *= 1.0 + c * 2.6 * exp(-dw * 0.5) * smoothstep(0.0, 0.25, dw);
+  }
+}`);
+};
+function buildTerrain(x0, z0, x1, z1, step, lowerBox) {
+  const nx = Math.ceil((x1 - x0) / step) + 1, nz = Math.ceil((z1 - z0) / step) + 1, N = nx * nz;
+  const pos = new Float32Array(N * 3), wy = new Float32Array(N), ee = new Float32Array(N), bws = new Float32Array(N);
+  for (let iz = 0; iz < nz; iz++) for (let ix = 0; ix < nx; ix++) {
+    const x = x0 + ix * step, z = z0 + iz * step, t = terrainAt(x, z), k = iz * nx + ix;
+    let h = t.h;
+    if (lowerBox && x > lowerBox[0] && x < lowerBox[2] && z > lowerBox[1] && z < lowerBox[3]) h -= 10;
+    pos[k * 3] = x; pos[k * 3 + 1] = h; pos[k * 3 + 2] = z; wy[k] = t.wy; ee[k] = t.e; bws[k] = t.bw;
+  }
+  const idx = new Uint32Array((nx - 1) * (nz - 1) * 6); let p = 0;
+  for (let iz = 0; iz < nz - 1; iz++) for (let ix = 0; ix < nx - 1; ix++) {
+    const a = iz * nx + ix, b = a + 1, c = a + nx, d = c + 1;
+    idx[p++] = a; idx[p++] = c; idx[p++] = b; idx[p++] = b; idx[p++] = c; idx[p++] = d;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('aWaterY', new THREE.BufferAttribute(wy, 1));
+  geo.setIndex(new THREE.BufferAttribute(idx, 1));
+  geo.computeVertexNormals();
+  const nrm = geo.attributes.normal.array, col = new Float32Array(N * 3);
+  const BED_A = srgb(0.46, 0.43, 0.37), BED_B = srgb(0.3, 0.3, 0.26), GRAV_A = srgb(0.56, 0.54, 0.49), GRAV_B = srgb(0.44, 0.43, 0.39);
+  const VEG_A = srgb(0.2, 0.27, 0.11), VEG_B = srgb(0.3, 0.34, 0.15), SOIL = srgb(0.36, 0.29, 0.19), ROCK = srgb(0.36, 0.355, 0.33), MOSS = srgb(0.26, 0.32, 0.14);
+  const mix3 = (A, B, t) => [lerp(A[0], B[0], t), lerp(A[1], B[1], t), lerp(A[2], B[2], t)];
+  for (let k = 0; k < N; k++) {
+    const x = pos[k * 3], y = pos[k * 3 + 1], z = pos[k * 3 + 2], above = y - wy[k], e = ee[k], ny = nrm[k * 3 + 1];
+    const n1 = fbm(x * 0.08, z * 0.08, 3), n2 = vnoise(x * 0.45, z * 0.45);
+    let c = mix3(BED_A, BED_B, n1);
+    c = mix3(c, mix3(c, srgb(0.24, 0.3, 0.2), 0.6), sstep(0.4, 2.6, -above));   // 深い所は苔むす
+    const grav = mix3(GRAV_A, GRAV_B, n1 * 0.8 + n2 * 0.2);
+    c = mix3(c, grav, sstep(-0.3, 0.15, above));
+    let veg = mix3(VEG_A, VEG_B, n1);
+    veg = mix3(veg, SOIL, sstep(0.68, 0.85, n2) * 0.6);
+    const vegT = sstep(bws[k] + 0.5, bws[k] + 4, e) * sstep(0.5, 2.2, above);
+    c = mix3(c, veg, vegT);
+    const steep = sstep(0.72, 0.5, ny) * sstep(-0.2, 0.8, above);
+    const strata = 0.72 + 0.4 * vnoise(y * 0.9 + fbm(x * 0.05, z * 0.05, 2) * 4, (x + z) * 0.02);
+    const rk = mix3(mix3(ROCK, MOSS, n2 * 0.55 * sstep(0.3, 0.6, ny + 0.25)), srgb(0.28, 0.28, 0.26), n1);
+    c = mix3(c, [rk[0] * strata, rk[1] * strata, rk[2] * strata], steep);
+    col[k * 3] = c[0]; col[k * 3 + 1] = c[1]; col[k * 3 + 2] = c[2];
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const m = new THREE.Mesh(geo, terrainMat);
+  m.receiveShadow = true;
+  return m;
+}
+let bx0 = 1e9, bz0 = 1e9, bx1 = -1e9, bz1 = -1e9;
+for (let i = 0; i < NS; i++) { bx0 = Math.min(bx0, CX[i]); bx1 = Math.max(bx1, CX[i]); bz0 = Math.min(bz0, CZ[i]); bz1 = Math.max(bz1, CZ[i]); }
+const NEAR_BOX = [bx0 - 80, bz0 - 80, bx1 + 80, bz1 + 80];
+scene.add(buildTerrain(NEAR_BOX[0], NEAR_BOX[1], NEAR_BOX[2], NEAR_BOX[3], 1.25, null));
+scene.add(buildTerrain(bx0 - 700, bz0 - 700, bx1 + 700, bz1 + 700, 9, [NEAR_BOX[0] + 6, NEAR_BOX[1] + 6, NEAR_BOX[2] - 6, NEAR_BOX[3] - 6]));
+
+/* =====================================================================
+   岩のメッシュ
+   ===================================================================== */
+const rockGeos = [];
+for (let v = 0; v < 5; v++) {
+  const g0 = new THREE.IcosahedronGeometry(1, 4); g0.deleteAttribute('uv'); g0.deleteAttribute('normal');
+  const g = mergeVertices(g0), p = g.attributes.position, sd = v * 13.7;
+  for (let k = 0; k < p.count; k++) {
+    const x = p.getX(k), y = p.getY(k), z = p.getZ(k);
+    const d = 1 + (fbm(x * 1.3 + sd, z * 1.3 + y * 0.7, 3) - 0.5) * 0.55 + (vnoise(x * 4 + sd, y * 4 + z * 3) - 0.5) * 0.08;
+    p.setXYZ(k, x * d, y * d * (y < -0.3 ? 0.8 : 1), z * d);
+  }
+  g.computeVertexNormals();
+  rockGeos.push(g);
+}
+const rockMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.82 });
+for (const R of rocks) {
+  const g = rockGeos[(Math.abs(R.s * 7) | 0) % 5].clone(), p = g.attributes.position, nr = g.attributes.normal, col = new Float32Array(p.count * 3);
+  const H = Hs(R.s);
+  for (let k = 0; k < p.count; k++) {
+    const wy = R.cy + p.getY(k) * R.ry, n1 = vnoise(p.getX(k) * 3 + R.s, p.getZ(k) * 3);
+    let c = srgb(0.46 + n1 * 0.08, 0.45 + n1 * 0.07, 0.42 + n1 * 0.06);
+    if (nr.getY(k) > 0.55 && wy > H + 0.35 && n1 > 0.45) c = srgb(0.33, 0.39, 0.18);
+    const wet = sstep(H + 0.25, H - 0.02, wy);
+    const k2 = 1 - 0.45 * wet;
+    col[k * 3] = c[0] * k2; col[k * 3 + 1] = c[1] * k2; col[k * 3 + 2] = c[2] * k2 * (1 + 0.1 * wet);
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const m = new THREE.Mesh(g, rockMat);
+  m.position.set(R.x, R.cy, R.z); m.scale.set(R.r, R.ry, R.r); m.rotation.y = R.s * 1.7;
+  m.castShadow = true; m.receiveShadow = true;
+  scene.add(m);
+}
+
+/* =====================================================================
+   森（杉と河畔の広葉樹）と河原の石
+   ===================================================================== */
+{
+  const cones = [];
+  const lv = [[0.2, 0.26, 0.2], [0.17, 0.26, 0.38], [0.13, 0.24, 0.56], [0.09, 0.22, 0.72], [0.05, 0.16, 0.86]];
+  for (const [r, h, y] of lv) { const c = new THREE.ConeGeometry(r, h, 7, 1); c.translate(0, y + h / 2, 0); cones.push(c); }
+  const cedarGeo = mergeGeometries(cones);
+  const trunkGeo = new THREE.CylinderGeometry(0.012, 0.022, 0.4, 5); trunkGeo.translate(0, 0.2, 0);
+  const crownGeo = new THREE.IcosahedronGeometry(1, 1);
+  const cedarMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92, flatShading: true });
+  const leafMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, flatShading: true });
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a3a2c, roughness: 1 });
+  const cedars = [], leafs = [];
+  const place = (x0, z0, x1, z1, n, minE) => {
+    for (let k = 0; k < n; k++) {
+      const x = lerp(x0, x1, rnd()), z = lerp(z0, z1, rnd());
+      if (minE > 0 && x > NEAR_BOX[0] && x < NEAR_BOX[2] && z > NEAR_BOX[1] && z < NEAR_BOX[3]) continue;
+      const t = terrainAt(x, z); const h = t.h, e = t.e, bw = t.bw, wy = t.wy;
+      if (e < bw + 2.5 || h - wy < 1.2) continue;
+      const hx = terrainAt(x + 2, z).h, hz = terrainAt(x, z + 2).h;
+      const slope = Math.hypot(hx - h, hz - h) / 2;
+      if (slope > 0.9) continue;
+      if (fbm(x * 0.02 + 40, z * 0.02, 3) < 0.36) continue;
+      if (e < bw + 16 && rnd() < 0.45) leafs.push([x, h, z, 2 + rnd() * 2.2]);
+      else cedars.push([x, h - 0.3, z, 13 + rnd() * 13]);
+    }
+  };
+  place(NEAR_BOX[0], NEAR_BOX[1], NEAR_BOX[2], NEAR_BOX[3], 9000, 0);
+  place(bx0 - 520, bz0 - 520, bx1 + 520, bz1 + 520, 9000, 1);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), ps = new THREE.Vector3(), c = new THREE.Color();
+  const iCed = new THREE.InstancedMesh(cedarGeo, cedarMat, cedars.length), iTr = new THREE.InstancedMesh(trunkGeo, trunkMat, cedars.length + leafs.length);
+  cedars.forEach(([x, y, z, h], k) => {
+    q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rnd() * TAU); ps.set(x, y, z); sc.set(h * (0.85 + rnd() * 0.3), h, h * (0.85 + rnd() * 0.3));
+    m4.compose(ps, q, sc); iCed.setMatrixAt(k, m4); iTr.setMatrixAt(k, m4);
+    c.setRGB(...srgb(0.11 + rnd() * 0.05, 0.19 + rnd() * 0.06, 0.1 + rnd() * 0.04)); iCed.setColorAt(k, c);
+  });
+  const iLeaf = new THREE.InstancedMesh(crownGeo, leafMat, leafs.length);
+  leafs.forEach(([x, y, z, r], k) => {
+    q.setFromEuler(new THREE.Euler(rnd(), rnd() * TAU, rnd())); ps.set(x, y + r * 1.9, z); sc.set(r, r * 0.8, r);
+    m4.compose(ps, q, sc); iLeaf.setMatrixAt(k, m4);
+    q.identity(); ps.set(x, y - 0.2, z); sc.set(r * 6, r * 5, r * 6); m4.compose(ps, q, sc); iTr.setMatrixAt(cedars.length + k, m4);
+    c.setRGB(...srgb(0.22 + rnd() * 0.12, 0.33 + rnd() * 0.1, 0.12 + rnd() * 0.05)); iLeaf.setColorAt(k, c);
+  });
+  for (const im of [iCed, iLeaf, iTr]) { im.castShadow = true; im.receiveShadow = true; scene.add(im); }
+  // 河原の石
+  const pebG = new THREE.IcosahedronGeometry(1, 1), pebs = [];
+  for (let k = 0; k < 2600 && pebs.length < 900; k++) {
+    const i = (rnd() * NS) | 0, side = rnd() < 0.5 ? -1 : 1, hw = W[i] * 0.5;
+    const n = side * (hw + rnd() * 7);
+    const x = worldX(i, n), z = worldZ(i, n), t = terrainAt(x, z);
+    if (t.e < 0 || t.e > t.bw + 2) continue;
+    const th = t.h; if (Math.abs(terrainAt(x + 1, z).h - th) + Math.abs(terrainAt(x, z + 1).h - th) > 0.5) continue;
+    pebs.push([x, t.h, z, 0.15 + Math.pow(rnd(), 3) * 0.9]);
+  }
+  const iPeb = new THREE.InstancedMesh(pebG, rockMat.clone(), pebs.length);
+  iPeb.material.vertexColors = false;
+  pebs.forEach(([x, y, z, r], k) => {
+    q.setFromEuler(new THREE.Euler(rnd(), rnd() * TAU, rnd())); ps.set(x, y + r * 0.2, z); sc.set(r, r * 0.6, r * 0.9);
+    m4.compose(ps, q, sc); iPeb.setMatrixAt(k, m4);
+    const g = 0.34 + rnd() * 0.18; c.setRGB(...srgb(g, g * 0.97, g * 0.92)); iPeb.setColorAt(k, c);
+  });
+  iPeb.castShadow = iPeb.receiveShadow = true; scene.add(iPeb);
+}
+
+/* =====================================================================
+   水面メッシュとシェーダ
+   ===================================================================== */
+const MAXL = 32;
+const waterU = {
+  uFlow: { value: flowTex }, uNormalMap: { value: texWaveN }, uFoamMap: { value: texNoise },
+  uSceneColor: { value: rt.texture }, uSceneDepth: { value: rt.depthTexture }, uSky: { value: cubeRT.texture },
+  uRes: { value: new THREE.Vector2(1, 1) }, uNear: { value: camera.near }, uFar: { value: camera.far },
+  uTime: timeU, uSurge: { value: new THREE.Vector4(-1e6, 0, SURGE.c, SURGE.w) },
+  uSunDir: { value: SUN.clone() }, uSunCol: { value: new THREE.Color().copy(sunCol).multiplyScalar(SUN_I) },
+  uFogColor: { value: scene.fog.color }, uFogDensity: { value: scene.fog.density },
+  uLogA: { value: Array.from({ length: MAXL }, () => new THREE.Vector4()) },
+  uLogB: { value: Array.from({ length: MAXL }, () => new THREE.Vector4()) },
+  uLogCount: { value: 0 },
+};
+const waterVS = /* glsl */`
+attribute vec2 aSN; attribute vec2 aFlowUV; attribute vec3 aTan;
+uniform float uTime; uniform vec4 uSurge;
+varying vec2 vSN; varying vec2 vFlowUV; varying vec3 vWorld; varying vec3 vNrm; varying vec3 vTan; varying float vSurge; varying float vViewZ;
+float surgeF(float s){
+  float dt = uTime - uSurge.x; if (dt < 0.0) return 0.0;
+  float x = (s - (uSurge.z * dt - uSurge.w)) / uSurge.w;
+  return uSurge.y * exp(-x * x) * exp(-s / 1400.0);
+}
+void main(){
+  vec3 p = position;
+  float sf = surgeF(aSN.x);
+  p.y += sf * 0.45;
+  vec4 wp = modelMatrix * vec4(p, 1.0);
+  vWorld = wp.xyz; vSN = aSN; vFlowUV = aFlowUV; vTan = aTan; vSurge = sf;
+  vNrm = normalize(mat3(modelMatrix) * normal);
+  vec4 mv = viewMatrix * wp; vViewZ = -mv.z;
+  gl_Position = projectionMatrix * mv;
+}`;
+const waterFS = /* glsl */`
+#include <common>
+#include <packing>
+#define MAXL ${MAXL}
+uniform sampler2D uFlow, uNormalMap, uFoamMap, uSceneColor, uSceneDepth;
+uniform samplerCube uSky;
+uniform vec2 uRes; uniform float uNear, uFar, uTime;
+uniform vec3 uSunDir, uSunCol, uFogColor; uniform float uFogDensity;
+uniform vec4 uLogA[MAXL]; uniform vec4 uLogB[MAXL]; uniform int uLogCount;
+varying vec2 vSN; varying vec2 vFlowUV; varying vec3 vWorld; varying vec3 vNrm; varying vec3 vTan; varying float vSurge; varying float vViewZ;
+vec3 nmap(vec2 uv){ return texture2D(uNormalMap, uv).xyz * 2.0 - 1.0; }
+float sceneZ(vec2 uv){ return -perspectiveDepthToViewZ(texture2D(uSceneDepth, uv).x, uNear, uFar); }
+void main(){
+  vec4 fl = texture2D(uFlow, vFlowUV);
+  vec2 flow = fl.rg * (1.0 + vSurge);
+  float rough = clamp(fl.a + vSurge * 0.25, 0.0, 1.0);
+  float speed = length(flow);
+
+  // フローマップ：流速で法線を運ぶ（2位相を三角波で混ぜる）
+  const float CYC = 1.7;
+  float tt = uTime / CYC;
+  float p0 = fract(tt), p1 = fract(tt + 0.5);
+  float w0 = 1.0 - abs(1.0 - 2.0 * p0);
+  vec2 d0 = flow * (p0 - 0.5) * CYC, d1 = flow * (p1 - 0.5) * CYC;
+  vec2 uv = vSN;
+  vec3 nA = nmap((uv - d0) * 0.16) * w0 + nmap((uv - d1) * 0.16 + vec2(0.37, 0.61)) * (1.0 - w0);
+  vec3 nB = nmap((uv - d0) * 0.53 + vec2(0.13, 0.7)) * w0 + nmap((uv - d1) * 0.53 + vec2(0.71, 0.29)) * (1.0 - w0);
+  vec3 nC = nmap(uv * 1.9 + vec2(uTime * 0.045, -uTime * 0.035));
+  float str = 0.22 + 0.34 * rough + 0.03 * speed + vSurge * 0.2;
+  vec2 g = nA.xy * 0.95 + nB.xy * 0.65 * (0.45 + rough) + nC.xy * 0.22;
+  vec3 T = normalize(vTan), B = vec3(-T.z, 0.0, T.x);
+  vec3 Ng = normalize(vNrm);
+  vec3 N = normalize(Ng + (T * g.x + B * g.y) * str);
+
+  vec3 toCam = cameraPosition - vWorld;
+  float dist = length(toCam);
+  vec3 V = toCam / dist;
+  vec2 suv = gl_FragCoord.xy / uRes;
+  float zW = vViewZ, ratio = dist / zW;
+  float zS = sceneZ(suv);
+  float thick = max(zS - zW, 0.0) * ratio;            // 視線が水中を進む距離
+  float vdep = thick * max(V.y, 0.04);                // おおよその鉛直水深
+
+  // 屈折
+  vec2 ofs = (N.xz - Ng.xz) * clamp(thick * 0.5, 0.0, 1.0) * 0.055 / (1.0 + zW * 0.02);
+  vec2 ruv = clamp(suv + ofs, vec2(0.001), vec2(0.999));
+  float zR = sceneZ(ruv);
+  if (zR < zW) { ruv = suv; zR = zS; }
+  vec3 refr = texture2D(uSceneColor, ruv).rgb;
+  float thickR = max(zR - zW, 0.0) * ratio;
+
+  // 吸収と散乱（渓流の青緑、瀬では気泡で白濁）
+  vec3 absorb = vec3(0.42, 0.12, 0.1) + rough * vec3(0.18, 0.12, 0.1);
+  vec3 Tr = exp(-absorb * thickR);
+  float sunUp = max(uSunDir.y, 0.0);
+  vec3 scat = (vec3(0.016, 0.07, 0.064) + rough * vec3(0.022, 0.034, 0.034) * clamp(speed * 0.3, 0.0, 1.0)) * (0.35 + sunUp) * uSunCol * 0.55;
+  vec3 under = refr * Tr + scat * (1.0 - Tr);
+
+  // 反射（空のキューブマップ、低い角度は谷の森が映る）
+  vec3 R = reflect(-V, N); R.y = abs(R.y);
+  vec3 skyc = textureLod(uSky, R, rough * 3.5).rgb;
+  vec3 bank = vec3(0.022, 0.035, 0.018) * uSunCol * 0.6;
+  vec3 refl = mix(bank, skyc, smoothstep(0.03, 0.34, R.y));
+  float F = 0.02 + 0.98 * pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 5.0);
+  vec3 H = normalize(uSunDir + V);
+  float rg = 0.035 + rough * 0.2 + speed * 0.012;
+  float sh = 2.0 / (rg * rg);
+  vec3 spec = uSunCol * pow(max(dot(N, H), 0.0), sh) * (sh + 8.0) / 25.13 * F;
+  spec = min(spec, vec3(40.0));
+  vec3 col = mix(under, refl, F) + spec;
+
+  // 泡：流れで運ばれるレース状の泡
+  // 泡は流れ方向に引き伸ばされて筋になる
+  vec2 an = vec2(mix(0.4, 0.13, clamp(speed * 0.3, 0.0, 1.0)), 0.4);
+  float fT = texture2D(uFoamMap, (uv - d0) * an).r * w0 + texture2D(uFoamMap, (uv - d1) * an + vec2(0.5, 0.21)).r * (1.0 - w0);
+  float fT2 = texture2D(uFoamMap, (uv - d0) * an * 2.6 + vec2(0.3)).b * w0 + texture2D(uFoamMap, (uv - d1) * an * 2.6 + vec2(0.8, 0.1)).b * (1.0 - w0);
+  float patchy = texture2D(uFoamMap, (uv - d0 * 0.5) * vec2(0.03, 0.08)).g;
+  float lf = 0.0;
+  for (int i = 0; i < MAXL; i++) {
+    if (i >= uLogCount) break;
+    vec4 A = uLogA[i], Bq = uLogB[i];
+    vec2 dd = vWorld.xz - A.xy;
+    float al = dot(dd, A.zw), cr = dot(dd, vec2(-A.w, A.z));
+    float q = max(abs(al) - Bq.x, 0.0);
+    float dl = length(vec2(q, cr)) - Bq.y;
+    lf += exp(-max(dl, 0.0) * 5.0) * (0.22 + Bq.z) * step(-0.05, dl);
+  }
+  float shore = 1.0 - smoothstep(0.0, 0.22 + rough * 0.3, vdep);
+  float fa = clamp(fl.b * 0.8 * (0.55 + patchy * 0.9) * (1.0 + vSurge * 0.8) + shore * 0.5 + lf * 0.8 + vSurge * 0.12, 0.0, 1.3);
+  float fn = fT * 0.62 + fT2 * 0.38;
+  float fm = smoothstep(1.0 - fa, 1.0 - fa + 0.22, fn) * clamp(fa * 2.0, 0.0, 1.0);
+  vec3 foamCol = vec3(0.9, 0.93, 0.92) * (uSunCol * (0.25 + 0.55 * max(dot(N, uSunDir), 0.0)) * 0.42 + textureCube(uSky, vec3(0.0, 1.0, 0.0)).rgb * 0.5);
+  col = mix(col, foamCol, fm * 0.92);
+
+  // 岸で柔らかく接地
+  float edge = smoothstep(0.0, 0.07, vdep);
+  col = mix(texture2D(uSceneColor, suv).rgb, col, edge);
+
+  float ff = 1.0 - exp(-uFogDensity * uFogDensity * zW * zW);
+  col = mix(col, uFogColor, ff);
+  gl_FragColor = vec4(col, 1.0);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+}`;
+const waterMat = new THREE.ShaderMaterial({ uniforms: waterU, vertexShader: waterVS, fragmentShader: waterFS });
+{
+  const WM = 48, rows = NS, cols = WM + 1, N = rows * cols;
+  const pos = new Float32Array(N * 3), sn = new Float32Array(N * 2), fuv = new Float32Array(N * 2), tan = new Float32Array(N * 3);
+  for (let i = 0; i < rows; i++) {
+    const s = i * DS, hw = W[i] * 0.5, ext = hw + 6, H = HH[i];
+    for (let j = 0; j < cols; j++) {
+      const k = i * cols + j, n = (-1 + 2 * j / WM) * ext, nn = n / hw;
+      const fj = (nn + NR) / (2 * NR) * (NC - 1);
+      pos[k * 3] = worldX(i, n); pos[k * 3 + 2] = worldZ(i, n);
+      pos[k * 3 + 1] = H + (Math.abs(nn) < 1 ? gs(FB, i, fj) : 0);
+      sn[k * 2] = s; sn[k * 2 + 1] = n;
+      fuv[k * 2] = (i + 0.5) / NS; fuv[k * 2 + 1] = (clamp(fj, 0, NC - 1) + 0.5) / NC;
+      tan[k * 3] = TX[i]; tan[k * 3 + 2] = TZ[i];
+    }
+  }
+  const idx = new Uint32Array((rows - 1) * WM * 6); let p = 0;
+  for (let i = 0; i < rows - 1; i++) for (let j = 0; j < WM; j++) {
+    const a = i * cols + j, b = a + 1, c = a + cols, d = c + 1;
+    idx[p++] = a; idx[p++] = b; idx[p++] = c; idx[p++] = b; idx[p++] = d; idx[p++] = c;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('aSN', new THREE.BufferAttribute(sn, 2));
+  geo.setAttribute('aFlowUV', new THREE.BufferAttribute(fuv, 2));
+  geo.setAttribute('aTan', new THREE.BufferAttribute(tan, 3));
+  geo.setIndex(new THREE.BufferAttribute(idx, 1));
+  geo.computeVertexNormals();
+  const nr = geo.attributes.normal.array;
+  for (let k = 0; k < N; k++) if (nr[k * 3 + 1] < 0) { nr[k * 3] *= -1; nr[k * 3 + 1] *= -1; nr[k * 3 + 2] *= -1; }
+  const water = new THREE.Mesh(geo, waterMat);
+  water.frustumCulled = false;
+  overlay.add(water);
+  // 鉄砲堰の上の溜め池（流れのないテクセルを参照）
+  const rg = new THREE.PlaneGeometry(76, W[0] + 16, 8, 8); rg.rotateX(-Math.PI / 2);
+  const rp = rg.attributes.position, cnt = rp.count;
+  const rsn = new Float32Array(cnt * 2), rfu = new Float32Array(cnt * 2), rtan = new Float32Array(cnt * 3);
+  for (let k = 0; k < cnt; k++) {
+    const lx = rp.getX(k) - 38 - 1.5, lz = rp.getZ(k);
+    const x = CX[0] + TX[0] * lx - TZ[0] * lz, z = CZ[0] + TZ[0] * lx + TX[0] * lz;
+    rp.setXYZ(k, x, RES_H, z);
+    rsn[k * 2] = x; rsn[k * 2 + 1] = z; rfu[k * 2] = 0.5 / NS; rfu[k * 2 + 1] = 0.5 / NC; rtan[k * 3] = 1;
+  }
+  rg.setAttribute('aSN', new THREE.BufferAttribute(rsn, 2)); rg.setAttribute('aFlowUV', new THREE.BufferAttribute(rfu, 2)); rg.setAttribute('aTan', new THREE.BufferAttribute(rtan, 3));
+  rg.computeVertexNormals();
+  const res = new THREE.Mesh(rg, waterMat); res.frustumCulled = false; overlay.add(res);
+}
+
+/* 画面コピー（色＋深度を戻す） */
+const copyMat = new THREE.ShaderMaterial({
+  uniforms: { tColor: { value: rt.texture }, tDepth: { value: rt.depthTexture } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+  fragmentShader: `uniform sampler2D tColor, tDepth; varying vec2 vUv;
+  void main(){ gl_FragColor = texture2D(tColor, vUv); gl_FragDepth = texture2D(tDepth, vUv).x;
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+  }`,
+  depthTest: true, depthWrite: true, depthFunc: THREE.AlwaysDepth,
+});
+const copyScene = new THREE.Scene();
+const copyQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), copyMat); copyQuad.frustumCulled = false; copyScene.add(copyQuad);
+const orthoCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+/* =====================================================================
+   しぶきと霧
+   ===================================================================== */
+const PN = 3000;
+const pPos = new Float32Array(PN * 3), pVel = new Float32Array(PN * 3), pLife = new Float32Array(PN), pMax = new Float32Array(PN).fill(1);
+const pSize = new Float32Array(PN), pA0 = new Float32Array(PN), pAlpha = new Float32Array(PN), pGrav = new Float32Array(PN), pDrag = new Float32Array(PN), pFloor = new Float32Array(PN);
+let pHead = 0;
+const pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3).setUsage(THREE.DynamicDrawUsage));
+pGeo.setAttribute('aSize', new THREE.BufferAttribute(pSize, 1).setUsage(THREE.DynamicDrawUsage));
+pGeo.setAttribute('aAlpha', new THREE.BufferAttribute(pAlpha, 1).setUsage(THREE.DynamicDrawUsage));
+const pMat = new THREE.ShaderMaterial({
+  uniforms: { uScale: { value: 500 }, uColor: { value: new THREE.Color(1.25, 1.3, 1.3) } },
+  vertexShader: `attribute float aSize; attribute float aAlpha; uniform float uScale; varying float vA;
+  void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_PointSize = aSize * uScale / max(-mv.z, 0.5); gl_Position = projectionMatrix * mv; vA = aAlpha; }`,
+  fragmentShader: `uniform vec3 uColor; varying float vA;
+  void main(){ vec2 c = gl_PointCoord - 0.5; float d = length(c); if (d > 0.5 || vA <= 0.001) discard;
+  gl_FragColor = vec4(uColor * (0.85 + 0.3 * (0.5 - c.y)), smoothstep(0.5, 0.08, d) * vA);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+  }`,
+  transparent: true, depthWrite: false,
+});
+const points = new THREE.Points(pGeo, pMat); points.frustumCulled = false; overlay.add(points);
+function emit(x, y, z, vx, vy, vz, life, size, alpha, grav = 1, drag = 0.6) {
+  const k = pHead; pHead = (pHead + 1) % PN;
+  pPos[k * 3] = x; pPos[k * 3 + 1] = y; pPos[k * 3 + 2] = z; pVel[k * 3] = vx; pVel[k * 3 + 1] = vy; pVel[k * 3 + 2] = vz;
+  pLife[k] = pMax[k] = life; pSize[k] = size; pA0[k] = alpha; pGrav[k] = grav; pDrag[k] = drag; pFloor[k] = y - 0.05;
+}
+function splash(x, y, z, n, power, fvx = 0, fvz = 0) {
+  for (let k = 0; k < n; k++) {
+    const a = rnd() * TAU, r = rnd() * power;
+    emit(x + (rnd() - 0.5) * 0.6, y, z + (rnd() - 0.5) * 0.6, Math.cos(a) * r + fvx * 0.6, (1 + rnd() * 2.2) * power, Math.sin(a) * r + fvz * 0.6, 0.6 + rnd() * 0.8, 0.12 + rnd() * 0.3, 0.85);
+  }
+  for (let k = 0; k < n / 6; k++) emit(x, y + 0.2, z, (rnd() - 0.5) * 0.8 + fvx * 0.5, 0.3 + rnd() * 0.4, (rnd() - 0.5) * 0.8 + fvz * 0.5, 1.5 + rnd() * 1.5, 1.2 + rnd() * 1.5, 0.16, 0.02, 1.2);
+}
+function updateParticles(dt) {
+  for (let k = 0; k < PN; k++) {
+    if (pLife[k] <= 0) { pAlpha[k] = 0; continue; }
+    pLife[k] -= dt;
+    const dr = Math.max(0, 1 - pDrag[k] * dt);
+    pVel[k * 3] *= dr; pVel[k * 3 + 2] *= dr; pVel[k * 3 + 1] = pVel[k * 3 + 1] * dr - 9.8 * pGrav[k] * dt;
+    pPos[k * 3] += pVel[k * 3] * dt; pPos[k * 3 + 1] += pVel[k * 3 + 1] * dt; pPos[k * 3 + 2] += pVel[k * 3 + 2] * dt;
+    if (pPos[k * 3 + 1] < pFloor[k] && pVel[k * 3 + 1] < 0) pLife[k] = 0;
+    const t = clamp(pLife[k] / pMax[k], 0, 1);
+    pAlpha[k] = pLife[k] > 0 ? pA0[k] * Math.pow(t, 0.6) * sstep(0, 0.12, 1 - t + 0.02) : 0;
+  }
+  pGeo.attributes.position.needsUpdate = true; pGeo.attributes.aSize.needsUpdate = true; pGeo.attributes.aAlpha.needsUpdate = true;
+}
+
+/* =====================================================================
+   構造物：鉄砲堰・土場・網場・貯木場の小屋
+   ===================================================================== */
+const woodMat = new THREE.MeshStandardMaterial({ color: 0x6a4a31, roughness: 0.9 });
+const agedMat = new THREE.MeshStandardMaterial({ color: 0x5d5446, roughness: 0.95 });
+const logSideMat = new THREE.MeshStandardMaterial({ map: texBark, roughness: 0.78 });
+const logEndMat = new THREE.MeshStandardMaterial({ map: texEnd, roughness: 0.85 });
+const logGeo = new THREE.CylinderGeometry(1, 1, 1, 16, 1); logGeo.rotateZ(Math.PI / 2);
+function frameAt(s, n, y) { const i = idxS(s); return { x: worldX(i, n), z: worldZ(i, n), y, a: -Math.atan2(TZ[i], TX[i]) }; }
+const gate = new THREE.Group();
+{
+  const g = new THREE.Group(), f = frameAt(0, 0, 0), hw = W[0] * 0.5 + 5, bed = H0 - D[0] - 0.4;
+  g.position.set(f.x - TX[0] * 1.6, 0, f.z - TZ[0] * 1.6); g.rotation.y = f.a;
+  const rows = Math.ceil((RES_H + 0.5 - bed) / 0.5);
+  for (let r = 0; r < rows; r++) {
+    for (const side of [-1, 1]) {
+      const m = new THREE.Mesh(logGeo, [agedMat, logEndMat, logEndMat]);
+      const len = hw - 2.8; m.scale.set(len, 0.27, 0.27); m.rotation.y = Math.PI / 2;
+      m.position.set(0, bed + r * 0.5 + 0.27, side * (2.8 + len / 2)); m.castShadow = m.receiveShadow = true; g.add(m);
+    }
+    const gm = new THREE.Mesh(logGeo, [agedMat, logEndMat, logEndMat]); gm.scale.set(5.8, 0.27, 0.27); gm.rotation.y = Math.PI / 2;
+    gm.position.set(0.25, bed + r * 0.5 + 0.27, 0); gm.castShadow = true; gate.add(gm);
+  }
+  g.add(gate);
+  for (let k = -5; k <= 5; k++) {
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.22, RES_H - bed + 2.4, 8), woodMat);
+    p.position.set(-0.45, (RES_H + bed) / 2 + 1.0, k * (hw / 5.2)); p.castShadow = true; g.add(p);
+  }
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, hw * 2 + 1), woodMat); beam.position.set(-0.45, RES_H + 2.0, 0); beam.castShadow = true; g.add(beam);
+  const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.2, 12), woodMat); wheel.rotation.x = Math.PI / 2; wheel.position.set(-0.45, RES_H + 2.6, 0); g.add(wheel);
+  scene.add(g);
+}
+{ // 土場の丸太の山（左岸）
+  const i = idxS(20), n = W[i] * 0.5 + 5.5, t = terrainAt(worldX(i, n), worldZ(i, n));
+  const g = new THREE.Group(); g.position.set(worldX(i, n), t.h, worldZ(i, n)); g.rotation.y = -Math.atan2(TZ[i], TX[i]) + 0.1;
+  for (let r = 0; r < 4; r++) for (let k = 0; k < 6 - r; k++) {
+    const m = new THREE.Mesh(logGeo, [logSideMat, logEndMat, logEndMat]); m.scale.set(4.6 + rnd() * 0.8, 0.24, 0.24);
+    m.position.set((rnd() - 0.5) * 0.4, 0.24 + r * 0.42, (k - (5 - r) / 2) * 0.5); m.castShadow = m.receiveShadow = true; g.add(m);
+  }
+  scene.add(g);
+}
+const boomLogs = [];
+{ // 網場（あば）：鎖でつないだ浮き材
+  const i = idxS(S_BOOM), hw = W[i] * 0.5 + 1, nseg = Math.ceil(hw * 2 / 4.6);
+  for (let k = 0; k < nseg; k++) {
+    const n = -hw + (k + 0.5) * (hw * 2 / nseg);
+    const m = new THREE.Mesh(logGeo, [logSideMat, logEndMat, logEndMat]); m.scale.set(hw * 2 / nseg - 0.2, 0.26, 0.26);
+    m.position.set(worldX(i, n), HH[i] - 0.05, worldZ(i, n)); m.rotation.y = -Math.atan2(TZ[i], TX[i]) + Math.PI / 2;
+    m.castShadow = true; scene.add(m); boomLogs.push(m);
+  }
+  for (const side of [-1, 1]) {
+    const n = side * (hw + 1.2), t = terrainAt(worldX(i, n), worldZ(i, n));
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.25, 2.8, 8), woodMat); p.position.set(worldX(i, n), t.h + 1.2, worldZ(i, n)); p.castShadow = true; scene.add(p);
+  }
+}
+{ // 着の目印（両岸の旗と注連縄）
+  const i = idxS(S_FIN), hw = W[i] * 0.5 + 3;
+  const top = [];
+  for (const side of [-1, 1]) {
+    const n = side * hw, t = terrainAt(worldX(i, n), worldZ(i, n));
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 7, 8), woodMat); p.position.set(worldX(i, n), t.h + 3.5, worldZ(i, n)); p.castShadow = true; scene.add(p);
+    const fl = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 2.4), new THREE.MeshStandardMaterial({ color: side < 0 ? 0xc23a2b : 0xf1ece0, side: THREE.DoubleSide, roughness: 0.8 }));
+    fl.position.set(worldX(i, n) + TX[i] * 0.85, t.h + 5.6, worldZ(i, n) + TZ[i] * 0.85); fl.rotation.y = -Math.atan2(TZ[i], TX[i]); scene.add(fl);
+    top.push(new THREE.Vector3(worldX(i, n), t.h + 6.6, worldZ(i, n)));
+  }
+  const mid = top[0].clone().lerp(top[1], 0.5); mid.y -= 2.2;
+  const rope = new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(top[0], mid, top[1]), 40, 0.05, 5), new THREE.MeshStandardMaterial({ color: 0xd8c79a, roughness: 1 }));
+  scene.add(rope);
+  const bz = new THREE.QuadraticBezierCurve3(top[0], mid, top[1]);
+  for (let k = 1; k < 14; k++) {
+    const p = bz.getPoint(k / 14), sh = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.5), new THREE.MeshStandardMaterial({ color: 0xffffff, side: THREE.DoubleSide }));
+    sh.position.copy(p).y -= 0.3; sh.rotation.y = -Math.atan2(TZ[i], TX[i]) + Math.PI / 2; scene.add(sh);
+  }
+}
+{ // 貯木場の小屋
+  const i = idxS(S_BOOM - 26), n = W[i] * 0.5 + 12, x = worldX(i, n), z = worldZ(i, n), t = terrainAt(x, z);
+  const g = new THREE.Group(); g.position.set(x, t.h - 0.2, z); g.rotation.y = -Math.atan2(TZ[i], TX[i]);
+  const body = new THREE.Mesh(new THREE.BoxGeometry(9, 3.2, 5), new THREE.MeshStandardMaterial({ color: 0x4d3a2a, roughness: 0.95 })); body.position.y = 1.6; body.castShadow = body.receiveShadow = true; g.add(body);
+  const roofG = new THREE.CylinderGeometry(0.01, 4.1, 2.2, 4, 1); roofG.rotateY(Math.PI / 4); roofG.scale(1.65, 1, 1);
+  const roof = new THREE.Mesh(roofG, new THREE.MeshStandardMaterial({ color: 0x3b3a36, roughness: 0.9 })); roof.position.y = 4.3; roof.castShadow = true; g.add(roof);
+  scene.add(g);
+}
+
+/* =====================================================================
+   川舟と船頭
+   ===================================================================== */
+function hullGeo() {
+  const segs = 30, Lh = 6.2, pos = [], idx = [];
+  const prof = t => {
+    const ws = t < 0.55 ? 0.82 + 0.18 * Math.sin(t / 0.55 * Math.PI / 2) : Math.cos((t - 0.55) / 0.45 * Math.PI / 2) * 0.97 + 0.03;
+    const yb = t > 0.6 ? Math.pow((t - 0.6) / 0.4, 2) * 0.42 : 0;
+    const yt = 0.44 + (t > 0.75 ? Math.pow((t - 0.75) / 0.25, 2) * 0.3 : 0);
+    return [ws, yb, yt];
+  };
+  for (let i = 0; i <= segs; i++) {
+    const t = i / segs, x = (t - 0.5) * Lh, [ws, yb, yt] = prof(t);
+    for (const [z, y] of [[-0.62 * ws, yt], [-0.5 * ws, yb + 0.03], [-0.36 * ws, yb], [0.36 * ws, yb], [0.5 * ws, yb + 0.03], [0.62 * ws, yt]]) pos.push(x, y, z);
+  }
+  for (let i = 0; i < segs; i++) for (let j = 0; j < 5; j++) { const a = i * 6 + j, b = a + 1, c = a + 6, d = c + 1; idx.push(a, c, b, b, c, d); }
+  idx.push(0, 1, 5, 1, 4, 5, 1, 2, 4, 2, 3, 4);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
+const boatG = new THREE.Group();
+const boatMesh = new THREE.Group(); boatG.add(boatMesh);
+{
+  const hullMat = new THREE.MeshStandardMaterial({ color: 0x5b3f28, roughness: 0.85, side: THREE.DoubleSide });
+  const hull = new THREE.Mesh(hullGeo(), hullMat); hull.position.y = -0.18; hull.castShadow = hull.receiveShadow = true; boatMesh.add(hull);
+  for (const x of [-1.8, 0.2, 1.6]) { const t = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.05, 1.12), woodMat); t.position.set(x, 0.2, 0); t.castShadow = true; boatMesh.add(t); }
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.04, 0.72), new THREE.MeshStandardMaterial({ color: 0x7a5a3c, roughness: 0.9 })); floor.position.set(-0.4, -0.12, 0); boatMesh.add(floor);
+  const man = new THREE.Group(); man.position.set(-1.25, -0.1, 0);
+  const indigo = new THREE.MeshStandardMaterial({ color: 0x28375a, roughness: 0.9 }), skin = new THREE.MeshStandardMaterial({ color: 0xc99672, roughness: 0.7 });
+  const straw = new THREE.MeshStandardMaterial({ color: 0xc9ab66, roughness: 0.95 });
+  for (const z of [-0.13, 0.13]) { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.085, 0.85, 8), new THREE.MeshStandardMaterial({ color: 0x1d2537 })); l.position.set(0, 0.42, z); l.castShadow = true; man.add(l); }
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.24, 0.68, 10), indigo); body.position.y = 1.18; body.castShadow = true; man.add(body);
+  const obi = new THREE.Mesh(new THREE.CylinderGeometry(0.245, 0.245, 0.1, 10), new THREE.MeshStandardMaterial({ color: 0xb9b2a0 })); obi.position.y = 0.92; man.add(obi);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 10), skin); head.position.y = 1.66; head.castShadow = true; man.add(head);
+  const hat = new THREE.Mesh(new THREE.ConeGeometry(0.36, 0.2, 16), straw); hat.position.y = 1.83; hat.castShadow = true; man.add(hat);
+  for (const z of [-0.26, 0.26]) { const a = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.05, 0.6, 6), indigo); a.position.set(0.18, 1.2, z); a.rotation.z = -1.0; man.add(a); }
+  boatMesh.add(man);
+}
+const poleG = new THREE.Group(); poleG.position.set(-0.95, 1.12, 0); boatMesh.add(poleG);
+const poleMesh = new THREE.Group(); poleG.add(poleMesh);
+{
+  const pg = new THREE.CylinderGeometry(0.024, 0.03, 5.2, 6); pg.rotateX(Math.PI / 2); pg.translate(0, 0, 1.6);
+  const pole = new THREE.Mesh(pg, new THREE.MeshStandardMaterial({ color: 0xb09555, roughness: 0.7 })); pole.castShadow = true; poleMesh.add(pole);
+  const hook = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.28, 6), new THREE.MeshStandardMaterial({ color: 0x2a2a2a, metalness: 0.6, roughness: 0.4 }));
+  hook.rotation.x = Math.PI / 2; hook.position.z = 4.3; poleMesh.add(hook);
+}
+scene.add(boatG);
+const REACH = 7.5;
+const reachRing = new THREE.Mesh(new THREE.RingGeometry(REACH - 0.06, REACH + 0.06, 96), new THREE.MeshBasicMaterial({ color: 0xd9b765, transparent: true, opacity: 0.28, depthWrite: false }));
+reachRing.rotation.x = -Math.PI / 2; overlay.add(reachRing);
+
+/* =====================================================================
+   剛体（丸太・舟）：水の抗力・座礁・衝突
+   ===================================================================== */
+const bodies = [];
+let boat = null;
+function makeBody(o) {
+  const b = Object.assign({ x: 0, z: 0, vx: 0, vz: 0, a: 0, w: 0, y: 0, vy: 0, pitch: 0, roll: 0, hint: -1, s: 0, n: 0, wy: 0, bed: 0, wyA: 0, wyB: 0, fvx: 0, fvz: 0,
+    thrust: 0, torque: 0, angDamp: 0.05, falling: false, stuckT: 0, stuck: false, delivered: false, hitCd: 0, rel: 0 }, o);
+  b.invM = 1 / b.m; b.invI = 1 / b.I;
+  return b;
+}
+function newLog(x, z, a, len, r) {
+  const m = 540 * Math.PI * r * r * len;
+  const kt = 620 * r * len, b = makeBody({ kind: 'log', x, z, a, hl: len / 2, r, m, I: m * (len * len / 12 + r * r / 4), kt, ka: kt * 0.22, kl: 40 * len, draft: r * 0.95 });
+  const mat = logSideMat.clone();
+  const mesh = new THREE.Mesh(logGeo, [mat, logEndMat, logEndMat]);
+  mesh.scale.set(len, r, r); mesh.castShadow = true; mesh.receiveShadow = true; mesh.userData.body = b;
+  const tint = 0.86 + rnd() * 0.2; mat.color.setRGB(tint, tint * (0.95 + rnd() * 0.07), tint * 0.92);
+  b.mesh = mesh; b.mat = mat;
+  scene.add(mesh); bodies.push(b);
+  return b;
+}
+function makeBoat(x, z, a) {
+  const m = 430;
+  return makeBody({ kind: 'boat', x, z, a, hl: 2.55, r: 0.62, m, I: m * 6.2 * 6.2 / 12 * 1.2, kt: 950, ka: 70, kl: 70, draft: 0.26, angDamp: 0.6 });
+}
+
+function stepBody(b, h) {
+  const ax = Math.cos(b.a), az = -Math.sin(b.a);
+  let Fx = 0, Fz = 0, T = 0;
+  for (let k = 0; k < 3; k++) {
+    const t = (k - 1) * b.hl * 0.85, px = b.x + ax * t, pz = b.z + az * t;
+    fluid(px, pz, b.hint);
+    if (k === 1) { b.hint = FL.i; b.s = FL.s; b.n = FL.n; b.wy = FL.y; b.bed = FL.bed; b.fvx = FL.vx; b.fvz = FL.vz; b.nn = FL.nn; }
+    else if (k === 0) b.wyA = FL.y; else b.wyB = FL.y;
+    if (b.falling) continue;
+    const rx = px - b.x, rz = pz - b.z;
+    const vpx = b.vx + b.w * rz, vpz = b.vz - b.w * rx;
+    const ux = FL.vx - vpx, uz = FL.vz - vpz;
+    const ua = ux * ax + uz * az, uax = ua * ax, uaz = ua * az, utx = ux - uax, utz = uz - uaz;
+    const ut = Math.hypot(utx, utz), uaa = Math.abs(ua);
+    const depth = FL.y - FL.bed, g = sstep(b.draft * 1.5, b.draft * 0.55, depth);  // 座礁
+    const sub = (1 - 0.75 * g) / 3;
+    let fx = (b.kt * ut * utx + b.ka * uaa * uax + b.kl * ux) * sub;
+    let fz = (b.kt * ut * utz + b.ka * uaa * uaz + b.kl * uz) * sub;
+    fx -= g * b.m * 2.2 * vpx / 3; fz -= g * b.m * 2.2 * vpz / 3;
+    Fx += fx; Fz += fz; T += rz * fx - rx * fz;
+  }
+  Fx += ax * b.thrust; Fz += az * b.thrust; T += b.torque;
+  b.vx += Fx * b.invM * h; b.vz += Fz * b.invM * h; b.w += T * b.invI * h;
+  b.w *= 1 - b.angDamp * h;
+  b.x += b.vx * h; b.z += b.vz * h; b.a += b.w * h;
+}
+const impacts = [];
+function contact(A, B, px, pz, nx, nz, pen, e = 0.15, mu = 0.35) {
+  const rAx = px - A.x, rAz = pz - A.z;
+  let vx = A.vx + A.w * rAz, vz = A.vz - A.w * rAx;
+  let rBx = 0, rBz = 0;
+  if (B) { rBx = px - B.x; rBz = pz - B.z; vx -= B.vx + B.w * rBz; vz -= B.vz - B.w * rBx; }
+  const vn = vx * nx + vz * nz;
+  const rnA = rAz * nx - rAx * nz, rnB = rBz * nx - rBx * nz;
+  if (vn < 0) {
+    const k = A.invM + rnA * rnA * A.invI + (B ? B.invM + rnB * rnB * B.invI : 0);
+    const j = -(1 + e) * vn / k;
+    A.vx += j * nx * A.invM; A.vz += j * nz * A.invM; A.w += rnA * j * A.invI;
+    if (B) { B.vx -= j * nx * B.invM; B.vz -= j * nz * B.invM; B.w -= rnB * j * B.invI; }
+    const tx = -nz, tz = nx, vt = vx * tx + vz * tz;
+    const rtA = rAz * tx - rAx * tz, rtB = rBz * tx - rBx * tz;
+    const kt = A.invM + rtA * rtA * A.invI + (B ? B.invM + rtB * rtB * B.invI : 0);
+    const jt = clamp(-vt / kt, -mu * j, mu * j);
+    A.vx += jt * tx * A.invM; A.vz += jt * tz * A.invM; A.w += rtA * jt * A.invI;
+    if (B) { B.vx -= jt * tx * B.invM; B.vz -= jt * tz * B.invM; B.w -= rtB * jt * B.invI; }
+    if (-vn > 0.9 && A.hitCd <= 0) { impacts.push([px, pz, -vn, A.wy]); A.hitCd = 0.25; if (B) B.hitCd = 0.25; }
+  }
+  const tot = A.invM + (B ? B.invM : 0), corr = Math.max(pen - 0.005, 0) * 0.7 / tot;
+  A.x += nx * corr * A.invM; A.z += nz * corr * A.invM;
+  if (B) { B.x -= nx * corr * B.invM; B.z -= nz * corr * B.invM; }
+}
+const SO = { ax: 0, az: 0, bx: 0, bz: 0 };
+function segSeg(p1x, p1z, q1x, q1z, p2x, p2z, q2x, q2z) {
+  const d1x = q1x - p1x, d1z = q1z - p1z, d2x = q2x - p2x, d2z = q2z - p2z, rx = p1x - p2x, rz = p1z - p2z;
+  const a = d1x * d1x + d1z * d1z, e = d2x * d2x + d2z * d2z, f = d2x * rx + d2z * rz, c = d1x * rx + d1z * rz, b = d1x * d2x + d1z * d2z, den = a * e - b * b;
+  let s = den > 1e-9 ? clamp((b * f - c * e) / den, 0, 1) : 0, t = (b * s + f) / e;
+  if (t < 0) { t = 0; s = clamp(-c / a, 0, 1); } else if (t > 1) { t = 1; s = clamp((b - c) / a, 0, 1); }
+  SO.ax = p1x + d1x * s; SO.az = p1z + d1z * s; SO.bx = p2x + d2x * t; SO.bz = p2z + d2z * t;
+}
+function collide() {
+  const n = bodies.length;
+  for (let i = 0; i < n; i++) {
+    const A = bodies[i]; if (A.falling) continue;
+    const aax = Math.cos(A.a) * A.hl, aaz = -Math.sin(A.a) * A.hl;
+    for (let j = i + 1; j < n; j++) {
+      const B = bodies[j]; if (B.falling) continue;
+      const R = A.hl + A.r + B.hl + B.r, dx = A.x - B.x, dz = A.z - B.z;
+      if (dx * dx + dz * dz > R * R) continue;
+      const bax = Math.cos(B.a) * B.hl, baz = -Math.sin(B.a) * B.hl;
+      segSeg(A.x - aax, A.z - aaz, A.x + aax, A.z + aaz, B.x - bax, B.z - baz, B.x + bax, B.z + baz);
+      let nx = SO.ax - SO.bx, nz = SO.az - SO.bz; const d = Math.hypot(nx, nz), rr = A.r + B.r;
+      if (d >= rr) continue;
+      if (d < 1e-6) { nx = 1; nz = 0; } else { nx /= d; nz /= d; }
+      contact(A, B, (SO.ax + SO.bx) / 2, (SO.az + SO.bz) / 2, nx, nz, rr - d, 0.12, 0.4);
+    }
+    for (const R of rocks) {
+      if (R.col <= 0) continue;
+      const dx0 = R.x - A.x, dz0 = R.z - A.z, rr = A.hl + A.r + R.col;
+      if (dx0 * dx0 + dz0 * dz0 > rr * rr) continue;
+      const t = clamp((dx0 * aax + dz0 * aaz) / (A.hl * A.hl), -1, 1);
+      const cx = A.x + aax * t, cz = A.z + aaz * t;
+      let nx = cx - R.x, nz = cz - R.z; const d = Math.hypot(nx, nz), r2 = A.r + R.col;
+      if (d >= r2) continue;
+      nx /= d; nz /= d;
+      contact(A, null, cx - nx * A.r, cz - nz * A.r, nx, nz, r2 - d, 0.1, 0.5);
+    }
+    for (let k = -1; k <= 1; k++) {        // 岸・堰・網場
+      const px = A.x + aax * k, pz = A.z + aaz * k, q = project(px, pz, A.hint), ii = q.i, hw = W[ii] * 0.5;
+      const lim = hw * (A.kind === 'boat' ? 0.95 : 0.92) - A.r;
+      if (Math.abs(q.n) > lim) { const sg = -Math.sign(q.n); contact(A, null, px, pz, sg * -TZ[ii], sg * TX[ii], Math.abs(q.n) - lim, 0.05, 0.6); }
+      const s = ii * DS + (px - CX[ii]) * TX[ii] + (pz - CZ[ii]) * TZ[ii];
+      if (s < 1.2 + A.r) contact(A, null, px, pz, TX[ii], TZ[ii], 1.2 + A.r - s, 0.05, 0.3);
+      if (s > S_BOOM - A.r - 0.25) contact(A, null, px, pz, -TX[ii], -TZ[ii], s - (S_BOOM - A.r - 0.25), 0.05, 0.6);
+    }
+  }
+}
+function physics(dt) {
+  const sub = 3, h = dt / sub;
+  for (let s = 0; s < sub; s++) {
+    for (const b of bodies) stepBody(b, h);
+    collide();
+  }
+  for (const b of bodies) b.hitCd -= dt;
+}
+
+/* =====================================================================
+   音（川の瀬音・材の当たる音・水音）
+   ===================================================================== */
+let AC = null, master, roarG, hissG, noiseBuf;
+let muted = false;
+function initAudio() {
+  if (AC) return;
+  try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch { return; }
+  master = AC.createGain(); master.gain.value = 0.7; master.connect(AC.destination);
+  noiseBuf = AC.createBuffer(1, AC.sampleRate * 3, AC.sampleRate);
+  const d = noiseBuf.getChannelData(0); let last = 0;
+  for (let i = 0; i < d.length; i++) { const w = Math.random() * 2 - 1; last = (last + 0.02 * w) / 1.02; d[i] = last * 3.2 * 0.6 + w * 0.4; }
+  const mk = (type, f, q, g0) => {
+    const src = AC.createBufferSource(); src.buffer = noiseBuf; src.loop = true; src.playbackRate.value = 0.7 + Math.random() * 0.3;
+    const fl = AC.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+    const g = AC.createGain(); g.gain.value = g0; src.connect(fl).connect(g).connect(master); src.start();
+    return g;
+  };
+  roarG = mk('lowpass', 520, 0.6, 0.2); hissG = mk('bandpass', 2600, 0.5, 0.03);
+}
+function knock(power, dist) {
+  if (!AC || muted) return;
+  const t = AC.currentTime, v = clamp(power * 0.18, 0, 0.6) / (1 + dist / 14);
+  if (v < 0.01) return;
+  const o = AC.createOscillator(), g = AC.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(110 + Math.random() * 120, t); o.frequency.exponentialRampToValueAtTime(70, t + 0.25);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0005, t + 0.3);
+  o.connect(g).connect(master); o.start(t); o.stop(t + 0.32);
+  const n = AC.createBufferSource(); n.buffer = noiseBuf; const f = AC.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 1.2;
+  const g2 = AC.createGain(); g2.gain.setValueAtTime(v * 0.9, t); g2.gain.exponentialRampToValueAtTime(0.0005, t + 0.07);
+  n.connect(f).connect(g2).connect(master); n.start(t, Math.random() * 2); n.stop(t + 0.08);
+}
+function splashSnd(power, dist) {
+  if (!AC || muted) return;
+  const t = AC.currentTime, v = clamp(power * 0.25, 0, 0.7) / (1 + dist / 16);
+  const n = AC.createBufferSource(); n.buffer = noiseBuf; const f = AC.createBiquadFilter(); f.type = 'lowpass';
+  f.frequency.setValueAtTime(3200, t); f.frequency.exponentialRampToValueAtTime(380, t + 0.45);
+  const g = AC.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0005, t + 0.55);
+  n.connect(f).connect(g).connect(master); n.start(t, Math.random() * 2); n.stop(t + 0.6);
+}
+function rumble() {
+  if (!AC || muted) return;
+  const t = AC.currentTime, n = AC.createBufferSource(); n.buffer = noiseBuf; n.loop = true;
+  const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 260;
+  const g = AC.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.8, t + 1.2); g.gain.exponentialRampToValueAtTime(0.001, t + 9);
+  n.connect(f).connect(g).connect(master); n.start(t); n.stop(t + 9.2);
+}
+
+/* =====================================================================
+   ゲームの進行
+   ===================================================================== */
+const TOTAL = 24, LIMIT = 540;
+const G = { state: 'title', t: 0, spawned: 0, nextSpawn: 0, delivered: 0, flush: 3, pushes: 0, stuck: 0 };
+const $ = id => document.getElementById(id);
+let toastT = 0;
+function toast(msg, sec = 2.4) { const el = $('toast'); el.textContent = msg; el.classList.add('on'); toastT = sec; }
+function spawnLog() {
+  for (let tries = 0; tries < 12; tries++) {
+    const s = 12 + rnd() * 16, i = idxS(s), hw = W[i] * 0.5, n = hw * (0.2 + rnd() * 0.5);
+    const x = worldX(i, n), z = worldZ(i, n);
+    if (bodies.some(b => Math.hypot(b.x - x, b.z - z) < 3.2)) continue;
+    const len = 3.8 + rnd() * 2.2, r = 0.17 + rnd() * 0.1;
+    const b = newLog(x, z, -Math.atan2(TZ[i], TX[i]) + (rnd() - 0.5) * 0.9, len, r);
+    fluid(x, z, -1);
+    b.y = FL.y + 1.4 + rnd() * 0.8; b.vy = 1.2; b.falling = true;
+    b.vx = TZ[i] * 1.4; b.vz = -TX[i] * 1.4;
+    b.w = (rnd() - 0.5) * 0.4;
+    G.spawned++;
+    return true;
+  }
+  return false;
+}
+function resetGame() {
+  for (let k = bodies.length - 1; k >= 0; k--) if (bodies[k].mesh) { scene.remove(bodies[k].mesh); bodies[k].mat.dispose(); }
+  bodies.length = 0;
+  const i = idxS(42), n = -W[i] * 0.2;
+  boat = makeBoat(worldX(i, n), worldZ(i, n), -Math.atan2(TZ[i], TX[i]));
+  fluid(boat.x, boat.z, -1); boat.y = FL.y;
+  bodies.push(boat);
+  Object.assign(G, { t: 0, spawned: 0, nextSpawn: 1.2, delivered: 0, flush: 3, pushes: 0, stuck: 0 });
+  SURGE.t0 = -1e6; SURGE.amp = 0;
+  cam.yawOff = 0; cam.heading = boat.a; cam.dist = 20; cam.pitch = 0.42;
+}
+function doFlush() {
+  if (G.state !== 'play') return;
+  if (G.flush <= 0) { toast('鉄砲堰はもう空だ'); return; }
+  if (simT - SURGE.t0 < (L + SURGE.w * 2) / SURGE.c * 0.55) { toast('まだ水が溜まっていない'); return; }
+  G.flush--; SURGE.t0 = simT; SURGE.amp = 1.1;
+  toast('鉄砲水！', 2.6); rumble();
+  const f = frameAt(2, 0, H0);
+  for (let k = 0; k < 160; k++) { const n = (rnd() - 0.5) * 6; emit(f.x - TZ[0] * n, H0 + 0.3, f.z + TX[0] * n, TX[0] * (3 + rnd() * 4), 1 + rnd() * 4, TZ[0] * (3 + rnd() * 4), 1 + rnd(), 0.2 + rnd() * 0.4, 0.9); }
+}
+const poleAnim = { t: 1, target: new THREE.Vector3(), dur: 0.55 };
+let pushCd = 0;
+function manPos() { const ax = Math.cos(boat.a), az = -Math.sin(boat.a); return [boat.x + ax * -1.1, boat.z + az * -1.1]; }
+function poke(log, hx, hz) {
+  if (G.state !== 'play' || pushCd > 0) return false;
+  const [mx, mz] = manPos();
+  let dx = hx - mx, dz = hz - mz; const d = Math.hypot(dx, dz);
+  if (d > REACH + log.r) { toast('届かない', 1.2); return false; }
+  dx /= d; dz /= d;
+  const J = 820;
+  const rx = hx - log.x, rz = hz - log.z;
+  log.vx += dx * J * log.invM; log.vz += dz * J * log.invM; log.w += (rz * dx - rx * dz) * J * log.invI;
+  const bx = mx - boat.x, bz = mz - boat.z;
+  boat.vx -= dx * J * 0.3 * boat.invM; boat.vz -= dz * J * 0.3 * boat.invM; boat.w -= (bz * dx - bx * dz) * J * 0.3 * boat.invI;
+  log.stuckT = 0;
+  pushCd = 0.5; G.pushes++;
+  poleAnim.t = 0; poleAnim.target.set(hx, log.y + 0.1, hz);
+  setTimeout(() => { splash(hx, log.wy, hz, 18, 1.2); splashSnd(0.8, 5); knock(3, 5); }, 180);
+  return true;
+}
+function spacePush() {
+  if (G.state !== 'play' || pushCd > 0) return;
+  const [mx, mz] = manPos();
+  let best = null, bd = 1e9, bx = 0, bz = 0;
+  for (const b of bodies) {
+    if (b === boat || b.falling) continue;
+    const ax = Math.cos(b.a) * b.hl, az = -Math.sin(b.a) * b.hl;
+    const t = clamp(((mx - b.x) * ax + (mz - b.z) * az) / (b.hl * b.hl), -0.9, 0.9);
+    const cx = b.x + ax * t, cz = b.z + az * t, d = Math.hypot(cx - mx, cz - mz);
+    if (d < bd) { bd = d; best = b; bx = cx; bz = cz; }
+  }
+  if (best && bd < REACH) { poke(best, bx, bz); return; }
+  fluid(mx, mz, boat.hint);
+  const depth = FL.y - FL.bed;
+  if (depth < 3.2) {                                   // 棹さし
+    const ax = Math.cos(boat.a), az = -Math.sin(boat.a);
+    boat.vx += ax * 520 * boat.invM; boat.vz += az * 520 * boat.invM;
+    pushCd = 0.7; poleAnim.t = 0; poleAnim.target.set(mx - ax * 2.2, FL.bed, mz - az * 2.2);
+    setTimeout(() => splash(mx - ax * 1.5, FL.y, mz - az * 1.5, 8, 0.6), 200);
+  } else toast('棹が川底に届かない', 1.2);
+}
+function endGame(clear) {
+  G.state = 'result';
+  $('hud').hidden = true; $('touch').hidden = true; $('result').hidden = false;
+  const m = Math.floor(G.t / 60), s = Math.floor(G.t % 60);
+  $('rDel').textContent = `${G.delivered} / ${TOTAL} 本`;
+  $('rTime').textContent = `${m}:${String(s).padStart(2, '0')}`;
+  $('rFlush').textContent = `${3 - G.flush} 回`;
+  $('rPush').textContent = `${G.pushes}`;
+  let rank, note;
+  if (clear) {
+    rank = G.t < 330 ? '特上' : G.t < 420 ? '上' : '並';
+    note = G.t < 330 ? '一本も淀ませず、見事な川狩りだった。' : '全材、網場に着いた。';
+    $('rTitle').textContent = '川狩り終い';
+  } else {
+    rank = '不首尾';
+    note = `日が暮れた。${TOTAL - G.delivered} 本が川に残っている。`;
+    $('rTitle').textContent = '日暮れ';
+  }
+  $('rRank').textContent = rank; $('rNote').textContent = note;
+}
+function gameUpdate(dt) {
+  G.t += dt;
+  G.nextSpawn -= dt;
+  if (G.spawned < TOTAL && G.nextSpawn <= 0) {
+    const n = G.spawned < 4 ? 4 : 2;
+    for (let k = 0; k < n && G.spawned < TOTAL; k++) spawnLog();
+    G.nextSpawn = 6.5;
+  }
+  let stuck = 0;
+  for (const b of bodies) {
+    if (b.kind !== 'log') continue;
+    if (!b.delivered && b.s > S_FIN) { b.delivered = true; G.delivered++; toast(`${G.delivered} 本目 着`, 1.4); }
+    const sp = Math.hypot(b.vx, b.vz);
+    if (!b.delivered && !b.falling) { if (sp < 0.3) b.stuckT += dt; else b.stuckT = Math.max(0, b.stuckT - dt * 2); }
+    b.stuck = !b.delivered && b.stuckT > 5;
+    if (b.stuck) stuck++;
+  }
+  G.stuck = stuck;
+  if (G.delivered >= TOTAL) endGame(true);
+  else if (G.t >= LIMIT) endGame(false);
+}
+
+/* =====================================================================
+   入力
+   ===================================================================== */
+const keys = {};
+const cam = { yawOff: 0, heading: 0, dist: 20, pitch: 0.42, ty: 0 };
+const joy = { x: 0, y: 0, id: null };
+addEventListener('keydown', e => {
+  if (e.repeat && (e.code === 'Space' || e.code === 'KeyF')) return;
+  keys[e.code] = true;
+  if (G.state !== 'play') return;
+  if (e.code === 'Space') { spacePush(); e.preventDefault(); }
+  if (e.code === 'KeyF') doFlush();
+  if (e.code === 'KeyR') cam.yawOff = 0;
+  if (e.code === 'KeyM') { muted = !muted; if (master) master.gain.value = muted ? 0 : 0.7; toast(muted ? '音を消した' : '音を出す', 1); }
+});
+addEventListener('keyup', e => { keys[e.code] = false; });
+const ray = new THREE.Raycaster(), mouseN = new THREE.Vector2();
+let hoverLog = null;
+const ptrs = new Map();
+let dragging = false, downX = 0, downY = 0, pinch0 = 0;
+function pickLog(cx, cy) {
+  mouseN.set(cx / innerWidth * 2 - 1, -(cy / innerHeight) * 2 + 1);
+  ray.setFromCamera(mouseN, camera);
+  const hits = ray.intersectObjects(bodies.filter(b => b.mesh).map(b => b.mesh), false);
+  return hits.length ? hits[0] : null;
+}
+canvas.addEventListener('pointerdown', e => {
+  canvas.setPointerCapture(e.pointerId);
+  ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+  if (ptrs.size === 1) { dragging = false; downX = e.clientX; downY = e.clientY; }
+  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); }
+});
+canvas.addEventListener('pointermove', e => {
+  const p = ptrs.get(e.pointerId);
+  if (!p) {
+    if (e.pointerType === 'mouse' && G.state === 'play') {
+      const hit = pickLog(e.clientX, e.clientY);
+      hoverLog = hit ? hit.object.userData.body : null;
+      canvas.classList.toggle('aim', !!hoverLog);
+    }
+    return;
+  }
+  if (ptrs.size === 2) {
+    ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+    const [a, b] = [...ptrs.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+    if (pinch0 > 0) cam.dist = clamp(cam.dist * pinch0 / d, 7, 70);
+    pinch0 = d; dragging = true; return;
+  }
+  const dx = e.clientX - p[0], dy = e.clientY - p[1];
+  ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+  if (!dragging && Math.hypot(e.clientX - downX, e.clientY - downY) > 6) { dragging = true; canvas.classList.add('drag'); }
+  if (dragging) { cam.yawOff -= dx * 0.006; cam.pitch = clamp(cam.pitch + dy * 0.004, 0.1, 1.35); }
+});
+const endPtr = e => {
+  if (!ptrs.has(e.pointerId)) return;
+  ptrs.delete(e.pointerId);
+  if (ptrs.size === 0) {
+    if (!dragging && G.state === 'play') {
+      const hit = pickLog(e.clientX, e.clientY);
+      if (hit) poke(hit.object.userData.body, hit.point.x, hit.point.z);
+    }
+    dragging = false; canvas.classList.remove('drag');
+  }
+  pinch0 = 0;
+};
+canvas.addEventListener('pointerup', endPtr);
+canvas.addEventListener('pointercancel', endPtr);
+canvas.addEventListener('wheel', e => { cam.dist = clamp(cam.dist * Math.exp(e.deltaY * 0.0012), 7, 70); e.preventDefault(); }, { passive: false });
+{
+  const el = $('joy'), knob = $('joyK');
+  const upd = e => { const r = el.getBoundingClientRect(); let x = (e.clientX - r.left - r.width / 2) / (r.width / 2), y = (e.clientY - r.top - r.height / 2) / (r.height / 2); const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } joy.x = x; joy.y = y; knob.style.transform = `translate(${x * 38}px,${y * 38}px)`; };
+  el.addEventListener('pointerdown', e => { joy.id = e.pointerId; el.setPointerCapture(e.pointerId); upd(e); e.stopPropagation(); });
+  el.addEventListener('pointermove', e => { if (e.pointerId === joy.id) upd(e); });
+  const end = e => { if (e.pointerId !== joy.id) return; joy.id = null; joy.x = joy.y = 0; knob.style.transform = ''; };
+  el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+  $('tPush').addEventListener('pointerdown', e => { spacePush(); e.preventDefault(); });
+  $('tFlush').addEventListener('pointerdown', e => { doFlush(); e.preventDefault(); });
+}
+const isTouch = matchMedia('(pointer: coarse)').matches;
+function startGame() {
+  initAudio(); if (AC && AC.state === 'suspended') AC.resume();
+  resetGame(); G.state = 'play';
+  $('title').hidden = true; $('result').hidden = true; $('hud').hidden = false; $('touch').hidden = !isTouch;
+  toast('土場から材が落とされる', 2.4);
+}
+$('start').addEventListener('click', startGame);
+$('again').addEventListener('click', startGame);
+
+/* =====================================================================
+   見取り図
+   ===================================================================== */
+const mapC = $('map'), mapG = mapC.getContext('2d'), MS = 400;
+const mapBase = document.createElement('canvas'); mapBase.width = mapBase.height = MS;
+const mapScale = (MS - 40) / Math.max(bx1 - bx0, bz1 - bz0);
+const mapX = x => 20 + (x - bx0) * mapScale, mapY = z => MS / 2 + (z - (bz0 + bz1) / 2) * mapScale;
+{
+  const g = mapBase.getContext('2d');
+  g.lineCap = 'round';
+  for (let i = 0; i < NS - 4; i += 4) {
+    g.strokeStyle = RG[i] > 0.6 ? '#bfe3dc' : '#5aa7a0'; g.lineWidth = Math.max(3, W[i] * mapScale);
+    g.beginPath(); g.moveTo(mapX(CX[i]), mapY(CZ[i])); g.lineTo(mapX(CX[i + 4]), mapY(CZ[i + 4])); g.stroke();
+  }
+  const line = (s, c) => { const i = idxS(s), hw = W[i] * 0.5 + 3; g.strokeStyle = c; g.lineWidth = 3; g.beginPath(); g.moveTo(mapX(worldX(i, -hw)), mapY(worldZ(i, -hw))); g.lineTo(mapX(worldX(i, hw)), mapY(worldZ(i, hw))); g.stroke(); };
+  line(0, '#d9b765'); line(S_FIN, '#ef8a4c');
+  g.fillStyle = 'rgba(236,230,212,.8)'; g.font = '600 20px "Shippori Mincho B1", serif';
+  g.fillText('堰', mapX(CX[0]) - 8, mapY(CZ[0]) - 22);
+  g.fillText('網場', mapX(CX[NS - 1]) - 40, mapY(CZ[NS - 1]) - 40);
+}
+function drawMap() {
+  mapG.clearRect(0, 0, MS, MS); mapG.drawImage(mapBase, 0, 0);
+  if (simT - SURGE.t0 < 400) {
+    const s = SURGE.c * (simT - SURGE.t0) - SURGE.w;
+    if (s > 0 && s < L) { const i = idxS(s); mapG.fillStyle = 'rgba(190,240,255,.8)'; mapG.beginPath(); mapG.arc(mapX(CX[i]), mapY(CZ[i]), 9, 0, TAU); mapG.fill(); }
+  }
+  for (const b of bodies) {
+    if (b.kind !== 'log') continue;
+    mapG.fillStyle = b.delivered ? '#d9b765' : b.stuck ? '#ef8a4c' : '#ece6d4';
+    mapG.fillRect(mapX(b.x) - 3, mapY(b.z) - 3, 6, 6);
+  }
+  if (boat) {
+    const x = mapX(boat.x), y = mapY(boat.z), ax = Math.cos(boat.a), az = -Math.sin(boat.a);
+    mapG.fillStyle = '#ffffff'; mapG.beginPath();
+    mapG.moveTo(x + ax * 12, y + az * 12); mapG.lineTo(x - ax * 7 - az * 6, y - az * 7 + ax * 6); mapG.lineTo(x - ax * 7 + az * 6, y - az * 7 - ax * 6); mapG.fill();
+  }
+}
+
+/* =====================================================================
+   目印（滞留している材の上の三角）
+   ===================================================================== */
+const markGeo = new THREE.ConeGeometry(0.3, 0.6, 3); markGeo.rotateX(Math.PI);
+const markMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 0.8, 0.3), toneMapped: true });
+const marks = [];
+for (let k = 0; k < TOTAL; k++) { const m = new THREE.Mesh(markGeo, markMat); m.visible = false; overlay.add(m); marks.push(m); }
+
+/* =====================================================================
+   毎フレーム
+   ===================================================================== */
+const tmpV = new THREE.Vector3(), tmpV2 = new THREE.Vector3();
+let roarAcc = 0, hudT = 0;
+const angWrap = a => { while (a > Math.PI) a -= TAU; while (a < -Math.PI) a += TAU; return a; };
+function controls(dt) {
+  if (!boat) return;
+  let th = 0, tu = 0;
+  if (G.state === 'play') {
+    th = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 0.6 : 0) + (-joy.y);
+    tu = (keys.KeyA || keys.ArrowLeft ? 1 : 0) - (keys.KeyD || keys.ArrowRight ? 1 : 0) + (-joy.x);
+  }
+  th = clamp(th, -0.6, 1); tu = clamp(tu, -1, 1);
+  boat.thrust = th * 1050;
+  boat.torque = tu * 2300;
+  pushCd -= dt;
+}
+function visuals(dt) {
+  let lc = 0;
+  const lA = waterU.uLogA.value, lB = waterU.uLogB.value;
+  for (const b of bodies) {
+    // 浮力：水面に追従（浅ければ河床に乗る）
+    const target = Math.max(b.wy - (b.kind === 'boat' ? 0.1 : b.r * 0.12), b.bed + (b.kind === 'boat' ? 0.1 : b.r * 0.95));
+    if (b.falling) {
+      b.vy -= 9.8 * dt; b.y += b.vy * dt;
+      if (b.y <= target) {
+        b.falling = false; b.vy *= 0.25;
+        const d = Math.hypot(b.x - camera.position.x, b.z - camera.position.z);
+        splash(b.x, b.wy, b.z, 60, 1.8); splashSnd(1.6, d); knock(2, d);
+      }
+    } else {
+      b.vy += ((target - b.y) * 38 - b.vy * 7) * dt; b.y += b.vy * dt;
+    }
+    const pT = Math.atan2(b.wyB - b.wyA, 2 * b.hl * 0.85);
+    b.pitch = lerp(b.pitch, clamp(pT, -0.4, 0.4), 1 - Math.exp(-dt * 6));
+    const ax = Math.cos(b.a), az = -Math.sin(b.a);
+    const lat = (b.vx - b.fvx) * -az + (b.vz - b.fvz) * ax;
+    b.rel = Math.hypot(b.vx - b.fvx, b.vz - b.fvz);
+    if (b.kind === 'log') {
+      b.roll += (lat / b.r * 0.5 + Math.sin(simT * 0.7 + b.hl * 5) * 0.02) * dt;
+      b.mesh.position.set(b.x, b.y, b.z);
+      b.mesh.rotation.set(b.roll, b.a, b.pitch, 'YZX');
+      b.mat.emissive.setRGB(...(b === hoverLog ? [0.28, 0.2, 0.06] : [0, 0, 0]));
+    }
+    if (lc < MAXL && Math.hypot(b.x - camera.position.x, b.z - camera.position.z) < 120) {
+      lA[lc].set(b.x, b.z, ax, az); lB[lc].set(b.hl, b.r * (b.kind === 'boat' ? 1.0 : 1.05), clamp(b.rel * 0.35 + Math.abs(b.vy) * 0.3, 0, 1), 0); lc++;
+    }
+    if (b.kind === 'log' && Math.abs(b.vy) > 0.6 && !b.falling && rnd() < 0.3) splash(b.x + ax * (rnd() - 0.5) * b.hl * 2, b.wy, b.z + az * (rnd() - 0.5) * b.hl * 2, 2, 0.5);
+  }
+  waterU.uLogCount.value = lc;
+  let mk = 0;
+  for (const b of bodies) {
+    if (b.kind !== 'log' || !b.stuck || mk >= marks.length) continue;
+    const m = marks[mk++]; m.visible = true; m.position.set(b.x, b.y + 1.6 + Math.sin(simT * 4) * 0.15, b.z); m.rotation.y = simT * 2;
+  }
+  for (; mk < marks.length; mk++) marks[mk].visible = false;
+  // 舟
+  if (boat) {
+    boatG.visible = true;
+    boatG.position.set(boat.x, boat.y, boat.z);
+    boatG.rotation.set(Math.sin(simT * 1.7) * 0.02 + boat.torque * -0.000012, boat.a, boat.pitch * 0.8 + boat.thrust * 0.00002, 'YZX');
+    const [mx, mz] = manPos();
+    reachRing.visible = G.state === 'play';
+    reachRing.position.set(mx, boat.wy + 0.04, mz);
+    // 鳶口の動き
+    poleAnim.t += dt / poleAnim.dur;
+    const ax = Math.cos(boat.a), az = -Math.sin(boat.a);
+    if (poleAnim.t < 1) {
+      const e = Math.sin(Math.min(poleAnim.t, 1) * Math.PI);
+      poleG.lookAt(poleAnim.target); poleMesh.position.z = -1.6 + e * 1.8;
+    } else {
+      tmpV.set(mx + ax * 1.5 - az * 2.2, boat.wy - 1.2, mz + az * 1.5 + ax * 2.2);
+      poleG.lookAt(tmpV); poleMesh.position.z = lerp(poleMesh.position.z, -0.4, 1 - Math.exp(-dt * 5));
+    }
+    if (Math.abs(boat.thrust) > 10 && rnd() < 0.5) {
+      emit(boat.x + ax * 3.0, boat.wy + 0.05, boat.z + az * 3.0, -az * (rnd() - 0.5) * 2, 0.4 + rnd() * 0.6, ax * (rnd() - 0.5) * 2, 0.5, 0.15, 0.5);
+    }
+  } else boatG.visible = false;
+  // 網場の浮き材を揺らす
+  boomLogs.forEach((m, k) => { m.position.y = HH[NS - 1 - 44] - 0.05 + surgeF(S_BOOM) * 0.45 + Math.sin(simT * 1.3 + k) * 0.03; });
+  gate.position.y = lerp(gate.position.y, simT - SURGE.t0 < 14 ? 3.6 : 0, 1 - Math.exp(-dt * 1.5));
+}
+function emitters(dt) {
+  const cx = camera.position.x, cz = camera.position.z;
+  for (const R of rocks) {
+    if (!R.emerged) continue;
+    const d2 = (R.x - cx) ** 2 + (R.z - cz) ** 2;
+    if (d2 > 110 * 110) continue;
+    const i = idxS(R.s), U = UM[i] * 1.2 * (1 + surgeF(R.s));
+    R.acc += Math.max(0, U - 1.4) ** 2 * 1.6 * dt;
+    while (R.acc > 1) {
+      R.acc -= 1;
+      const off = (rnd() - 0.5) * R.col * 1.6, y = Hs(R.s) + 0.05;
+      const x = R.x - TX[i] * R.col * 0.95 - TZ[i] * off, z = R.z - TZ[i] * R.col * 0.95 + TX[i] * off;
+      const up = 0.8 + rnd() * 1.4 * U / 3;
+      emit(x, y, z, TX[i] * U * 0.25 - TZ[i] * off * 1.2, up, TZ[i] * U * 0.25 + TX[i] * off * 1.2, 0.5 + rnd() * 0.6, 0.1 + rnd() * 0.22, 0.8);
+      if (rnd() < 0.12) emit(x, y + 0.3, z, TX[i] * U * 0.4, 0.2, TZ[i] * U * 0.4, 2 + rnd() * 2, 1.2 + rnd() * 1.6, 0.06, 0.0, 0.8);
+    }
+  }
+  // 瀬の白波からのしぶき
+  const q = project(cx, cz, -1), s0 = q.s;
+  for (let k = 0; k < 26; k++) {
+    const s = clamp(s0 + (rnd() * 2 - 1) * 90, 0, L), i = idxS(s);
+    if (RG[i] < 0.4) continue;
+    const nn = rnd() * 2 - 1, fj = (nn + NR) / (2 * NR) * (NC - 1), foam = gs(FF, s / DS, fj) * (1 + surgeF(s));
+    if (rnd() > foam * 0.35) continue;
+    const n = nn * W[i] * 0.5, x = worldX(i, n), z = worldZ(i, n), U = UM[i] * 1.2;
+    const y = Hs(s) + gs(FB, s / DS, fj) + surgeF(s) * 0.45;
+    emit(x, y, z, TX[i] * U * 0.7 + (rnd() - 0.5), 0.6 + rnd() * 1.4, TZ[i] * U * 0.7 + (rnd() - 0.5), 0.5 + rnd() * 0.5, 0.08 + rnd() * 0.18, 0.7);
+    if (rnd() < 0.05) emit(x, y + 0.4, z, TX[i] * U * 0.5, 0.25, TZ[i] * U * 0.5, 2.5 + rnd() * 2, 1.5 + rnd() * 2, 0.05, 0.0, 0.7);
+  }
+  // 鉄砲水の先端
+  if (SURGE.amp > 0 && simT - SURGE.t0 < 300) {
+    const sf = SURGE.c * (simT - SURGE.t0) - SURGE.w * 0.4;
+    if (sf > 0 && sf < L) for (let k = 0; k < 6; k++) {
+      const i = idxS(sf + (rnd() - 0.5) * 8), n = (rnd() * 2 - 1) * W[i] * 0.5;
+      emit(worldX(i, n), HH[i] + 0.4, worldZ(i, n), TX[i] * 4, 0.8 + rnd() * 1.5, TZ[i] * 4, 0.7, 0.15 + rnd() * 0.3, 0.7);
+    }
+  }
+  // 衝突のしぶきと音
+  for (const [x, z, p, wy] of impacts) {
+    const d = Math.hypot(x - cx, z - cz);
+    splash(x, wy, z, Math.min(30, 6 + p * 8), clamp(p * 0.5, 0.4, 1.6)); knock(p, d);
+  }
+  impacts.length = 0;
+}
+function updateCamera(dt) {
+  let tx, ty, tz;
+  if (G.state === 'play' || G.state === 'result') {
+    cam.heading += angWrap(boat.a - cam.heading) * (1 - Math.exp(-dt * 1.2));
+    tx = boat.x; ty = boat.y + 1.2; tz = boat.z;
+  } else {
+    const s = 0.215 * L + Math.sin(simT * 0.04) * 10, i = idxS(s);
+    tx = CX[i]; tz = CZ[i]; ty = HH[i] + 1;
+    cam.heading = -Math.atan2(TZ[i], TX[i]) + Math.PI + Math.sin(simT * 0.06) * 0.3; cam.dist = 24; cam.pitch = 0.3; cam.yawOff = 0;
+  }
+  const yaw = cam.heading + cam.yawOff, fx = Math.cos(yaw), fz = -Math.sin(yaw);
+  const hd = cam.dist * Math.cos(cam.pitch);
+  let px = tx - fx * hd, pz = tz - fz * hd, py = ty + cam.dist * Math.sin(cam.pitch);
+  const t = terrainAt(px, pz);
+  py = Math.max(py, t.h + 1.5);
+  if (t.e < 0) { fluid(px, pz, -1); py = Math.max(py, FL.y + 1.2); }
+  cam.ty = lerp(cam.ty || py, py, 1 - Math.exp(-dt * 6));
+  camera.position.set(px, cam.ty, pz);
+  camera.lookAt(tx, ty, tz);
+  sun.position.set(tx + SUN.x * 150, ty + SUN.y * 150, tz + SUN.z * 150);
+  sun.target.position.set(tx, ty, tz);
+}
+function updateAudio() {
+  if (!AC) return;
+  const q = project(camera.position.x, camera.position.z, -1);
+  let roar = 0;
+  for (let k = -20; k <= 20; k++) {
+    const s = q.s + k * 4; if (s < 0 || s > L) continue;
+    const i = idxS(s), U = UM[i] * 1.2 * (1 + surgeF(s));
+    roar += RG[i] * U * U / (1 + (k * 4 / 22) ** 2);
+  }
+  roar = clamp(roar / 60, 0, 1.4);
+  const t = AC.currentTime, m = muted ? 0 : 1;
+  roarG.gain.setTargetAtTime((0.05 + roar * 0.35) * m, t, 0.4);
+  hissG.gain.setTargetAtTime((0.01 + roar * 0.08) * m, t, 0.4);
+}
+function updateHUD(dt) {
+  toastT -= dt; if (toastT <= 0) $('toast').classList.remove('on');
+  hudT -= dt; if (hudT > 0 || G.state !== 'play') return; hudT = 0.12;
+  $('hDel').textContent = G.delivered;
+  $('hTot').textContent = `/ ${TOTAL} 本 着`;
+  const drift = bodies.filter(b => b.kind === 'log' && !b.delivered).length;
+  $('hDrift').textContent = drift; $('hStuck').textContent = G.stuck;
+  const r = Math.max(0, LIMIT - G.t);
+  $('hTime').textContent = `${Math.floor(r / 60)}:${String(Math.floor(r % 60)).padStart(2, '0')}`;
+  $('hFlush').textContent = '●'.repeat(G.flush) + '○'.repeat(3 - G.flush);
+  $('hSpeed').textContent = `${Math.hypot(boat.fvx, boat.fvz).toFixed(1)} m/s`;
+  drawMap();
+}
+function onResize() {
+  renderer.setSize(innerWidth, innerHeight);
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  rt.dispose(); rt = makeRT();
+  waterU.uSceneColor.value = rt.texture; waterU.uSceneDepth.value = rt.depthTexture;
+  copyMat.uniforms.tColor.value = rt.texture; copyMat.uniforms.tDepth.value = rt.depthTexture;
+  waterU.uRes.value.set(renderer.domElement.width, renderer.domElement.height);
+  pMat.uniforms.uScale.value = renderer.domElement.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
+}
+addEventListener('resize', onResize);
+onResize();
+
+let last = performance.now();
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(1 / 30, Math.max(0.0001, (now - last) / 1000)); last = now;
+  simT += dt; timeU.value = simT;
+  waterU.uSurge.value.set(SURGE.t0, SURGE.amp, SURGE.c, SURGE.w);
+  controls(dt);
+  if (G.state === 'play') gameUpdate(dt);
+  physics(dt);
+  visuals(dt);
+  emitters(dt);
+  updateParticles(dt);
+  updateCamera(dt);
+  updateAudio();
+  updateHUD(dt);
+  renderer.setRenderTarget(rt); renderer.clear(); renderer.render(scene, camera);
+  renderer.setRenderTarget(null); renderer.clear();
+  renderer.render(copyScene, orthoCam);
+  renderer.render(overlay, camera);
+}
+$('loading').hidden = true; $('title').hidden = false;
+window.__kawagari = { G, bodies, L, rocks, S_FIN, NS, startGame, doFlush, get boat() { return boat; },
+  teleport(f, nn, yaw = 0, dist = 20, pitch = 0.42) { const i = idxS(f * L), n = nn * W[i] * 0.5; boat.x = worldX(i, n); boat.z = worldZ(i, n); boat.vx = boat.vz = boat.w = 0; boat.a = -Math.atan2(TZ[i], TX[i]); boat.hint = -1; cam.heading = boat.a; cam.yawOff = yaw; cam.dist = dist; cam.pitch = pitch; fluid(boat.x, boat.z, -1); boat.y = FL.y; cam.ty = 0; },
+  sim(sec) { for (let t = 0; t < sec; t += 1 / 30) { simT += 1 / 30; controls(1 / 30); if (G.state === 'play') gameUpdate(1 / 30); physics(1 / 30); visuals(1 / 30); } } };
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
