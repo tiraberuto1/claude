@@ -14,8 +14,6 @@ kotlin {
 }
 
 dependencies {
-    api("com.anthropic:anthropic-java:2.34.0")
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.18.2")
     testImplementation(kotlin("test"))
     testImplementation("junit:junit:4.13.2")
 }

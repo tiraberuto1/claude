@@ -7,6 +7,8 @@ class Thumbnail(val width: Int, val height: Int, val srcWidth: Int, val srcHeigh
     val mean: Float get() = lum.average().toFloat()
     val contrast: Float get() { val m = mean; return lum.map { abs(it - m) }.average().toFloat() }
 
+    fun sameShape(o: Thumbnail) = width == o.width && height == o.height && srcWidth == o.srcWidth && srcHeight == o.srcHeight
+
     /** 保護コンテンツ（FLAG_SECURE）の画面はキャプチャが真っ黒になる */
     val looksBlank: Boolean get() = mean < 0.03f && contrast < 0.01f
 

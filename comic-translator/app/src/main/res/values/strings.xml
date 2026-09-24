@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">フキダシ翻訳</string>
+    <string name="a11y_label">フキダシ翻訳のページめくり</string>
+    <string name="a11y_description">章の一括処理のときに、書籍アプリのページを自動でめくります。画面の内容は読み取らず、スワイプかタップの操作を送るだけです。</string>
 </resources>

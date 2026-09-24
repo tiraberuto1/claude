@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="?android:colorBackground"
@@ -22,16 +23,13 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            android:text="電子書籍アプリで開いたアメコミの吹き出しを読み取り、英語のセリフの上に日本語訳を重ねて表示します。"
+            android:text="電子書籍アプリで開いたアメコミの吹き出しを読み取り、英語のセリフの上に日本語訳を重ねます。翻訳はすべて端末の中で行い、料金はかかりません。"
             android:textSize="15sp" />
 
+        <!-- 1. 権限 -->
         <TextView style="@style/Section" android:text="1. 権限" />
 
-        <TextView
-            android:id="@+id/overlayStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textSize="15sp" />
+        <TextView android:id="@+id/overlayStatus" style="@style/Body" />
 
         <Button
             android:id="@+id/overlayButton"
@@ -40,6 +38,20 @@
             android:layout_height="wrap_content"
             android:text="他のアプリの上に表示を許可する" />
 
+        <TextView android:id="@+id/a11yStatus" style="@style/Body" android:layout_marginTop="8dp" />
+
+        <Button
+            android:id="@+id/a11yButton"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ユーザー補助の設定を開く" />
+
+        <TextView
+            style="@style/Note"
+            android:text="ページめくりは章の一括処理でだけ使います。オンにできないときは、アプリ情報の右上のメニューから「制限付き設定を許可」を選んでください（ストア外から入れたアプリに必要）。" />
+
+        <!-- 2. 翻訳のしかた -->
         <TextView style="@style/Section" android:text="2. 翻訳のしかた" />
 
         <RadioGroup
@@ -51,48 +63,121 @@
                 android:id="@+id/engineOnDevice"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="端末内で翻訳（無料・オフライン。初回に約 30MB のモデルを取得）" />
+                android:text="端末内の機械翻訳（速い。初回に約 30MB のモデルを取得）" />
 
             <RadioButton
-                android:id="@+id/engineClaude"
+                android:id="@+id/engineLlm"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Claude で翻訳（絵を見て口調まで訳す。API キーと通信が必要で、1 ページごとに料金がかかります）" />
+                android:text="端末内の AI（LLM）で文脈つき翻訳（高品質。人物の口調や訳語を作品ごとに覚える。1 ページ数十秒）" />
         </RadioGroup>
 
+        <LinearLayout
+            android:id="@+id/llmBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:orientation="vertical">
+
+            <TextView android:id="@+id/modelStatus" style="@style/Body" />
+
+            <com.google.android.material.progressindicator.LinearProgressIndicator
+                android:id="@+id/modelProgress"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/modelButton"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="モデルファイル（.task）を取り込む" />
+
+            <TextView
+                style="@style/Note"
+                android:text="MediaPipe 用の Gemma 3n（E2B か E4B、int4 の .task）をおすすめします。Hugging Face などで利用規約に同意してダウンロードし、ここで選んでください。E2B は空きメモリ 3GB 以上、E4B は 4GB 以上が目安です。" />
+
+            <CheckBox
+                android:id="@+id/wrapTemplate"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Gemma の会話書式を付けて渡す（モデルが的外れな返事をするときだけオン）" />
+        </LinearLayout>
+
+        <!-- 3. 作品 -->
+        <TextView style="@style/Section" android:text="3. 作品" />
+
         <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/apiKeyLayout"
             style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:hint="Claude API キー（sk-ant-…）"
-            app:endIconMode="password_toggle"
-            xmlns:app="http://schemas.android.com/apk/res-auto">
+            android:hint="作品名（例：Amazing Spider-Man）">
 
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/apiKey"
+                android:id="@+id/workTitle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="textPassword"
+                android:inputType="text"
                 android:singleLine="true" />
         </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView android:id="@+id/workStats" style="@style/Body" android:layout_marginTop="6dp" />
+
+        <Button
+            android:id="@+id/resetWork"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="この作品の訳語と保存ページを消す" />
+
+        <TextView
+            style="@style/Note"
+            android:text="作品ごとに、人名などの訳語、登場人物の口調、章のあらすじ、訳したページを端末に保存します。続きの章でも同じ訳語と口調を使います。" />
+
+        <!-- 4. 章の一括処理 -->
+        <TextView style="@style/Section" android:text="4. 章の一括処理" />
+
+        <TextView style="@style/Body" android:text="ページのめくり方" />
+
+        <RadioGroup
+            android:id="@+id/turnGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="最大ページ数">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/maxPages"
+                android:layout_width="160dp"
+                android:layout_height="wrap_content"
+                android:inputType="number" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView
+            style="@style/Note"
+            android:text="章の最初のページを開いて、赤いボタンを長押し（または通知の「章を一括処理」）。ページをめくって変わらなくなるか最大ページ数に達するまで取り込み、あらすじと登場人物をつかんでから、まとめて訳します。終わったら章の最初に戻って読むと、訳文がすぐに出ます。" />
+
+        <!-- 5. 使う -->
+        <TextView style="@style/Section" android:text="5. 使う" />
 
         <com.google.android.material.materialswitch.MaterialSwitch
             android:id="@+id/autoMode"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
             android:text="ページをめくったら自動で翻訳する" />
 
-        <TextView style="@style/Section" android:text="3. 使う" />
-
         <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            style="@style/Body"
+            android:layout_marginTop="8dp"
             android:lineSpacingMultiplier="1.3"
-            android:text="「開始」を押して画面の取り込みを許可したら、電子書籍アプリでコミックを開きます。\n・赤い「訳」ボタン：今のページを翻訳（もう一度押すと原文に戻る）\n・訳文をタップ：2.5 秒だけ原文を見る\n・ボタンの長押し：終了\nボタンはドラッグで動かせます。"
-            android:textSize="14sp" />
+            android:text="「開始」を押して画面の取り込みを許可したら、電子書籍アプリでコミックを開きます。\n・赤い「訳」ボタン：今のページを翻訳（もう一度押すと原文に戻る）\n・ボタンの長押し：章の一括処理（処理中にもう一度押すと中止）\n・訳文をタップ：2.5 秒だけ原文を見る\nボタンはドラッグで動かせます。終了は通知の「停止」から。" />
 
         <Button
             android:id="@+id/startButton"
@@ -109,12 +194,8 @@
             android:text="停止" />
 
         <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:lineSpacingMultiplier="1.25"
-            android:text="注意：画面の取り込みを禁止している書籍アプリ（保護されたコンテンツ）では、画面が真っ黒に取り込まれるため翻訳できません。その場合は「取り込みが禁止されています」と表示されます。"
-            android:textColor="@color/muted"
-            android:textSize="13sp" />
+            style="@style/Note"
+            android:layout_marginTop="16dp"
+            android:text="画面の取り込みを禁止している書籍アプリ（保護されたコンテンツ）では、画面が真っ黒に取り込まれるため翻訳できません。その場合は「取り込みを禁止している」と表示されます。" />
     </LinearLayout>
 </ScrollView>

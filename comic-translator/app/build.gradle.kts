@@ -47,4 +47,7 @@ dependencies {
     // 端末内 OCR（ラテン文字）と端末内翻訳
     implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("com.google.mlkit:translate:17.0.3")
+    // 端末内 LLM（Gemma 3n などの .task モデルを端末の GPU/CPU で動かす）
+    implementation("com.google.mediapipe:tasks-genai:0.10.24")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
 }

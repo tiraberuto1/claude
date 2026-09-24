@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- 通信は ML Kit の翻訳モデルの初回ダウンロードだけに使う（翻訳そのものは端末内） -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- 電子書籍アプリの上に訳文を重ねる -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
@@ -29,5 +30,19 @@
             android:name=".CaptureService"
             android:exported="false"
             android:foregroundServiceType="mediaProjection" />
+
+        <!-- 章の一括処理でページをめくる（画面の内容は読まない） -->
+        <service
+            android:name=".PageTurnService"
+            android:exported="true"
+            android:label="@string/a11y_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/page_turner" />
+        </service>
     </application>
 </manifest>

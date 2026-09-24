@@ -20,6 +20,7 @@ import android.view.WindowManager
 import android.widget.TextView
 import app.fukidashi.core.Box
 import app.fukidashi.core.JapaneseLayout
+import app.fukidashi.core.Patch
 import app.fukidashi.core.TextLayout
 import app.fukidashi.core.TextMeasurer
 import kotlin.math.abs
@@ -70,7 +71,15 @@ class OverlayController(
         for ((v, _) in patches) v.visibility = vis
     }
 
+    /** 一括処理の進み具合など、短い文字をボタンに出す */
+    fun setProgress(text: String) {
+        bubble.textSize = 13f
+        bubble.text = text
+        (bubble.background as GradientDrawable).setColor(BubbleState.BUSY.color)
+    }
+
     fun setState(state: BubbleState) {
+        bubble.textSize = 20f
         bubble.text = state.label
         (bubble.background as GradientDrawable).setColor(state.color)
     }

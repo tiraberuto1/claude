@@ -23,10 +23,14 @@ import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.IntentCompat
-import app.fukidashi.core.Box
+import app.fukidashi.core.Balloon
 import app.fukidashi.core.CachedTranslator
-import app.fukidashi.core.ClaudeTranslator
+import app.fukidashi.core.LlmEngine
 import app.fukidashi.core.PageChangeDetector
+import app.fukidashi.core.PageLibrary
+import app.fukidashi.core.Patch
+import app.fukidashi.core.StoryContext
+import app.fukidashi.core.StoryTranslator
 import app.fukidashi.core.Thumbnail
 import app.fukidashi.core.TranslationException
 import app.fukidashi.core.Translator
@@ -39,17 +43,23 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 
 /**
- * 画面の取り込みと訳文の表示を受け持つフォアグラウンドサービス。
- * 浮かんでいる「訳」ボタンを押すか、自動モードならページをめくって止まったところで翻訳する。
+ * 画面の取り込みと訳文の表示を受け持つフォアグラウンドサービス。翻訳はすべて端末内で行う。
+ *
+ * - 「訳」ボタン、または自動モードでページが止まったとき：保存済みのページならすぐ表示し、なければ訳す
+ * - ボタンの長押し、または通知の「章を一括処理」：ページを自動でめくりながら章を取り込み、
+ *   あらすじと人名を抜き出してから、文脈つきでまとめて訳して保存する
  */
 class CaptureService : Service() {
     companion object {
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_RESULT_DATA = "result_data"
         const val ACTION_STOP = "app.fukidashi.translator.STOP"
+        const val ACTION_BATCH = "app.fukidashi.translator.BATCH"
+        const val ACTION_CANCEL = "app.fukidashi.translator.CANCEL"
         private const val CHANNEL = "capture"
         private const val NOTIFICATION_ID = 1
 
@@ -59,20 +69,31 @@ class CaptureService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private lateinit var settings: Settings
+    private lateinit var store: StoryStore
+    private lateinit var title: String
+    private lateinit var story: StoryContext
+    private lateinit var library: PageLibrary
     private var projection: MediaProjection? = null
     private var capturer: ScreenCapturer? = null
     private var overlay: OverlayController? = null
     private var translator: Translator? = null
+    private var storyTranslator: StoryTranslator? = null
     private var mlkit: MlKitTranslator? = null
+    private var llm: LocalLlm? = null
     private val pipeline by lazy { TranslationPipeline() }
     private val detector = PageChangeDetector()
     private var busy = false
     private var autoJob: Job? = null
+    private var batchJob: Job? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) { stopSelf(); return START_NOT_STICKY }
+        when (intent?.action) {
+            ACTION_STOP -> { stopSelf(); return START_NOT_STICKY }
+            ACTION_BATCH -> { if (projection != null) startBatch(); return START_NOT_STICKY }
+            ACTION_CANCEL -> { batchJob?.cancel(); return START_NOT_STICKY }
+        }
         if (projection != null) return START_NOT_STICKY
 
         // Android 14 以降は、MediaProjection を取得する前にフォアグラウンド化しておく必要がある
@@ -90,8 +111,12 @@ class CaptureService : Service() {
         }, Handler(Looper.getMainLooper()))
 
         settings = Settings(this)
+        store = StoryStore(this)
+        title = settings.workTitle
+        story = store.loadContext(title)
+        library = store.loadLibrary(title)
         capturer = ScreenCapturer(mp).also { startCapture(it) }
-        overlay = OverlayController(this, onBubbleTap = ::onBubbleTap, onBubbleLongPress = { stopSelf() })
+        overlay = OverlayController(this, onBubbleTap = ::onBubbleTap, onBubbleLongPress = ::startBatch)
         translator = buildTranslator()
         isRunning = true
         updateNotification()
@@ -99,23 +124,30 @@ class CaptureService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun buildTranslator(): Translator = when (settings.engine) {
-        Engine.CLAUDE -> CachedTranslator(ClaudeTranslator(settings.claudeApiKey))
-        Engine.ON_DEVICE -> {
-            val t = MlKitTranslator().also { mlkit = it }
-            // 翻訳モデルを先に取っておく（初回のみ約 30MB）
-            scope.launch {
-                overlay?.setState(BubbleState.BUSY)
-                val err = withContext(Dispatchers.IO) { runCatching { t.ensureModel() }.exceptionOrNull() }
-                overlay?.setState(if (err == null) BubbleState.READY else BubbleState.ERROR)
-                err?.let { toast(it.message ?: "翻訳モデルを用意できませんでした") }
+    private fun buildTranslator(): Translator {
+        val mt = MlKitTranslator().also { mlkit = it }
+        val engine = settings.engine
+        // モデルを先に用意しておく（ML Kit は初回のみ約 30MB、LLM は読み込みに数秒〜数十秒）
+        scope.launch {
+            overlay?.setProgress(if (engine == Engine.LOCAL_LLM) "読込" else "…")
+            val err = withContext(Dispatchers.IO) {
+                runCatching { mt.ensureModel(); if (engine == Engine.LOCAL_LLM) localLlm() }.exceptionOrNull()
             }
-            CachedTranslator(t)
+            overlay?.setState(if (err == null) BubbleState.READY else BubbleState.ERROR)
+            err?.let { toast(it.message ?: "翻訳の準備ができませんでした") }
+        }
+        return when (engine) {
+            Engine.ON_DEVICE -> CachedTranslator(mt)
+            Engine.LOCAL_LLM -> StoryTranslator(LlmEngine { p -> localLlm().generate(p) }, story, fallback = mt).also { storyTranslator = it }
         }
     }
 
+    @Synchronized
+    private fun localLlm(): LocalLlm = llm ?: LocalLlm(this, settings.modelPath, settings.wrapGemmaTemplate).also { llm = it }
+
     private fun onBubbleTap() {
         val o = overlay ?: return
+        if (batchJob?.isActive == true) { batchJob?.cancel(); return }
         if (busy) return
         if (o.hasPatches) {
             // 訳文を消して原文に戻す。自動モードでも、次にページが変わるまでは訳し直さない
@@ -126,6 +158,7 @@ class CaptureService : Service() {
         scope.launch { translateNow() }
     }
 
+    /** 今のページを訳す。一括処理で保存済みのページなら、OCR も翻訳もせずにすぐ出す */
     private suspend fun translateNow() {
         val o = overlay ?: return
         val cap = capturer ?: return
@@ -141,7 +174,11 @@ class CaptureService : Service() {
                 o.setState(BubbleState.ERROR)
                 return
             }
-            val patches = pipeline.run(bmp, translator ?: return)
+            val patches = library.find(t)?.patches ?: run {
+                val p = pipeline.run(bmp, translator ?: return)
+                if (p.isNotEmpty()) { library.add(t, p); saveAsync() }
+                p
+            }
             bmp.recycle()
             o.show(patches)
             o.setState(if (patches.isEmpty()) BubbleState.READY else BubbleState.SHOWING)
@@ -156,6 +193,109 @@ class CaptureService : Service() {
         } finally {
             busy = false
         }
+    }
+
+    private fun startBatch() {
+        if (batchJob?.isActive == true || busy) return
+        if (PageTurnService.instance == null) {
+            toast("章の一括処理には、ユーザー補助の「フキダシ翻訳のページめくり」をオンにしてください")
+            startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            return
+        }
+        batchJob = scope.launch { runBatch() }
+    }
+
+    private class Scan(val thumb: Thumbnail, val balloons: List<Balloon>, val geometry: Map<Int, Patch>)
+
+    /**
+     * 章の一括処理。今のページから、めくっても変わらなくなる（章の終わり）か上限に達するまで取り込み、
+     * 最後にまとめて訳して保存する。途中で中止しても、訳し終えた分は保存する。
+     */
+    private suspend fun runBatch() {
+        val o = overlay ?: return
+        val cap = capturer ?: return
+        val turner = PageTurnService.instance ?: return
+        busy = true
+        o.clear()
+        val scans = ArrayList<Scan>()
+        try {
+            // 1. 取り込み：自分の窓は隠したままにして、ページをめくりながら文字と位置を読む
+            o.setCaptureHidden(true)
+            notify("章を取り込んでいます", cancellable = true)
+            delay(250)
+            while (scans.size < settings.maxPages) {
+                val bmp = withContext(Dispatchers.Default) { cap.snapshot() } ?: break
+                val t = thumb(bmp)
+                if (t.looksBlank) { bmp.recycle(); toast("このアプリは画面の取り込みを禁止しているため処理できません"); return }
+                if (library.find(t) == null) {
+                    val balloons = pipeline.detect(bmp)
+                    scans += Scan(t, balloons, withContext(Dispatchers.Default) { pipeline.geometry(bmp, balloons) })
+                } else {
+                    scans += Scan(t, emptyList(), emptyMap()) // 既に訳してあるページ
+                }
+                bmp.recycle()
+                notify("取り込み ${scans.size} ページ", cancellable = true)
+                if (!turner.turn(settings.pageTurn) || !waitForNewPage(t, cap)) break
+            }
+            o.setCaptureHidden(false)
+
+            // 2. 翻訳：あらすじと人名を抜き出してから、文脈つきでまとめて訳す
+            val todo = scans.filter { it.balloons.isNotEmpty() }
+            val st = storyTranslator
+            val results: List<Map<Int, String>> = if (st != null) {
+                runInterruptible(Dispatchers.IO) {
+                    st.translateChapter(todo.map { it.balloons }, progress = { d, total ->
+                        scope.launch { o.setProgress("訳 $d/$total"); notify("翻訳中 $d / $total", cancellable = true) }
+                    }, cancelled = { batchJob?.isCancelled == true })
+                }
+            } else {
+                todo.mapIndexed { i, s ->
+                    o.setProgress("訳 ${i + 1}/${todo.size}")
+                    withContext(Dispatchers.IO) { translator!!.translate(app.fukidashi.core.PageInput(s.balloons)) }
+                }
+            }
+            // 3. 保存：ページの見た目（指紋）と訳文を結びつける
+            todo.forEachIndexed { i, s ->
+                val ja = results.getOrNull(i) ?: return@forEachIndexed
+                val patches = s.balloons.mapNotNull { b -> ja[b.id]?.takeIf { it.isNotBlank() }?.let { s.geometry[b.id]?.copy(text = it) } }
+                if (patches.isNotEmpty()) library.add(s.thumb, patches)
+            }
+            save()
+            o.setState(BubbleState.READY)
+            toast("${scans.size} ページを処理しました。章の最初に戻って読んでください")
+        } catch (e: CancellationException) {
+            save()
+            o.setCaptureHidden(false); o.setState(BubbleState.READY)
+            toast("一括処理を中止しました")
+        } catch (e: Exception) {
+            save()
+            o.setCaptureHidden(false); o.setState(BubbleState.ERROR)
+            toast(e.message ?: "一括処理に失敗しました")
+        } finally {
+            busy = false
+            detector.reset()
+            updateNotification()
+        }
+    }
+
+    /** めくった後、画面が前のページから変わり、動きが止まるまで待つ。変わらなければ章の終わり */
+    private suspend fun waitForNewPage(prev: Thumbnail, cap: ScreenCapturer): Boolean {
+        val start = System.currentTimeMillis()
+        var last: Thumbnail? = null
+        var changed = false
+        var stable = 0
+        while (System.currentTimeMillis() - start < 5000) {
+            delay(250)
+            val bmp = withContext(Dispatchers.Default) { cap.snapshot() } ?: continue
+            val t = thumb(bmp); bmp.recycle()
+            if (!changed && t.difference(prev) > 0.03f) changed = true
+            if (changed) {
+                stable = if (last != null && t.difference(last) < 0.012f) stable + 1 else 0
+                if (stable >= 2) return true
+            }
+            last = t
+        }
+        return false
     }
 
     /** 自分の窓を隠し、隠れた後のフレームが届くのを待ってから取り込む */
@@ -200,6 +340,12 @@ class CaptureService : Service() {
         return Thumbnail(t.width, t.height, bmp.width, bmp.height, t.lum)
     }
 
+    private fun save() {
+        runCatching { store.saveContext(story, title); store.saveLibrary(library, title) }
+    }
+
+    private fun saveAsync() { scope.launch(Dispatchers.IO) { save() } }
+
     private fun startCapture(cap: ScreenCapturer) {
         val bounds: Rect = if (Build.VERSION.SDK_INT >= 30) {
             getSystemService(WindowManager::class.java).maximumWindowMetrics.bounds
@@ -222,33 +368,44 @@ class CaptureService : Service() {
     override fun onDestroy() {
         isRunning = false
         scope.cancel()
+        if (::store.isInitialized) save()
         overlay?.removeAll(); overlay = null
         capturer?.stop(); capturer = null
         projection?.stop(); projection = null
         mlkit?.close()
+        llm?.close()
         runCatching { pipeline.close() }
         super.onDestroy()
     }
 
     private fun updateNotification() {
         val mode = if (settings.autoMode) "ページをめくると自動で翻訳します" else "浮かんでいる「訳」ボタンで翻訳します"
-        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(mode))
+        notify("${StoryStore.displayTitle(title)}：$mode", cancellable = false)
     }
 
-    private fun notification(text: String): Notification {
+    private fun notify(text: String, cancellable: Boolean) {
+        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(text, cancellable))
+    }
+
+    private fun notification(text: String, cancellable: Boolean = false): Notification {
         val nm = getSystemService(NotificationManager::class.java)
-        if (Build.VERSION.SDK_INT >= 26 && nm.getNotificationChannel(CHANNEL) == null) {
+        if (nm.getNotificationChannel(CHANNEL) == null) {
             nm.createNotificationChannel(NotificationChannel(CHANNEL, "翻訳中の表示", NotificationManager.IMPORTANCE_LOW))
         }
+        fun action(a: String, req: Int) = PendingIntent.getService(this, req, Intent(this, CaptureService::class.java).setAction(a), PendingIntent.FLAG_IMMUTABLE)
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
-        val stop = PendingIntent.getService(this, 1, Intent(this, CaptureService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat)
             .setContentTitle("フキダシ翻訳")
             .setContentText(text)
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
             .setContentIntent(open)
-            .addAction(0, "停止", stop)
+            .apply {
+                if (cancellable) addAction(0, "中止", action(ACTION_CANCEL, 3))
+                else addAction(0, "章を一括処理", action(ACTION_BATCH, 2))
+            }
+            .addAction(0, "停止", action(ACTION_STOP, 1))
             .build()
     }
 
