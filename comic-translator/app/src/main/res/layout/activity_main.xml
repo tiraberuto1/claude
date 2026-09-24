@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?android:colorBackground"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="フキダシ翻訳"
+            android:textSize="30sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="電子書籍アプリで開いたアメコミの吹き出しを読み取り、英語のセリフの上に日本語訳を重ねて表示します。"
+            android:textSize="15sp" />
+
+        <TextView style="@style/Section" android:text="1. 権限" />
+
+        <TextView
+            android:id="@+id/overlayStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="15sp" />
+
+        <Button
+            android:id="@+id/overlayButton"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="他のアプリの上に表示を許可する" />
+
+        <TextView style="@style/Section" android:text="2. 翻訳のしかた" />
+
+        <RadioGroup
+            android:id="@+id/engineGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <RadioButton
+                android:id="@+id/engineOnDevice"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="端末内で翻訳（無料・オフライン。初回に約 30MB のモデルを取得）" />
+
+            <RadioButton
+                android:id="@+id/engineClaude"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Claude で翻訳（絵を見て口調まで訳す。API キーと通信が必要で、1 ページごとに料金がかかります）" />
+        </RadioGroup>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/apiKeyLayout"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="Claude API キー（sk-ant-…）"
+            app:endIconMode="password_toggle"
+            xmlns:app="http://schemas.android.com/apk/res-auto">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/apiKey"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textPassword"
+                android:singleLine="true" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/autoMode"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="ページをめくったら自動で翻訳する" />
+
+        <TextView style="@style/Section" android:text="3. 使う" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:lineSpacingMultiplier="1.3"
+            android:text="「開始」を押して画面の取り込みを許可したら、電子書籍アプリでコミックを開きます。\n・赤い「訳」ボタン：今のページを翻訳（もう一度押すと原文に戻る）\n・訳文をタップ：2.5 秒だけ原文を見る\n・ボタンの長押し：終了\nボタンはドラッグで動かせます。"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/startButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="開始" />
+
+        <Button
+            android:id="@+id/stopButton"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="停止" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:lineSpacingMultiplier="1.25"
+            android:text="注意：画面の取り込みを禁止している書籍アプリ（保護されたコンテンツ）では、画面が真っ黒に取り込まれるため翻訳できません。その場合は「取り込みが禁止されています」と表示されます。"
+            android:textColor="@color/muted"
+            android:textSize="13sp" />
+    </LinearLayout>
+</ScrollView>
