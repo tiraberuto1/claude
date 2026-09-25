@@ -4,7 +4,7 @@
 境界帯だけを色で判定させる。RGB は元画像の画素をそのまま使い、アルファのみ付与する。
 
 出力:
-  assets/characters/samurai_left_bottom/samurai_mask.png   全体座標の二値マスク
+  assets/characters/samurai_left_bottom/samurai_mask.png   全体座標の二値マスク（背景復元の穴と同一）
   assets/characters/samurai_left_bottom/samurai_01.png     フレーム用キャンバスに配置した RGBA
   assets/scroll/scroll_foreground_oni.png                  武者の手前にある鬼の歯・顎（全体座標 RGBA）
 """
@@ -25,6 +25,7 @@ FRAME_X, FRAME_Y, FRAME_W, FRAME_H = 0, 100, 640, 600
 GRABCUT_ROI = (0, 120, 620, 700)
 MIN_COMPONENT_PX = 40
 OCCLUDER_REACH = 10
+EDGE_GROW = 2          # 輪郭のにじみも武者側に含める幅
 
 
 def poly(pts):
@@ -92,7 +93,18 @@ def main():
     img = rgba[..., :3]
     cfg = json.loads(CFG.read_text())
 
-    fg = segment(img, build_constraints(img, cfg), cfg)
+    core = segment(img, build_constraints(img, cfg), cfg)
+
+    om = np.zeros(core.shape, np.uint8)
+    cv2.fillPoly(om, [poly(p) for p in cfg["occluder"]], 255)
+    # 武者に接する範囲（鬼の歯・下唇）だけを手前に置く
+    near = cv2.dilate(core, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * OCCLUDER_REACH + 1,) * 2))
+    occ = (om > 0) & (core == 0) & (near > 0)
+
+    # 武者の画像と背景復元の穴を同じ範囲にして、静止時に元絵と画素単位で一致させる
+    grown = cv2.dilate(core, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * EDGE_GROW + 1,) * 2))
+    cv2.fillPoly(grown, [poly(p) for p in cfg.get("extra_poly", [])], 255)
+    fg = ((grown > 0) & ~occ).astype(np.uint8) * 255
     CHAR_DIR.mkdir(parents=True, exist_ok=True)
     cv2.imwrite(str(CHAR_DIR / "samurai_mask.png"), fg)
 
@@ -101,12 +113,6 @@ def main():
     out[..., 3] = fg
     frame = out[FRAME_Y:FRAME_Y + FRAME_H, FRAME_X:FRAME_X + FRAME_W]
     cv2.imwrite(str(CHAR_DIR / "samurai_01.png"), frame)
-
-    om = np.zeros(fg.shape, np.uint8)
-    cv2.fillPoly(om, [poly(p) for p in cfg["occluder"]], 255)
-    # 武者に接する範囲（鬼の歯・下唇）だけを手前に置く
-    near = cv2.dilate(fg, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * OCCLUDER_REACH + 1,) * 2))
-    occ = (om > 0) & (fg == 0) & (near > 0)
     fgl = np.zeros_like(rgba)
     fgl[occ, :3] = img[occ]
     fgl[..., 3] = occ * 255
