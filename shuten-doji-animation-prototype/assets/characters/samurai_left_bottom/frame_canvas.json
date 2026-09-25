@@ -1,0 +1,11 @@
+{
+  "source": "assets/scroll/scroll_original.png",
+  "canvas_origin_in_scroll": [
+    0,
+    100
+  ],
+  "canvas_size": [
+    640,
+    600
+  ]
+}
