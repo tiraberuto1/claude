@@ -18,7 +18,8 @@
 [hidden]{display:none!important}
 html,body{height:100%}
 body{margin:0;background:var(--lacquer);color:var(--ink);font-family:var(--mincho);overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
-#cv{position:fixed;inset:0;display:block;width:100%;height:100%;touch-action:none}
+#stage{position:fixed;inset:0;touch-action:none}
+#stage canvas{display:block;width:100%!important;height:100%!important}
 .ov{position:fixed;inset:0;display:grid;place-items:safe center;padding:12px 16px;overflow-y:auto;box-sizing:border-box}
 button{font-family:var(--mincho)}
 .btn{font:700 15px/1 var(--mincho);letter-spacing:.12em;color:var(--ink);background:rgba(239,227,198,.92);border:1.5px solid var(--ink);border-radius:2px;padding:12px 18px;cursor:pointer}
@@ -97,7 +98,7 @@ button{font-family:var(--mincho)}
 @media (prefers-reduced-motion:reduce){#story,#story h2,#story p{transition:none}}
 </style>
 
-<canvas id="cv" aria-label="酒呑童子絵巻アクションゲームの画面"></canvas>
+<div id="stage" role="img" aria-label="酒呑童子絵巻アクションゲームの画面"></div>
 
 <section id="title" class="ov" aria-labelledby="tTitle">
   <div class="tcard">
@@ -144,15 +145,15 @@ button{font-family:var(--mincho)}
 <button id="mute" type="button" aria-pressed="false">音　入</button>
 <p id="rotate" hidden>横向きにすると遊びやすくなります</p>
 
+<script src="vendor/phaser.min.js"></script>
 <script>
 (() => {
 'use strict';
 // ============================================================ basics
 const W = 960, H = 540;
-const cv = document.getElementById('cv');
-const ctx = cv.getContext('2d');
+const cv = document.getElementById('stage');
 const $ = id => document.getElementById(id);
-let DPR = 1, VW = 0, VH = 0, gS = 1, gOX = 0, gOY = 0;
+let DPR = 1, VW = 0, VH = 0, gS = 1, gOX = 0, gOY = 0, game = null;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const lerp = (a, b, t) => a + (b - a) * t;
 function mulberry(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
@@ -165,8 +166,8 @@ const INK = '#2a2420', SHU = '#b8412e', KIN = '#c9a445', PAPER = '#efe3c6';
 function resize() {
   DPR = Math.min(window.devicePixelRatio || 1, 2);
   VW = innerWidth; VH = innerHeight;
-  cv.width = Math.round(VW * DPR); cv.height = Math.round(VH * DPR);
   gS = Math.min(VW / W, VH / H); gOX = (VW - W * gS) / 2; gOY = (VH - H * gS) / 2;
+  if (game) { game.scale.setZoom(1 / DPR); game.scale.resize(Math.round(VW * DPR), Math.round(VH * DPR)); }
   if (emaki.canvas) { emaki.needsFit = true; emaki.fitAt = performance.now() + 220; }
   positionMute();
 }
@@ -2090,50 +2091,32 @@ function sc_prefetch(S, i0, i1) {
   if (!J) for (const i of [i0 - 1, i1 + 1, i0 - 2, i1 + 2]) for (const layer of [0, 1]) if (!J && !TILES.m.has(layer * 1e5 + i)) J = TILES.job = sc_job(S, layer, i);
   if (J && (J.done || sc_step(J, performance.now() + 3))) { sc_keep(J.key, J.c); TILES.job = null; }
 }
-function sc_tiles(g, camX, layer) {
-  const S = sc_scaleOf(g), i0 = Math.floor(camX / TILE_W), i1 = Math.floor((camX + W) / TILE_W);
-  for (let i = i0; i <= i1; i++) { const t = sc_tile(S, layer, i); if (t) g.drawImage(t, i * TILE_W, 0, TILE_W + 2, H); }
-  if (!layer) sc_prefetch(S, i0, i1);
-}
-// back layer (ground, everything behind the figures); called before the figures, untranslated
-function drawWorld(g, camX, time, gateOpen) {
-  g.save(); g.imageSmoothingEnabled = true; g.translate(-camX, 0);
-  sc_tiles(g, camX, 0);
-  if (camX < DOOR.x + 420) sc_door(g, V_WORLD, gateOpen, false);
-  g.restore();
-  void time;
-}
-// front layer (railings, near pillars and walls); called after the figures, in world coordinates
-function drawWorldFront(g, camX, gateOpen) {
-  g.save(); g.imageSmoothingEnabled = true;
-  sc_tiles(g, camX, 1);
-  if (camX < DOOR.x + 420) sc_door(g, V_WORLD, gateOpen, true);
-  g.restore();
-}
-function drawRecordMarker(g, p, done, time, near) {
-  const P = sc_P(), V = V_WORLD;
+// 記録の場: the gold floor of the zone (its alpha pulses in the game) and the banner at the back
+const MARK_ZONE = p => [p.x - ZONE_HALF - 4, 370, ZONE_HALF * 2 + 180, 130];
+const MARK_FLAG = p => { const b = V_WORLD.p(p.x, ZMAX + 24, 0); return [b[0] - 12, b[1] - 146, 54, 152]; };
+function markerZone(g, p) {
+  const P = sc_P(), V = V_WORLD, x0 = p.x - ZONE_HALF, x1 = p.x + ZONE_HALF;
   g.save(); g.lineJoin = g.lineCap = 'round';
-  if (!done) {
-    const a = clamp((0.25 + 0.15 * Math.sin(time * 4) + (near ? 0.2 : 0)) * 1.6, 0, 1), x0 = p.x - ZONE_HALF, x1 = p.x + ZONE_HALF;
-    g.globalAlpha = a * 0.5; sc_q(g, V, [[x0, 3, 0], [x1, 3, 0], [x1, ZMAX - 3, 0], [x0, ZMAX - 3, 0]]); g.fillStyle = P.kin; g.fill();
-    g.globalAlpha = a; g.strokeStyle = P.kinD; g.lineWidth = 1.4; g.stroke();
-    g.fillStyle = P.kinS; for (let k = 0; k < 30; k++) { const q = V.p(x0 + 6 + sc_hash(p.x + k * 3.1) * (x1 - x0 - 12), 8 + sc_hash(p.x * 0.7 + k * 5.3) * (ZMAX - 16), 0); g.fillRect(q[0], q[1], 1.6, 1.6); }
-    g.globalAlpha = 1;
-  }
-  const b = V.p(p.x, ZMAX + 24, 0);
+  g.globalAlpha = 0.5; sc_q(g, V, [[x0, 3, 0], [x1, 3, 0], [x1, ZMAX - 3, 0], [x0, ZMAX - 3, 0]]); g.fillStyle = P.kin; g.fill();
+  g.globalAlpha = 1; g.strokeStyle = P.kinD; g.lineWidth = 1.4; g.stroke();
+  g.fillStyle = P.kinS; for (let k = 0; k < 30; k++) { const q = V.p(x0 + 6 + sc_hash(p.x + k * 3.1) * (x1 - x0 - 12), 8 + sc_hash(p.x * 0.7 + k * 5.3) * (ZMAX - 16), 0); g.fillRect(q[0], q[1], 1.6, 1.6); }
+  g.restore();
+}
+function markerFlag(g, p, done) {
+  const P = sc_P(), b = V_WORLD.p(p.x, ZMAX + 24, 0);
+  g.save(); g.lineJoin = g.lineCap = 'round';
   g.translate(b[0], b[1]); g.scale(0.85, 0.85);
   g.strokeStyle = P.ink; g.lineWidth = 3; g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -150); g.stroke();
   g.fillStyle = P.kin; g.lineWidth = 1; g.beginPath(); g.moveTo(0, -161); g.quadraticCurveTo(5.5, -155, 0, -149); g.quadraticCurveTo(-5.5, -155, 0, -161); g.fill(); g.stroke();
-  const sway = Math.sin(time * 1.6 + p.x) * 2;
-  g.lineWidth = 2; g.beginPath(); g.moveTo(0, -146); g.lineTo(30 + sway * 0.5, -146); g.stroke();
+  g.lineWidth = 2; g.beginPath(); g.moveTo(0, -146); g.lineTo(30, -146); g.stroke();
   g.fillStyle = done ? SHU : '#f6f0e2'; g.strokeStyle = INK; g.lineWidth = 1.5;
-  g.beginPath(); g.moveTo(3, -146); g.lineTo(29 + sway, -144); g.lineTo(27 + sway, -64); g.lineTo(5, -66); g.closePath(); g.fill(); g.stroke();
+  g.beginPath(); g.moveTo(3, -146); g.lineTo(29, -144); g.lineTo(27, -64); g.lineTo(5, -66); g.closePath(); g.fill(); g.stroke();
   g.strokeStyle = done ? 'rgba(251,243,226,.55)' : 'rgba(184,65,46,.7)'; g.lineWidth = 1;
-  g.beginPath(); g.moveTo(6.5, -141); g.lineTo(25.5 + sway, -139.5); g.lineTo(24 + sway, -69); g.lineTo(8, -70.5); g.closePath(); g.stroke();
+  g.beginPath(); g.moveTo(6.5, -141); g.lineTo(25.5, -139.5); g.lineTo(24, -69); g.lineTo(8, -70.5); g.closePath(); g.stroke();
   g.fillStyle = done ? '#7d2a1d' : SHU; for (let k = 0; k < 4; k++) g.fillRect(-2.5, -138 + k * 20, 6, 3.5);
   g.fillStyle = done ? '#fbf3e2' : INK; g.font = `26px ${FONT_BRUSH}`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText('記', 16 + sway * 0.5, -124);
-  g.font = `14px ${FONT_BRUSH}`; g.fillText(p.short, 16 + sway * 0.5, -92);
+  g.fillText('記', 16, -124);
+  g.font = `14px ${FONT_BRUSH}`; g.fillText(p.short, 16, -92);
   g.restore();
 }
 // ------------------------------------------------------------ emaki scenes: the same layout, squeezed into the scene
@@ -2215,7 +2198,7 @@ function saveHistory() { try { localStorage.setItem(STORE_KEY, JSON.stringify(hi
 loadHistory();
 
 // ============================================================ game state
-const G = { player: null, enemies: [], camX: CAM_MAX, time: 0, runT: 0, shake: 0, hitstop: 0, slow: 1, particles: [], gate: 0, bossIntro: 0, bossSeen: false, arenaLock: false, stamp: null, banner: null, endT: 0, run: null, prevX: 0, zone: null };
+const G = { player: null, enemies: [], camX: CAM_MAX, time: 0, runT: 0, shake: 0, hitstop: 0, slow: 1, gate: 0, bossIntro: 0, bossSeen: false, arenaLock: false, stamp: null, banner: null, endT: 0, run: null, prevX: 0, zone: null };
 let state = 'title';
 const SPEED = 235, ZSPEED = 150, JUMP = 600, GRAV = 1750;
 const ATK_DUR = 0.34;
@@ -2226,7 +2209,8 @@ function newRun() {
   G.player = { x: 7440, z: 120, h: 0, vx: 0, vz: 0, vh: 0, face: -1, ground: true, hp: 5, maxhp: 5, atkT: 0, atkAir: false, hurtT: 0, inv: 0, walkT: 0, dead: false, downT: 0, hitSet: new Set(), idleT: 0, victory: false };
   G.enemies = ENEMY_DEFS.map((d, i) => ({ id: i, type: d.type, boss: !!d.boss, x: d.x, z: d.z, hz: d.z, h: 0, vx: 0, vz: 0, vh: 0, face: -1, a: d.a, b: d.b, hp: d.boss ? 12 : 3, maxhp: d.boss ? 12 : 3, st: 'patrol', t: 0, walkT: 0, dir: -1, ground: true, hurtT: 0, cd: 0, hitDone: false, alive: true, deadT: 0, flash: 0, hits: 0 }));
   G.camX = clamp(PX(G.player.x, G.player.z) - W * 0.62, 0, CAM_MAX);
-  Object.assign(G, { time: 0, runT: 0, shake: 0, hitstop: 0, slow: 1, particles: [], gate: 0, bossIntro: 0, bossSeen: false, arenaLock: false, stamp: null, banner: { text: '源頼光、大江山へ', t: 2.6 }, endT: 0, prevX: G.player.x, zone: null });
+  Object.assign(G, { time: 0, runT: 0, shake: 0, hitstop: 0, slow: 1, gate: 0, bossIntro: 0, bossSeen: false, arenaLock: false, stamp: null, banner: { text: '源頼光、大江山へ', t: 2.6 }, endT: 0, prevX: G.player.x, zone: null });
+  FX.clear();
   G.run = { n, records: {}, end: null, outcome: null, minX: G.player.x, date: (() => { const d = new Date(); return [d.getFullYear(), d.getMonth() + 1, d.getDate()]; })() };
 }
 // screen position of a body: [X, Y of the feet (lifted by jumps and the bridge), Y of its spot on the ground]
@@ -2257,9 +2241,10 @@ const enemyScale = e => e.boss ? 4.8 : 3.2;
 // in front of the attacker (along its facing) within [r0, r1], and close enough in depth
 function inReach(a, b, r0, r1, dz) { const dx = (b.x - a.x) * a.face; return dx > r0 && dx < r1 && Math.abs(b.z - a.z) < dz; }
 
-// ------------------------------------------------------------ particles (screen coordinates)
-function burst(x, y, n, color, sp = 260) { for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, v = sp * (0.3 + Math.random() * 0.7); G.particles.push({ k: 'drop', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 120, life: 0.5 + Math.random() * 0.3, max: 0.8, c: color, s: 3 + Math.random() * 4 }); } }
-function dust(x, y) { for (let i = 0; i < 6; i++) G.particles.push({ k: 'dust', x: x + (Math.random() - 0.5) * 30, y, vx: (Math.random() - 0.5) * 80, vy: -20 - Math.random() * 40, life: 0.5, max: 0.5, c: 'rgba(168,130,79,', s: 6 + Math.random() * 6 }); }
+// ------------------------------------------------------------ particles (world screen coordinates, drawn by Phaser emitters)
+const FX = { burst() {}, dust() {}, ring() {}, clear() {} };
+function burst(x, y, n, color) { FX.burst(x, y, n, color); }
+function dust(x, y) { FX.dust(x, y); }
 
 // ------------------------------------------------------------ update
 function updatePlay(dt) {
@@ -2321,9 +2306,6 @@ function updatePlay(dt) {
   tx = clamp(tx, 0, CAM_MAX);
   G.camX = lerp(G.camX, tx, Math.min(1, dt * 5));
   G.shake = Math.max(0, G.shake - dt);
-  // particles
-  for (const q of G.particles) { q.life -= dt; q.x += q.vx * dt; q.y += q.vy * dt; if (q.k === 'drop') q.vy += 900 * dt; else q.vy *= 0.96; }
-  G.particles = G.particles.filter(q => q.life > 0);
   if (G.banner) { G.banner.t -= dt; if (G.banner.t <= 0) G.banner = null; }
   if (G.stamp) { G.stamp.t += dt; if (G.stamp.t > 1.6) G.stamp = null; }
   // outcomes
@@ -2414,7 +2396,7 @@ function updateBoss(e, dt, p, dx, ad, dz, target) {
       if (e.h <= 0 && e.vh < 0) {
         e.h = 0; e.ground = true; e.vx = 0; e.vz = 0; e.st = 'recover'; e.t = 0; G.shake = 0.5; SFX.slam();
         const f = figAt(e.x, e.z, 0);
-        G.particles.push({ k: 'ring', x: f[0], y: f[2], vx: 0, vy: 0, life: 0.5, max: 0.5, c: INK, s: 0 }); dust(f[0] - 60, f[2]); dust(f[0] + 60, f[2]);
+        FX.ring(f[0], f[2]); dust(f[0] - 60, f[2]); dust(f[0] + 60, f[2]);
         if (p.ground && Math.abs(p.x - e.x) < 230 && Math.abs(p.z - e.z) < 110) hurtPlayer(p, 1, e.x);
       }
       break;
@@ -2473,133 +2455,302 @@ function endRun(outcome) {
   setTimeout(() => openEmaki(G.run.n, true), reduce ? 1200 : 3800);
 }
 
-// ------------------------------------------------------------ render game
-function footShadow(g, x, y, w) { g.fillStyle = 'rgba(42,36,32,.16)'; g.beginPath(); g.ellipse(x, y + 1, w, w * 0.3, 0, 0, Math.PI * 2); g.fill(); }
-function renderGame(time) {
-  const g = ctx;
-  g.setTransform(DPR, 0, 0, DPR, 0, 0);
-  g.fillStyle = '#231b16'; g.fillRect(0, 0, VW, VH);
-  g.setTransform(DPR * gS, 0, 0, DPR * gS, DPR * gOX, DPR * gOY);
-  g.save(); g.beginPath(); g.rect(0, 0, W, H); g.clip();
-  const sh = G.shake > 0 ? (Math.random() - 0.5) * 14 * G.shake : 0;
-  g.translate(sh, sh * 0.5);
-  const camX = Math.round(G.camX);
-  drawWorld(g, camX, time, G.gate);
-  g.save(); g.translate(-camX, 0);
-  const play = state === 'play' || state === 'story';
-  for (const pt of POINTS) if (Math.abs(PX(pt.x, ZMAX / 2) - camX - W / 2) < W) drawRecordMarker(g, pt, play && !!G.run.records[pt.id], time, play && G.zone === pt);
+// ============================================================ Phaser — 描画・ループ・演出
+// 絵の筆致は Canvas 2D の描き手のまま、出来た絵を Phaser のテクスチャに取り込んでシーンで組む
+const colOf = s => parseInt(s.slice(1), 16);
+const texScale = () => { const a = DPR * gS; return a <= 1.05 ? 1 : a <= 1.55 ? 1.5 : 2; };
+const ALL_TEXTS = new Set();
+function mkText(scene, size, extra) {
+  const t = scene.add.text(0, 0, '', Object.assign({ fontFamily: FONT_BRUSH, fontSize: size + 'px', color: INK }, extra));
+  ALL_TEXTS.add(t); (scene.texts || (scene.texts = [])).push(t); return t;
+}
+// Phaser re-renders a Text on every style call, so style changes go through here and only when they differ
+function restyle(t, size, color) {
+  if (t._sz !== size) { t._sz = size; t.setFontSize(size + 'px'); }
+  if (t._col !== color) { t._col = color; t.setColor(color); }
+  return t;
+}
+function textRes(scene, r) { if (scene.textRes === r) return; scene.textRes = r; for (const t of scene.texts || []) t.setResolution(r); }
+// paints world rect [x, y, w, h] at S device pixels per unit into a (re)registered canvas texture
+function paintTexture(scene, key, x, y, w, h, S, paint) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const [c, g] = mk(Math.ceil(w * S), Math.ceil(h * S));
+  g.imageSmoothingEnabled = true; g.setTransform(S, 0, 0, S, -x * S, -y * S); paint(g);
+  scene.textures.addCanvas(key, c);
+}
+// the letterboxed 960×540 stage inside the full-window canvas
+function stageCamera(cam) {
+  const z = gS * DPR, id = z + ':' + gOX + ':' + gOY;
+  if (cam._fit !== id) { cam._fit = id; cam.setViewport(Math.round(gOX * DPR), Math.round(gOY * DPR), Math.round(W * z), Math.round(H * z)); cam.setZoom(z); }
+  return z;
+}
+const FIG_BASE = 10, FRONT_DEPTH = 1000;
+// one clock for every scene, read from performance.now() as before (Phaser's own delta is smoothed and clamped)
+const CLOCK = { last: performance.now(), dt: 0 };
+
+class WorldScene extends Phaser.Scene {
+  constructor() { super({ key: 'world' }); }
+  create() {
+    this.cameras.main.setOrigin(0, 0);
+    this.S = 0; this.tiles = new Map(); this.pool = []; this.labels = []; this.rings = [];
+    this.markGen = ''; this.doorId = ''; this.raikoOk = false;
+    this.shadows = this.add.graphics().setDepth(FIG_BASE - 1);
+    this.fx = this.add.graphics().setDepth(FRONT_DEPTH + 20);
+    const dg = this.make.graphics({}, false); dg.fillStyle(0xffffff, 1); dg.fillCircle(8, 8, 8); dg.generateTexture('dot', 16, 16); dg.destroy();
+    const drop = tint => this.add.particles(0, 0, 'dot', { emitting: false, lifespan: { min: 500, max: 800 }, speed: { min: 80, max: 260 }, angle: { min: 180, max: 360 }, gravityY: 900, scale: { start: 0.75, end: 0.12 }, alpha: { start: 1, end: 0 }, tint }).setDepth(FRONT_DEPTH + 30);
+    this.dropShu = drop(colOf(SHU)); this.dropInk = drop(colOf(INK));
+    this.dustE = this.add.particles(0, 0, 'dot', { emitting: false, lifespan: 500, speedX: { min: -40, max: 40 }, speedY: { min: -60, max: -20 }, scale: { start: 0.55, end: 1.45 }, alpha: { start: 0.5, end: 0 }, tint: 0xa8824f }).setDepth(FRONT_DEPTH + 25);
+    FX.burst = (x, y, n, color) => (color === SHU ? this.dropShu : this.dropInk).explode(n, x, y);
+    FX.dust = (x, y) => { for (let i = 0; i < 6; i++) this.dustE.explode(1, x + (Math.random() - 0.5) * 30, y); };
+    FX.ring = (x, y) => this.rings.push({ x, y, t: 0 });
+    FX.clear = () => { this.dropShu.killAll(); this.dropInk.killAll(); this.dustE.killAll(); this.rings.length = 0; };
+  }
+  update() {
+    const t = performance.now(), dt = Math.min(0.05, (t - CLOCK.last) / 1000), time = t / 1000;
+    CLOCK.last = t; CLOCK.dt = dt;
+    if (state === 'play') updatePlay(dt);
+    else if (state === 'story') { G.time += dt; if (G.player) G.player.downT += dt; }
+    else if (state === 'title') { titleT += dt; G.camX = CAM_MAX - ((titleT * 40) % CAM_MAX); }
+    const cam = this.cameras.main, show = state !== 'emaki';
+    cam.setVisible(show);
+    if (!show) return;
+    stageCamera(cam);
+    const sh = G.shake > 0 ? (Math.random() - 0.5) * 14 * G.shake : 0, camX = Math.round(G.camX);
+    cam.setScroll(camX - sh, -sh * 0.5);
+    const S = texScale();
+    if (S !== this.S) this.rescale(S);
+    textRes(this, gS * DPR);
+    this.syncTiles(camX);
+    this.syncDoor(camX);
+    const play = state === 'play' || state === 'story';
+    this.syncMarkers(camX, play, time);
+    this.syncFigures(camX, play, time);
+    this.fx.clear();
+    for (const r of this.rings) {
+      r.t += dt; const a = clamp(1 - r.t / 0.5, 0, 1);
+      this.fx.lineStyle(3, colOf(INK), a).strokeEllipse(r.x, r.y, 2 * (240 * (1 - a) + 20), 2 * (60 * (1 - a) + 6));
+    }
+    this.rings = this.rings.filter(r => r.t < 0.5);
+  }
+  // a new device scale: every baked texture is repainted at the new resolution
+  rescale(S) {
+    this.S = S;
+    for (const [k, img] of this.tiles) { img.destroy(); if (this.textures.exists(k)) this.textures.remove(k); }
+    this.tiles.clear();
+    for (const k of this.textures.getTextureKeys()) if (k.startsWith('fig:')) this.textures.remove(k);
+    this.markGen = ''; this.doorId = '';
+  }
+  // static art, painted by the scenery painters in 256-unit tiles (back: ground and far props, front: near railings)
+  syncTiles(camX) {
+    const S = this.S, i0 = Math.floor(camX / TILE_W), i1 = Math.floor((camX + W) / TILE_W);
+    for (let i = i0; i <= i1; i++) for (const layer of [0, 1]) {
+      const key = `tile:${S}:${layer}:${i}`;
+      if (this.tiles.has(key)) continue;
+      const c = sc_tile(S, layer, i);
+      if (!c) { this.tiles.set(key, this.add.image(0, 0, '__DEFAULT').setVisible(false)); continue; }
+      if (!this.textures.exists(key)) this.textures.addCanvas(key, c);
+      this.tiles.set(key, this.add.image(i * TILE_W, 0, key).setOrigin(0, 0).setDisplaySize(TILE_W + 2, H).setDepth(layer ? FRONT_DEPTH : 0));
+    }
+    for (const [key, img] of this.tiles) {
+      const i = +key.split(':')[3];
+      if (i >= i0 - 2 && i <= i1 + 2) continue;
+      img.destroy(); if (this.textures.exists(key)) this.textures.remove(key); this.tiles.delete(key);
+    }
+    sc_prefetch(S, i0, i1);
+  }
+  // the doors at the back of 鬼の館 swing open once the great oni falls
+  syncDoor(camX) {
+    const vis = camX < DOOR.x + 420, q = Math.round(G.gate * 40) / 40, id = this.S + ':' + q, R = [DOOR.x - 80, 200, 300, 300];
+    if (vis && this.doorId !== id) {
+      this.doorId = id;
+      for (const [k, front] of [['doorB', false], ['doorF', true]]) {
+        paintTexture(this, k, ...R, this.S, g => sc_door(g, V_WORLD, q, front));
+        if (!this[k]) this[k] = this.add.image(R[0], R[1], k).setOrigin(0, 0).setDepth(front ? FRONT_DEPTH + 1 : 1);
+        this[k].setTexture(k).setDisplaySize(R[2], R[3]);
+      }
+    }
+    if (this.doorB) { this.doorB.setVisible(vis); this.doorF.setVisible(vis); }
+  }
+  syncMarkers(camX, play, time) {
+    const gen = this.S + ':' + fontGen;
+    if (this.markGen !== gen) {
+      this.markGen = gen;
+      this.marks = this.marks || POINTS.map(() => ({}));
+      POINTS.forEach((pt, i) => {
+        const m = this.marks[i], Z = MARK_ZONE(pt), F = MARK_FLAG(pt);
+        paintTexture(this, 'mz' + pt.id, ...Z, this.S, g => markerZone(g, pt));
+        for (const d of [0, 1]) paintTexture(this, `mf${d}${pt.id}`, ...F, this.S, g => markerFlag(g, pt, !!d));
+        if (!m.zone) { m.zone = this.add.image(Z[0], Z[1], 'mz' + pt.id).setOrigin(0, 0).setDepth(2); m.flag = this.add.image(F[0], F[1], 'mf0' + pt.id).setOrigin(0, 0).setDepth(3); }
+        m.zone.setTexture('mz' + pt.id).setDisplaySize(Z[2], Z[3]);
+        m.flag.setTexture('mf0' + pt.id).setDisplaySize(F[2], F[3]); m.flag.done = 0;
+      });
+    }
+    POINTS.forEach((pt, i) => {
+      const m = this.marks[i], near = Math.abs(PX(pt.x, ZMAX / 2) - camX - W / 2) < W, done = play && !!G.run.records[pt.id];
+      m.zone.setVisible(near && !done).setAlpha(clamp((0.25 + 0.15 * Math.sin(time * 4) + (play && G.zone === pt ? 0.2 : 0)) * 1.6, 0, 1));
+      m.flag.setVisible(near);
+      if (m.flag.done !== +done) { m.flag.done = +done; m.flag.setTexture(`mf${+done}${pt.id}`).setDisplaySize(MARK_FLAG(pt)[2], MARK_FLAG(pt)[3]); }
+    });
+  }
+  raikoReady() {
+    if (this.raikoOk) return true;
+    if (!RAIKO_SPR.ready) return false;
+    const t = this.textures.addImage('raiko', RAIKO_SPR.img);
+    for (const L of Object.values(RAIKO_SPR.F)) for (const fr of L) if (!t.has(fr[0] + '_' + fr[1])) t.add(fr[0] + '_' + fr[1], 0, fr[0], fr[1], fr[2], fr[3]);
+    return (this.raikoOk = true);
+  }
+  // the texture (and pivot) of one figure pose; oni are painted once per pose at this device scale
+  figTex(kind, n, f, scale) {
+    if (kind === 'raiko' && this.raikoReady()) {
+      const fr = raikoFrame(n, f);
+      return { key: 'raiko', frame: fr[0] + '_' + fr[1], ox: fr[4] / fr[2], oy: fr[5] / fr[3], k: scale * RAIKO_SPR.K };
+    }
+    if (kind === 'raiko') n = n === 'die' ? 'down' : n === 'stroll' ? 'walk' : n;
+    const S = this.S, key = `fig:${kind}:${n}:${f}:${scale}`, box = kind === 'raiko' ? RAIKO_BOX : ONI_BOX, pad = 2, dev = scale * S;
+    const w = Math.ceil((box.x1 - box.x0) * dev) + pad * 2, h = Math.ceil((box.y1 - box.y0) * dev) + pad * 2;
+    const ox = -box.x0 * dev + pad, oy = -box.y0 * dev + pad;
+    if (!this.textures.exists(key)) {
+      const [c, g] = mk(w, h);
+      g.setTransform(dev, 0, 0, dev, ox, oy); paintFigure(g, kind, n, f, FIG_PAL[kind]);
+      this.textures.addCanvas(key, c);
+    }
+    return { key, frame: undefined, ox: ox / w, oy: oy / h, k: 1 / S };
+  }
+  putFig(kind, n, f, x, y, scale, face, mode, alpha, depth) {
+    const t = this.figTex(kind, n, f, scale);
+    const place = (tint, a, d) => {
+      const s = this.pool[this.used] || (this.pool[this.used] = this.add.image(0, 0, '__DEFAULT'));
+      this.used++;
+      s.setVisible(true).setTexture(t.key, t.frame).setOrigin(t.ox, t.oy).setPosition(x, y).setScale(face * t.k, t.k).setAlpha(a).setDepth(d);
+      if (tint == null) s.clearTint().setTintMode(Phaser.TintModes.MULTIPLY);
+      else s.setTint(tint).setTintMode(Phaser.TintModes.FILL);
+    };
+    place(mode === 'ghost' ? colOf('#4a4038') : null, alpha, depth);
+    if (mode === 'flash') place(colOf('#fff6e6'), 0.7, depth + 0.1);
+  }
+  label(str, x, y, size, color, alpha, depth, vertical) {
+    const t = this.labels[this.lused] || (this.labels[this.lused] = mkText(this, size));
+    this.lused++;
+    restyle(t, size, color).setVisible(true).setAlpha(alpha).setDepth(depth).setPosition(x, y).setText(vertical ? [...str].join('\n') : str).setOrigin(0.5, vertical ? 0 : 1);
+    if (t._vert !== vertical) { t._vert = vertical; t.setLineSpacing(vertical ? -size * 0.12 : 0).setAlign('center'); }
+  }
   // figures back to front: parallel projection, so only depth decides who overlaps whom
-  const figs = [], seen = x => x > camX - 300 && x < camX + W + 300;
-  if (play) {
-    for (const r of history.slice(-6)) {
-      for (const pt of POINTS) { const s = r.records[pt.id]; if (s && seen(PX(s.player.x, snapZ(s.player)))) figs.push({ z: snapZ(s.player), ghost: s.player, n: r.n }); }
-      if (r.end && r.outcome === 'death' && seen(PX(r.end.player.x, snapZ(r.end.player)))) figs.push({ z: snapZ(r.end.player) + 0.2, ghost: Object.assign({}, r.end.player, { pose: 'down', f: 0, y: 0, gy: 0 }), n: 0 });
+  syncFigures(camX, play, time) {
+    this.used = 0; this.lused = 0;
+    const sg = this.shadows; sg.clear();
+    const shadow = (x, y, w) => sg.fillStyle(colOf(INK), 0.16).fillEllipse(x, y + 1, w * 2, w * 0.6);
+    const figs = [], seen = x => x > camX - 300 && x < camX + W + 300;
+    if (play) {
+      for (const r of history.slice(-6)) {
+        for (const pt of POINTS) { const s = r.records[pt.id]; if (s && seen(PX(s.player.x, snapZ(s.player)))) figs.push({ z: snapZ(s.player), ghost: s.player, n: r.n }); }
+        if (r.end && r.outcome === 'death' && seen(PX(r.end.player.x, snapZ(r.end.player)))) figs.push({ z: snapZ(r.end.player) + 0.2, ghost: Object.assign({}, r.end.player, { pose: 'down', f: 0, y: 0, gy: 0 }), n: 0 });
+      }
+      for (const e of G.enemies) if (seen(PX(e.x, e.z))) figs.push({ z: e.z + (e.alive ? 0 : 0.5), e });
+      figs.push({ z: G.player.z, player: true });
+    } else for (const d of ENEMY_DEFS) if (seen(PX(d.x, d.z))) figs.push({ z: d.z, def: d });
+    figs.sort((a, b) => b.z - a.z);
+    figs.forEach((f, i) => {
+      const depth = FIG_BASE + i;
+      if (f.player) {
+        const p = G.player, pp = playerPose(p), [sx, sy, gy] = figAt(p.x, p.z, p.h);
+        if (p.h > 2) shadow(sx, gy, 22);
+        const blink = p.inv > 0 && !p.dead && Math.floor(time * 20) % 2 === 0;
+        if (!blink) this.putFig('raiko', pp.n, pp.f, sx, sy + 2, RS, p.face, null, 1, depth);
+      } else if (f.e) {
+        const e = f.e, ep = enemyPose(e), [sx, sy, gy] = figAt(e.x, e.z, e.h);
+        if (e.h > 2) shadow(sx, gy, e.boss ? 48 : 30);
+        if (e.alive && e.st === 'windup') this.label('！', sx, sy - (e.boss ? 232 : 150) + 6, 28, SHU, 1, depth + 0.2, false);
+        this.putFig(e.type, ep.n, ep.f, sx, sy + 2, enemyScale(e), e.face, e.alive && e.flash > 0 ? 'flash' : null, 1, depth);
+      } else if (f.ghost) {
+        const s = f.ghost, [sx, sy] = figAt(s.x, snapZ(s), snapH(s));
+        this.putFig('raiko', s.pose, s.f, sx, sy + 2, RS, s.face, 'ghost', f.n ? 0.28 : 0.22, depth);
+        if (f.n) this.label(kn(f.n) + '度目', sx + s.face * -28, sy - 128, 15, INK, 0.5, depth + 0.2, true);
+      } else {
+        const d = f.def, [sx, sy] = figAt(d.x, d.z, 0);
+        this.putFig(d.type, 'idle', Math.floor(time * 1.3) % 2, sx, sy + 2, d.boss ? 4.8 : 3.2, -1, null, 1, depth);
+      }
+    });
+    for (let i = this.used; i < this.pool.length; i++) this.pool[i].setVisible(false);
+    for (let i = this.lused; i < this.labels.length; i++) this.labels[i].setVisible(false);
+  }
+}
+
+class HudScene extends Phaser.Scene {
+  constructor() { super({ key: 'hud', active: true }); }
+  create() {
+    this.cameras.main.setOrigin(0, 0);
+    this.g = this.add.graphics();
+    const T = (size, str, x, y, ox, extra) => mkText(this, size, extra).setText(str).setOrigin(ox, 0.5).setPosition(x, y);
+    this.tHP = T(15, '体力', W - 196, 34, 0);
+    this.tEm = T(15, '絵巻', 26, 34, 0);
+    this.tPts = POINTS.map((pt, i) => T(18, pt.short, 74 + i * 52 + 14, 35, 0.5));
+    this.tRun = T(15, '', W / 2, 34, 0.5).setAlpha(0.75);
+    this.tOe = T(12, '大江山', 132, H - 18, 1, { fontFamily: FONT_MIN }).setAlpha(0.7);
+    this.tMi = T(12, '都', W - 132, H - 18, 0, { fontFamily: FONT_MIN }).setAlpha(0.7);
+    this.tBoss = T(15, '大鬼', W / 2 - 160, 75, 0);
+    this.tZone = T(17, '', W / 2, H - 69, 0.5, { color: '#f0d98c' });
+    this.tBanner = T(44, '', W / 2, 150, 0.5);
+    this.flash = this.add.rectangle(0, 0, W, H, 0xfffaec, 1).setOrigin(0, 0);
+    this.stamp = this.add.container(W / 2, 190).setRotation(-0.06);
+    const sg = this.add.graphics();
+    sg.fillStyle(colOf(SHU), 1).fillRect(-46, -46, 92, 92); sg.lineStyle(2, 0x7d2a1d, 1).strokeRect(-40, -40, 80, 80);
+    this.tS1 = T(34, '', -14, -14, 0.5, { color: '#fbf3e2' }); this.tS2 = T(34, '記', 16, 16, 0.5, { color: '#fbf3e2' });
+    this.stamp.add([sg, this.tS1, this.tS2]);
+    this.tCap = T(20, '', W / 2, 264, 0.5);
+  }
+  update() {
+    const cam = this.cameras.main, show = state === 'play' || state === 'story';
+    cam.setVisible(show);
+    if (!show || !G.run) return;
+    textRes(this, stageCamera(cam));
+    const g = this.g, p = G.player, ink = colOf(INK), paper = colOf('#efe3c6'), shu = colOf(SHU);
+    g.clear();
+    const panel = (x, y, w, h) => { g.fillStyle(paper, 0.9).fillRect(x, y, w, h); g.lineStyle(1.2, ink, 1).strokeRect(x, y, w, h); };
+    panel(W - 206, 14, 190, 40);
+    for (let i = 0; i < p.maxhp; i++) { const x = W - 140 + i * 24; g.fillStyle(i < p.hp ? shu : ink, i < p.hp ? 1 : 0.15).fillCircle(x, 34, 8); g.lineStyle(1.2, ink, 1).strokeCircle(x, 34, 8); }
+    panel(16, 14, 236, 40);
+    POINTS.forEach((pt, i) => {
+      const x = 74 + i * 52, y = 20, rec = G.run.records[pt.id], t = this.tPts[i];
+      if (rec) { g.fillStyle(shu, 1).fillRect(x, y, 28, 28); restyle(t, 18, '#fbf3e2').setAlpha(1); }
+      else {
+        g.lineStyle(1, ink, 0.6);
+        for (let d = 0; d < 28; d += 6) { const e = Math.min(28, d + 3); g.lineBetween(x + d, y, x + e, y); g.lineBetween(x + d, y + 28, x + e, y + 28); g.lineBetween(x, y + d, x, y + e); g.lineBetween(x + 28, y + d, x + 28, y + e); }
+        restyle(t, 16, INK).setAlpha(0.4);
+      }
+    });
+    this.tRun.setText(`其の${kn(G.run.n)}　頼光、大江山を目指す`);
+    const bx0 = 140, bx1 = W - 140, by = H - 18, toBar = x => bx0 + (x / WORLD_W) * (bx1 - bx0);
+    g.lineStyle(2, ink, 0.45).lineBetween(bx0, by, bx1, by);
+    for (const pt of POINTS) { const x = toBar(pt.x); g.fillStyle(G.run.records[pt.id] ? shu : colOf('#f6f0e2'), 1).fillRect(x - 5, by - 5, 10, 10); g.lineStyle(1, ink, 1).strokeRect(x - 5, by - 5, 10, 10); }
+    g.fillStyle(ink, 1).fillCircle(toBar(p.x), by, 5);
+    const boss = G.enemies.find(e => e.boss), bossBar = G.bossSeen && boss.alive;
+    this.tBoss.setVisible(bossBar);
+    if (bossBar) {
+      panel(W / 2 - 170, 62, 340, 26);
+      g.fillStyle(ink, 0.15).fillRect(W / 2 - 110, 70, 270, 10); g.fillStyle(shu, 1).fillRect(W / 2 - 110, 70, 270 * boss.hp / boss.maxhp, 10);
     }
-    for (const e of G.enemies) if (seen(PX(e.x, e.z))) figs.push({ z: e.z + (e.alive ? 0 : 0.5), e });
-    figs.push({ z: G.player.z, player: true });
-  } else for (const d of ENEMY_DEFS) figs.push({ z: d.z, def: d });
-  figs.sort((a, b) => b.z - a.z);
-  for (const f of figs) {
-    if (f.player) {
-      const p = G.player, pp = playerPose(p), [sx, sy, gy] = figAt(p.x, p.z, p.h);
-      if (p.h > 2) footShadow(g, sx, gy, 22);
-      const blink = p.inv > 0 && !p.dead && Math.floor(time * 20) % 2 === 0;
-      if (!blink) drawSprite(g, 'raiko', pp.n, pp.f, sx, sy + 2, RS, p.face, null, 1);
-      if (p.atkT > 0 && !RAIKO_SPR.ready) { const e = ATK_DUR - p.atkT; if (e >= 0.06 && e < 0.24) drawSlash(g, p, sx, sy, (e - 0.06) / 0.18); }
-    } else if (f.e) {
-      const e = f.e, ep = enemyPose(e), [sx, sy, gy] = figAt(e.x, e.z, e.h);
-      if (e.h > 2) footShadow(g, sx, gy, e.boss ? 48 : 30);
-      if (e.alive && e.st === 'windup') { g.fillStyle = SHU; g.font = `28px ${FONT_BRUSH}`; g.textAlign = 'center'; g.fillText('！', sx, sy - (e.boss ? 232 : 150)); }
-      drawSprite(g, e.type, ep.n, ep.f, sx, sy + 2, enemyScale(e), e.face, e.alive && e.flash > 0 ? 'flash' : null, 1);
-    } else if (f.ghost) {
-      const s = f.ghost, [sx, sy] = figAt(s.x, snapZ(s), snapH(s));
-      drawSprite(g, 'raiko', s.pose, s.f, sx, sy + 2, RS, s.face, 'ghost', f.n ? 0.28 : 0.22);
-      if (f.n) vtext(g, kn(f.n) + '度目', sx + s.face * -28, sy - 128, 15, 'rgba(42,36,32,.5)');
-    } else {
-      const d = f.def, [sx, sy] = figAt(d.x, d.z, 0);
-      drawSprite(g, d.type, 'idle', Math.floor(time * 1.3) % 2, sx, sy + 2, d.boss ? 4.8 : 3.2, -1, null, 1);
+    const zone = G.zone && !p.dead;
+    this.tZone.setVisible(!!zone);
+    if (zone) {
+      const m = 22, L = 44;
+      g.lineStyle(3, colOf(KIN), 0.8);
+      for (const [x, y, sx, sy] of [[m, 64, 1, 1], [W - m, 64, -1, 1], [m, H - 44, 1, -1], [W - m, H - 44, -1, -1]]) g.strokePoints([{ x, y: y + sy * L }, { x, y }, { x: x + sx * L, y }], false);
+      this.tZone.setText(`記録の場「${G.zone.name}」── 斬る・跳ぶ・佇む、その姿が絵になる`);
+      const tw = this.tZone.width;
+      g.fillStyle(ink, 0.82).fillRect(W / 2 - tw / 2 - 18, H - 86, tw + 36, 34);
+    }
+    this.tBanner.setVisible(!!G.banner);
+    if (G.banner) this.tBanner.setText(G.banner.text).setAlpha(clamp(G.banner.t, 0, 1));
+    const st = G.stamp;
+    this.stamp.setVisible(!!st); this.tCap.setVisible(!!st); this.flash.setVisible(!!st && st.t < 0.12);
+    if (st) {
+      const t = st.t, k = Math.min(1, t / 0.18), a = clamp(t < 1.1 ? 1 : 1 - (t - 1.1) / 0.5, 0, 1);
+      if (t < 0.12) this.flash.setAlpha(0.7 * (1 - t / 0.12));
+      this.tS1.setText(st.short);
+      this.stamp.setAlpha(a).setScale(lerp(1.8, 1, k));
+      this.tCap.setText(`「${st.name}」の姿を記す`).setAlpha(a);
     }
   }
-  drawWorldFront(g, camX, G.gate);
-  if (play) for (const q of G.particles) drawParticle(g, q);
-  g.restore();
-  if (play) drawHUD(g, time);
-  g.restore();
-}
-function drawSlash(g, p, sx, sy, k) {
-  const cx = sx + p.face * 14, cy = sy - (p.atkAir ? 48 : 62), r = 62;
-  const a0 = p.atkAir ? -1.4 : -1.25, a1 = p.atkAir ? 1.35 : 0.85;
-  const end = a0 + (a1 - a0) * Math.min(1, k * 1.4), start = a0 + (a1 - a0) * Math.max(0, k * 1.4 - 0.55);
-  g.save(); g.translate(cx, cy); g.scale(p.face, 1);
-  g.strokeStyle = `rgba(255,250,236,${0.95 - k * 0.6})`; g.lineWidth = 8; g.lineCap = 'round';
-  g.beginPath(); g.arc(0, 0, r, start, end); g.stroke();
-  g.strokeStyle = `rgba(42,36,32,${0.6 - k * 0.5})`; g.lineWidth = 1.5; g.beginPath(); g.arc(0, 0, r + 5, start, end); g.stroke();
-  g.restore();
-}
-function drawParticle(g, q) {
-  const a = clamp(q.life / q.max, 0, 1);
-  if (q.k === 'drop') { g.fillStyle = q.c; g.globalAlpha = a; g.beginPath(); g.arc(q.x, q.y, q.s * a + 1, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; }
-  else if (q.k === 'dust') { g.fillStyle = q.c + (0.5 * a) + ')'; g.beginPath(); g.arc(q.x, q.y, q.s * (1.6 - a), 0, Math.PI * 2); g.fill(); }
-  else if (q.k === 'ring') { g.strokeStyle = `rgba(42,36,32,${a})`; g.lineWidth = 3; g.beginPath(); g.ellipse(q.x, q.y, 240 * (1 - a) + 20, 60 * (1 - a) + 6, 0, 0, Math.PI * 2); g.stroke(); }
-}
-function drawHUD(g, time) {
-  const p = G.player;
-  g.save();
-  g.font = `15px ${FONT_BRUSH}`; g.textBaseline = 'middle';
-  g.fillStyle = 'rgba(239,227,198,.9)'; g.strokeStyle = INK; g.lineWidth = 1.2;
-  g.fillRect(W - 206, 14, 190, 40); g.strokeRect(W - 206, 14, 190, 40);
-  g.fillStyle = INK; g.textAlign = 'left'; g.fillText('体力', W - 196, 34);
-  for (let i = 0; i < p.maxhp; i++) { const x = W - 140 + i * 24, y = 34; g.beginPath(); g.arc(x, y, 8, 0, Math.PI * 2); g.fillStyle = i < p.hp ? SHU : 'rgba(42,36,32,.15)'; g.fill(); g.strokeStyle = INK; g.lineWidth = 1.2; g.stroke(); }
-  g.fillStyle = 'rgba(239,227,198,.9)'; g.fillRect(16, 14, 236, 40); g.strokeStyle = INK; g.strokeRect(16, 14, 236, 40);
-  g.fillStyle = INK; g.textAlign = 'left'; g.fillText('絵巻', 26, 34);
-  POINTS.forEach((pt, i) => {
-    const x = 74 + i * 52, y = 20, rec = G.run.records[pt.id];
-    if (rec) { g.fillStyle = SHU; g.fillRect(x, y, 28, 28); g.fillStyle = '#fbf3e2'; g.textAlign = 'center'; g.font = `18px ${FONT_BRUSH}`; g.fillText(pt.short, x + 14, y + 15); }
-    else { g.setLineDash([3, 3]); g.strokeStyle = 'rgba(42,36,32,.6)'; g.strokeRect(x, y, 28, 28); g.setLineDash([]); g.fillStyle = 'rgba(42,36,32,.4)'; g.textAlign = 'center'; g.font = `16px ${FONT_BRUSH}`; g.fillText(pt.short, x + 14, y + 15); }
-    g.font = `15px ${FONT_BRUSH}`;
-  });
-  g.textAlign = 'center'; g.fillStyle = 'rgba(42,36,32,.75)'; g.font = `15px ${FONT_BRUSH}`;
-  g.fillText(`其の${kn(G.run.n)}　頼光、大江山を目指す`, W / 2, 34);
-  const bx0 = 140, bx1 = W - 140, by = H - 18;
-  g.strokeStyle = 'rgba(42,36,32,.45)'; g.lineWidth = 2; g.beginPath(); g.moveTo(bx0, by); g.lineTo(bx1, by); g.stroke();
-  const toBar = x => bx0 + (x / WORLD_W) * (bx1 - bx0);
-  for (const pt of POINTS) { g.fillStyle = G.run.records[pt.id] ? SHU : '#f6f0e2'; g.strokeStyle = INK; g.lineWidth = 1; g.fillRect(toBar(pt.x) - 5, by - 5, 10, 10); g.strokeRect(toBar(pt.x) - 5, by - 5, 10, 10); }
-  g.fillStyle = INK; g.beginPath(); g.arc(toBar(p.x), by, 5, 0, Math.PI * 2); g.fill();
-  g.font = `12px ${FONT_MIN}`; g.fillStyle = 'rgba(42,36,32,.7)'; g.textAlign = 'right'; g.fillText('大江山', bx0 - 8, by); g.textAlign = 'left'; g.fillText('都', bx1 + 8, by);
-  const boss = G.enemies.find(e => e.boss);
-  if (G.bossSeen && boss.alive) {
-    g.fillStyle = 'rgba(239,227,198,.9)'; g.fillRect(W / 2 - 170, 62, 340, 26); g.strokeStyle = INK; g.strokeRect(W / 2 - 170, 62, 340, 26);
-    g.fillStyle = INK; g.textAlign = 'left'; g.font = `15px ${FONT_BRUSH}`; g.fillText('大鬼', W / 2 - 160, 75);
-    g.fillStyle = 'rgba(42,36,32,.15)'; g.fillRect(W / 2 - 110, 70, 270, 10); g.fillStyle = SHU; g.fillRect(W / 2 - 110, 70, 270 * boss.hp / boss.maxhp, 10);
-  }
-  if (G.zone && !p.dead) {
-    const a = 0.8;
-    g.strokeStyle = `rgba(201,164,69,${a})`; g.lineWidth = 3; const m = 22, L = 44;
-    for (const [x, y, sx, sy] of [[m, 64, 1, 1], [W - m, 64, -1, 1], [m, H - 44, 1, -1], [W - m, H - 44, -1, -1]]) { g.beginPath(); g.moveTo(x, y + sy * L); g.lineTo(x, y); g.lineTo(x + sx * L, y); g.stroke(); }
-    const zt = `記録の場「${G.zone.name}」── 斬る・跳ぶ・佇む、その姿が絵になる`;
-    g.font = `17px ${FONT_BRUSH}`; const tw = g.measureText(zt).width;
-    g.fillStyle = 'rgba(42,36,32,.82)'; g.fillRect(W / 2 - tw / 2 - 18, H - 86, tw + 36, 34);
-    g.fillStyle = '#f0d98c'; g.textAlign = 'center'; g.fillText(zt, W / 2, H - 69);
-  }
-  if (G.banner) {
-    const a = clamp(G.banner.t, 0, 1);
-    g.globalAlpha = a; g.fillStyle = INK; g.font = `44px ${FONT_BRUSH}`; g.textAlign = 'center';
-    g.fillText(G.banner.text, W / 2, 150); g.globalAlpha = 1;
-  }
-  if (G.stamp) {
-    const t = G.stamp.t, k = Math.min(1, t / 0.18), a = t < 1.1 ? 1 : 1 - (t - 1.1) / 0.5;
-    if (t < 0.12) { g.fillStyle = `rgba(255,250,236,${0.7 * (1 - t / 0.12)})`; g.fillRect(0, 0, W, H); }
-    g.globalAlpha = clamp(a, 0, 1);
-    const s = lerp(1.8, 1, k), cx = W / 2, cy = 190;
-    g.save(); g.translate(cx, cy); g.rotate(-0.06); g.scale(s, s);
-    g.fillStyle = SHU; g.fillRect(-46, -46, 92, 92); g.strokeStyle = '#7d2a1d'; g.lineWidth = 2; g.strokeRect(-40, -40, 80, 80);
-    g.fillStyle = '#fbf3e2'; g.font = `34px ${FONT_BRUSH}`; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText(G.stamp.short, -14, -14); g.fillText('記', 16, 16);
-    g.restore();
-    g.fillStyle = INK; g.font = `20px ${FONT_BRUSH}`; g.textAlign = 'center'; g.fillText(`「${G.stamp.name}」の姿を記す`, cx, cy + 74);
-    g.globalAlpha = 1;
-  }
-  g.restore();
 }
 
 // ============================================================ vertical text
@@ -2931,42 +3082,87 @@ function updateEmaki(dt) {
   emaki.scrollX = clamp(emaki.scrollX, m.winW, Math.max(m.winW, emaki.width));
   if (emaki.scrollX <= m.winW + 0.5 && emaki.auto) { emaki.auto = false; $('bAuto').setAttribute('aria-pressed', 'false'); }
 }
-function renderEmaki() {
-  const g = ctx;
-  g.setTransform(DPR, 0, 0, DPR, 0, 0);
-  const bg = g.createLinearGradient(0, 0, 0, VH); bg.addColorStop(0, '#2b211b'); bg.addColorStop(1, '#171210'); g.fillStyle = bg; g.fillRect(0, 0, VW, VH);
-  g.strokeStyle = 'rgba(255,230,190,.03)'; g.lineWidth = 1; g.beginPath(); for (let y = 0; y < VH; y += 7) { g.moveTo(0, y + Math.sin(y) * 2); g.lineTo(VW, y); } g.stroke();
-  if (!emaki.canvas) return;
-  const m = viewMetrics();
-  const reveal = clamp(emaki.openT / 1.2, 0, 1), ease = 1 - Math.pow(1 - reveal, 3);
-  const winW = m.winW * ease;
-  const right = emaki.scrollX, left = right - winW;
-  const dx = m.x + m.paperW - winW * m.vs;
-  g.imageSmoothingEnabled = true;
-  const s = emaki.scale;
-  if (winW > 1) {
-    g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(dx + 4, m.y + 10, winW * m.vs, PH * m.vs);
-    g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(dx + 8, m.y + 16, winW * m.vs, PH * m.vs);
-    g.drawImage(emaki.canvas, Math.max(0, left * s), 0, winW * s, PH * s, dx, m.y, winW * m.vs, PH * m.vs);
+// the finished scroll: painted once on a Canvas, shown by Phaser in strips (WebGL textures have a size limit)
+const EM_STRIP = 2048;
+class EmakiScene extends Phaser.Scene {
+  constructor() { super({ key: 'emaki', active: true }); }
+  create() {
+    this.cameras.main.setOrigin(0, 0);
+    this.bgId = ''; this.src = null; this.strips = []; this.gen = 0;
+    this.bg = this.add.image(0, 0, '__DEFAULT').setOrigin(0, 0).setDepth(0);
+    this.under = this.add.graphics().setDepth(1);
+    this.over = this.add.graphics().setDepth(3);
+    this.tIntro = mkText(this, 18, { color: '#efe3c6' }).setText('── 右から左へ、あなたの冒険を読む ──').setOrigin(0.5, 1).setDepth(4);
   }
-  const rollW = 22 * Math.max(0.7, m.vs);
-  const roller = (x, label) => {
-    const gr = g.createLinearGradient(x - rollW / 2, 0, x + rollW / 2, 0);
-    gr.addColorStop(0, '#6f5334'); gr.addColorStop(0.35, '#e6d6ae'); gr.addColorStop(0.6, '#cdb98b'); gr.addColorStop(1, '#5a4128');
-    g.fillStyle = gr; g.fillRect(x - rollW / 2, m.y - 8, rollW, PH * m.vs + 16);
-    g.fillStyle = '#3a2618'; g.fillRect(x - rollW / 2 - 3, m.y - 16, rollW + 6, 10); g.fillRect(x - rollW / 2 - 3, m.y + PH * m.vs + 6, rollW + 6, 10);
-    void label;
-  };
-  if (left > 1) roller(dx, 'unread');
-  if (right < emaki.width - 1) roller(dx + winW * m.vs, 'read');
-  const prog = 1 - (emaki.scrollX - m.winW) / Math.max(1, emaki.width - m.winW);
-  g.fillStyle = 'rgba(239,227,198,.25)'; g.fillRect(m.x, m.y + PH * m.vs + 22, m.paperW, 2);
-  g.fillStyle = '#c9a445'; g.fillRect(m.x + m.paperW * (1 - clamp(prog, 0, 1)), m.y + PH * m.vs + 20, Math.max(4, m.paperW * clamp(prog, 0, 1)), 6);
-  if (emaki.openT < 3.2 && emaki.openT > 0.3) {
-    g.globalAlpha = clamp(Math.min(emaki.openT - 0.3, 3.2 - emaki.openT), 0, 1);
-    g.fillStyle = '#efe3c6'; g.font = `18px ${FONT_BRUSH}`; g.textAlign = 'center'; g.textBaseline = 'bottom';
-    g.fillText('── 右から左へ、あなたの冒険を読む ──', VW / 2, m.y - 12);
-    g.globalAlpha = 1;
+  update() {
+    const cam = this.cameras.main, show = state === 'emaki';
+    cam.setVisible(show);
+    if (!show) return;
+    const dt = CLOCK.dt;
+    if (emaki.needsFit && performance.now() >= emaki.fitAt) rebuildEmaki();
+    updateEmaki(dt);
+    const fit = this.scale.width + ':' + this.scale.height + ':' + DPR;
+    if (cam._fit !== fit) { cam._fit = fit; cam.setViewport(0, 0, this.scale.width, this.scale.height); cam.setZoom(DPR); }
+    textRes(this, DPR);
+    this.syncBackground();
+    this.syncStrips();
+    this.layout();
+  }
+  syncBackground() {
+    const id = VW + 'x' + VH + ':' + DPR;
+    if (this.bgId === id) return;
+    this.bgId = id;
+    paintTexture(this, 'emBg', 0, 0, VW, VH, DPR, g => {
+      const bg = g.createLinearGradient(0, 0, 0, VH); bg.addColorStop(0, '#2b211b'); bg.addColorStop(1, '#171210'); g.fillStyle = bg; g.fillRect(0, 0, VW, VH);
+      g.strokeStyle = 'rgba(255,230,190,.03)'; g.lineWidth = 1; g.beginPath(); for (let y = 0; y < VH; y += 7) { g.moveTo(0, y + Math.sin(y) * 2); g.lineTo(VW, y); } g.stroke();
+    });
+    this.bg.setTexture('emBg').setDisplaySize(VW, VH);
+  }
+  syncStrips() {
+    if (this.src === emaki.canvas) return;
+    for (const s of this.strips) { s.img.destroy(); this.textures.remove(s.key); }
+    this.strips = []; this.src = emaki.canvas;
+    if (!this.src) return;
+    const c = this.src, ch = c.height, g = ++this.gen;
+    for (let c0 = 0, i = 0; c0 < c.width; c0 += EM_STRIP, i++) {
+      const w = Math.min(EM_STRIP, c.width - c0), [sc, sg] = mk(w, ch), key = `em:${g}:${i}`;
+      sg.drawImage(c, c0, 0, w, ch, 0, 0, w, ch);
+      this.textures.addCanvas(key, sc);
+      this.strips.push({ key, c0, w, img: this.add.image(0, 0, key).setOrigin(0, 0).setDepth(2) });
+    }
+  }
+  layout() {
+    const u = this.under, o = this.over; u.clear(); o.clear();
+    if (!emaki.canvas) { for (const s of this.strips) s.img.setVisible(false); this.tIntro.setVisible(false); return; }
+    const m = viewMetrics(), s = emaki.scale;
+    const reveal = clamp(emaki.openT / 1.2, 0, 1), ease = 1 - Math.pow(1 - reveal, 3);
+    const winW = m.winW * ease, right = emaki.scrollX, left = right - winW;
+    const dx = m.x + m.paperW - winW * m.vs, ph = PH * m.vs;
+    if (winW > 1) { u.fillStyle(0x000000, 0.28).fillRect(dx + 4, m.y + 10, winW * m.vs, ph); u.fillStyle(0x000000, 0.18).fillRect(dx + 8, m.y + 16, winW * m.vs, ph); }
+    // canvas pixels [L, R) are visible; each strip is cropped to its share of them
+    const L = Math.max(0, left * s), R = L + winW * s, k = m.vs / s;
+    for (const st of this.strips) {
+      const a = Math.max(st.c0, L), b = Math.min(st.c0 + st.w, R);
+      if (winW <= 1 || b <= a) { st.img.setVisible(false); continue; }
+      st.img.setVisible(true).setCrop(a - st.c0, 0, b - a, st.img.height).setPosition(dx + (st.c0 - L) * k, m.y).setScale(k);
+    }
+    const rollW = 22 * Math.max(0.7, m.vs);
+    const roller = x => {
+      const x0 = x - rollW / 2, stops = [[0, 0x6f5334], [0.35, 0xe6d6ae], [0.6, 0xcdb98b], [1, 0x5a4128]];
+      for (let i = 0; i < 3; i++) {
+        const [p0, c0] = stops[i], [p1, c1] = stops[i + 1];
+        o.fillGradientStyle(c0, c1, c0, c1, 1).fillRect(x0 + rollW * p0, m.y - 8, rollW * (p1 - p0) + 0.5, ph + 16);
+      }
+      o.fillStyle(0x3a2618, 1).fillRect(x0 - 3, m.y - 16, rollW + 6, 10).fillRect(x0 - 3, m.y + ph + 6, rollW + 6, 10);
+    };
+    if (left > 1) roller(dx);
+    if (right < emaki.width - 1) roller(dx + winW * m.vs);
+    const prog = clamp(1 - (emaki.scrollX - m.winW) / Math.max(1, emaki.width - m.winW), 0, 1);
+    o.fillStyle(0xefe3c6, 0.25).fillRect(m.x, m.y + ph + 22, m.paperW, 2);
+    o.fillStyle(colOf(KIN), 1).fillRect(m.x + m.paperW * (1 - prog), m.y + ph + 20, Math.max(4, m.paperW * prog), 6);
+    const intro = emaki.openT < 3.2 && emaki.openT > 0.3;
+    this.tIntro.setVisible(intro);
+    if (intro) this.tIntro.setPosition(VW / 2, m.y - 12).setAlpha(clamp(Math.min(emaki.openT - 0.3, 3.2 - emaki.openT), 0, 1));
   }
 }
 function emakiKey(e) {
@@ -3049,23 +3245,19 @@ $('bSave').addEventListener('click', async () => {
   }
 });
 
-// ============================================================ loop
-let last = performance.now(), titleT = 0;
-function frame(now) {
-  const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  const time = now / 1000;
-  try {
-    if (state === 'play') updatePlay(dt);
-    else if (state === 'story') { G.time += dt; if (G.player) { G.player.downT += dt; } }
-    else if (state === 'title') { titleT += dt; G.camX = CAM_MAX - ((titleT * 40) % CAM_MAX); }
-    if (state === 'emaki') { if (emaki.needsFit && now >= emaki.fitAt) rebuildEmaki(); updateEmaki(dt); renderEmaki(); }
-    else renderGame(time);
-  } finally { requestAnimationFrame(frame); }
-}
+// ============================================================ boot
+let titleT = 0, fontGen = 0;
 resize();
-refreshTitle();
-if (document.fonts && document.fonts.load) Promise.race([document.fonts.load(`30px ${FONT_BRUSH}`), new Promise(r => setTimeout(r, 2500))]);
-requestAnimationFrame(frame);
-window.__shuten = { G, get state() { return state; }, history: () => history, emaki, input, openEmaki, startGame };
+game = new Phaser.Game({
+  type: Phaser.AUTO, parent: 'stage', width: Math.round(VW * DPR), height: Math.round(VH * DPR), zoom: 1 / DPR,
+  backgroundColor: '#231b16', antialias: true, banner: false,
+  scale: { mode: Phaser.Scale.NONE },
+  input: { keyboard: false, mouse: false, touch: false, gamepad: false }, audio: { noAudio: true },
+  scene: [WorldScene, HudScene, EmakiScene],
+});
+// brush fonts arrive late: repaint every text and the baked marker banners once they do
+if (document.fonts && document.fonts.load) Promise.race([Promise.all([document.fonts.load(`30px ${FONT_BRUSH}`), document.fonts.load(`15px ${FONT_MIN}`)]), new Promise(r => setTimeout(r, 2500))])
+  .then(() => { fontGen++; for (const t of ALL_TEXTS) t.updateText(); }, () => {});
+window.__shuten = { G, get state() { return state; }, history: () => history, emaki, input, openEmaki, startGame, get game() { return game; } };
 })();
 </script>
