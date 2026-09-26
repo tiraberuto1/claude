@@ -1,0 +1,72 @@
+[gd_scene load_steps=14 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/scroll/scroll_background_clean.png" id="1_bg"]
+[ext_resource type="Texture2D" path="res://assets/scroll/scroll_foreground_oni.png" id="2_fg"]
+[ext_resource type="Script" path="res://scripts/samurai.gd" id="3_script"]
+[ext_resource type="Texture2D" path="res://assets/characters/samurai_left_bottom/samurai_01.png" id="4_f01"]
+[ext_resource type="Texture2D" path="res://assets/characters/samurai_left_bottom/samurai_02.png" id="5_f02"]
+[ext_resource type="Texture2D" path="res://assets/characters/samurai_left_bottom/samurai_03.png" id="6_f03"]
+[ext_resource type="Texture2D" path="res://assets/characters/samurai_left_bottom/samurai_04.png" id="7_f04"]
+[ext_resource type="Texture2D" path="res://assets/characters/samurai_left_bottom/samurai_05.png" id="8_f05"]
+[ext_resource type="Texture2D" path="res://assets/characters/samurai_left_bottom/samurai_06.png" id="9_f06"]
+[ext_resource type="Texture2D" path="res://assets/characters/samurai_left_bottom/samurai_07.png" id="10_f07"]
+[ext_resource type="Texture2D" path="res://assets/characters/samurai_left_bottom/samurai_08.png" id="11_f08"]
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_swing"]
+animations = [{
+"frames": [{
+"duration": 1.44,
+"texture": ExtResource("4_f01")
+}, {
+"duration": 1.2,
+"texture": ExtResource("5_f02")
+}, {
+"duration": 1.2,
+"texture": ExtResource("6_f03")
+}, {
+"duration": 0.96,
+"texture": ExtResource("7_f04")
+}, {
+"duration": 0.72,
+"texture": ExtResource("8_f05")
+}, {
+"duration": 2.16,
+"texture": ExtResource("9_f06")
+}, {
+"duration": 1.44,
+"texture": ExtResource("10_f07")
+}, {
+"duration": 2.4,
+"texture": ExtResource("11_f08")
+}],
+"loop": true,
+"name": &"swing",
+"speed": 12.0
+}]
+
+[node name="Prototype" type="Node2D"]
+
+[node name="Background" type="Node2D" parent="."]
+
+[node name="Sprite2D" type="Sprite2D" parent="Background"]
+texture = ExtResource("1_bg")
+centered = false
+
+[node name="Samurai" type="Node2D" parent="."]
+position = Vector2(0, 100)
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="Samurai"]
+sprite_frames = SubResource("SpriteFrames_swing")
+animation = &"swing"
+autoplay = "swing"
+centered = false
+script = ExtResource("3_script")
+
+[node name="Foreground" type="Node2D" parent="."]
+
+[node name="Sprite2D" type="Sprite2D" parent="Foreground"]
+texture = ExtResource("2_fg")
+centered = false
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(1024, 457)
