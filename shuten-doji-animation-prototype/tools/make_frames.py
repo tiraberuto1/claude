@@ -23,6 +23,10 @@ BLADE = [(32, 172), (36, 200), (46, 225), (57, 250), (71, 275), (85, 300),
 HAND_GRIP = [(105, 378), (135, 372), (160, 396), (166, 418), (197, 455),
              (200, 470), (186, 476), (150, 442), (126, 428), (108, 402)]
 GRIP = (140.0, 405.0)        # 柄を握る手（刀の回転の支点）
+# 鍔より下では、柄に接する袖口（青）と草摺（赤）を刀の層から外す
+CLOTH_BELOW_Y = 398
+CUFF_HUE, CUFF_SMIN = (75, 120), 40
+RED_HUE, RED_SMIN = (8, 170), 100
 SHOULDER = (238.0, 418.0)    # 左肩（腕の弧の支点）
 
 # 制御点: (x, y, 胴の前傾に追従する割合, 部位)
@@ -43,8 +47,9 @@ CONTROLS = [
     (220, 560, 0.5, "skirt"), (300, 585, 0.45, "skirt"), (360, 555, 0.5, "skirt"),
     (95, 438, 0.5, "scabbard"), (145, 472, 0.5, "scabbard"),
     (430, 545, 0.5, "tanto"),
-    # 左腕（手に追従）
-    (205, 425, 0.7, "sleeve"), (185, 440, 0.7, "sleeve"), (168, 418, 1.0, "cuff"),
+    # 左腕。袖口（手首を包む縁）は手と同じ剛体変換、袖の中ほどは手と胴の中間
+    (178, 412, 1.0, "cuff"), (186, 430, 1.0, "cuff"), (196, 448, 1.0, "cuff"),
+    (215, 420, 0.7, "sleeve"), (218, 445, 0.7, "sleeve"),
     # 右腕
     (455, 445, 0.6, "rarm"), (490, 520, 0.4, "rarm"), (527, 550, 0.3, "rhand"),
 ]
@@ -87,13 +92,29 @@ def sword_transform(f):
     return m
 
 
+def cloth_mask(base):
+    hsv = cv2.cvtColor(base[..., :3], cv2.COLOR_BGR2HSV)
+    h, s = hsv[..., 0].astype(int), hsv[..., 1].astype(int)
+    blue = (h >= CUFF_HUE[0]) & (h <= CUFF_HUE[1]) & (s >= CUFF_SMIN)
+    red = ((h <= RED_HUE[0]) | (h >= RED_HUE[1])) & (s >= RED_SMIN)
+    cloth = (blue | red).astype(np.uint8)
+    # 布の縁の暗い輪郭線も布側に含める
+    dark = hsv[..., 2] < 90
+    cloth = (cloth > 0) | ((cv2.dilate(cloth, np.ones((3, 3), np.uint8)) > 0) & dark)
+    cloth[: CLOTH_BELOW_Y - OY] = False
+    return cloth
+
+
 def split_layers(base):
     alpha = base[..., 3] > 0
     m = np.zeros(alpha.shape, np.uint8)
     cv2.polylines(m, [to_canvas(BLADE).astype(np.int32)], False, 255, 24)
     cv2.fillPoly(m, [to_canvas(HAND_GRIP).astype(np.int32)], 255)
     m = cv2.dilate(m, np.ones((9, 9), np.uint8))
-    region = (m > 0) & alpha
+    region = ((m > 0) & alpha & ~cloth_mask(base)).astype(np.uint8)
+    # 布を外した跡に残る小さな切れ端は布側に戻す
+    n, lab, st, _ = cv2.connectedComponentsWithStats(region, connectivity=4)
+    region = np.isin(lab, [i for i in range(1, n) if st[i, cv2.CC_STAT_AREA] >= 30])
     # 輪郭のにじみの輪（元の背景色）は刀と一緒に動かさない
     core = cv2.erode(alpha.astype(np.uint8), cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))) > 0
     sword = region & core
@@ -155,7 +176,7 @@ def control_targets(f, sword_m):
         if part == "sleeve":
             d = d * 0.4 + grip_move * 0.6
         if part == "cuff":
-            d = grip_move.copy()
+            d = cv2.transform(p[None, None], sword_m)[0, 0] - p
         if part in SWAY_PARTS:
             d = d + np.array(SWAY_PARTS[part], np.float32) * f["sway"]
         src.append(p)
