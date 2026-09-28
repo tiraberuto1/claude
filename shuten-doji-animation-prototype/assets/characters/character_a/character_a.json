@@ -1,0 +1,26 @@
+{
+  "source": "assets/scroll/scroll_original.png",
+  "source_bbox_in_scroll": [
+    25,
+    170,
+    528,
+    491
+  ],
+  "H_original": 491,
+  "scale": 0.5213849287169042,
+  "target_height": 256,
+  "canvas_size": [
+    384,
+    384
+  ],
+  "ground_point": [
+    192,
+    352
+  ],
+  "sprite_bbox_in_canvas": [
+    55,
+    96,
+    275,
+    256
+  ]
+}
