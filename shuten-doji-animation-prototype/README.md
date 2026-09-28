@@ -12,6 +12,10 @@
 - 武者が 12fps 基準でループ再生されます（フレームごとの長さは SPEC §7 の 120/100/100/80/60/180/120/200ms）
 - **スペースキー**で一時停止すると 1 フレーム目に戻ります。1 フレーム目は元の絵巻と画素単位で同じなので、静止画と再生を見比べられます
 
+### スマホ・ブラウザで見る
+
+`python3 tools/export_web.py` で `build/web/index.html`（画像埋め込みの単一 HTML）を書き出せます。Godot シーンと同じ重ね順・フレーム長で再生し、絵のタップで停止（1 フレーム目に戻る）できます。
+
 ## シーン構成
 
 ```text
@@ -39,6 +43,7 @@ pip install opencv-python-headless numpy
 python3 tools/extract_samurai.py
 python3 tools/restore_background.py
 python3 tools/make_frames.py
+python3 tools/export_web.py   # 任意：ブラウザ確認用
 ```
 
 全フレームの原点は元絵巻の (0, 100)、サイズは 640×600 です（`frame_canvas.json`）。
