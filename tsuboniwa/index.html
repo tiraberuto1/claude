@@ -1092,9 +1092,9 @@ const Sound = (function(){
     const rs = gain(rev); p.connect(rs); rs.connect(revIn); return inp;
   }
   function bubble(out, t, a){
-    const o = ctx.createOscillator(), g = ctx.createGain(), f0 = 380 + Math.pow(Math.random(), 1.8) * 2600;
+    const o = ctx.createOscillator(), g = ctx.createGain(), f0 = 480 + Math.pow(Math.random(), 1.6) * 1500;
     o.type = 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f0 * rand(1.5, 2.5), t + rand(0.05, 0.09));
-    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(rand(0.008, 0.03) * a, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + rand(0.07, 0.15));
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(rand(0.045, 0.12) * a, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + rand(0.07, 0.15));
     o.connect(g); g.connect(out); o.start(t); o.stop(t + 0.2);
   }
   function burst(out, t, f, q, dur, a){
@@ -1103,14 +1103,13 @@ const Sound = (function(){
     s.connect(b); b.connect(g); g.connect(out); s.stop(t + dur + 0.05);
   }
   function buildStreams(){
-    [{ p: [0.45, 0.1, -1.85], a: 1.0, rate: 20 }, { p: [-0.65, 0.1, -1.05], a: 0.9, rate: 16, rumble: true }, { p: [-1.7, 0.1, 0.25], a: 0.8, rate: 14 }].forEach(d => {
+    [{ p: [0.45, 0.1, -1.85], a: 1.0, rate: 9 }, { p: [-0.65, 0.1, -1.05], a: 0.9, rate: 7 }, { p: [-1.7, 0.1, 0.25], a: 0.8, rate: 6 }].forEach(d => {
       const out = voice(d.p[0], d.p[1], d.p[2], 0.2, 1.4), layers = [];
       const L = (type, f, q, base) => {
         const s = noiseSrc(), flt = biq(type, f, q), g = gain(base * d.a); s.connect(flt); flt.connect(g); g.connect(out);
         layers.push({ flt, g, base: base * d.a, f });
       };
-      L('bandpass', 620, 0.8, 0.9); L('bandpass', 1800, 1.0, 0.55); L('highpass', 5200, 0.5, 0.07);
-      if(d.rumble) L('lowpass', 240, 0.7, 0.55);
+      L('bandpass', 950, 1.4, 0.24); L('bandpass', 2600, 1.8, 0.18);
       streams.push({ out, layers, rate: d.rate, next: 0 });
     });
     // 筧から落ちる細い水
