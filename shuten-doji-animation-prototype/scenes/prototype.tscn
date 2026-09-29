@@ -1,0 +1,71 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/scroll/scroll_background_clean.png" id="1_bg"]
+[ext_resource type="Script" path="res://scripts/samurai.gd" id="2_script"]
+[ext_resource type="Texture2D" path="res://assets/characters/samurai_left_bottom/samurai_01.png" id="3_f01"]
+[ext_resource type="Texture2D" path="res://assets/characters/samurai_left_bottom/samurai_02.png" id="4_f02"]
+[ext_resource type="Texture2D" path="res://assets/characters/samurai_left_bottom/samurai_03.png" id="5_f03"]
+[ext_resource type="Texture2D" path="res://assets/characters/samurai_left_bottom/samurai_04.png" id="6_f04"]
+[ext_resource type="Texture2D" path="res://assets/characters/samurai_left_bottom/samurai_05.png" id="7_f05"]
+[ext_resource type="Texture2D" path="res://assets/characters/samurai_left_bottom/samurai_06.png" id="8_f06"]
+[ext_resource type="Texture2D" path="res://assets/characters/samurai_left_bottom/samurai_07.png" id="9_f07"]
+[ext_resource type="Texture2D" path="res://assets/characters/samurai_left_bottom/samurai_08.png" id="10_f08"]
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_samurai"]
+animations = [{
+"frames": [
+{
+"duration": 1.4400,
+"texture": ExtResource("3_f01")
+}, {
+"duration": 1.2000,
+"texture": ExtResource("4_f02")
+}, {
+"duration": 1.2000,
+"texture": ExtResource("5_f03")
+}, {
+"duration": 0.9600,
+"texture": ExtResource("6_f04")
+}, {
+"duration": 0.7200,
+"texture": ExtResource("7_f05")
+}, {
+"duration": 2.1600,
+"texture": ExtResource("8_f06")
+}, {
+"duration": 1.4400,
+"texture": ExtResource("9_f07")
+}, {
+"duration": 2.4000,
+"texture": ExtResource("10_f08")
+}],
+"loop": true,
+"name": &"swing",
+"speed": 12.0
+}]
+
+[node name="Prototype" type="Node2D"]
+
+[node name="Background" type="Node2D" parent="."]
+
+[node name="Sprite2D" type="Sprite2D" parent="Background"]
+texture = ExtResource("1_bg")
+centered = false
+
+[node name="Samurai" type="Node2D" parent="."]
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="Samurai"]
+position = Vector2(0, 120)
+sprite_frames = SubResource("SpriteFrames_samurai")
+animation = &"swing"
+autoplay = "swing"
+centered = false
+script = ExtResource("2_script")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(480, 420)
+zoom = Vector2(1.2, 1.2)
+limit_left = 0
+limit_top = 0
+limit_right = 2048
+limit_bottom = 914

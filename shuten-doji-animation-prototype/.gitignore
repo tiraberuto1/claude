@@ -1,0 +1,4 @@
+# Godot
+.godot/
+# 確認用の中間出力
+tools/preview/frame_*.png
