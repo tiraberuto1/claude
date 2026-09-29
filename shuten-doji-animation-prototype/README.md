@@ -30,6 +30,27 @@ python3 tools/make_assets.py
 - スプライトの左上は元絵の座標 (0, 120) です。Background と同じ原点に置けば元の位置に重なります。
 - `samurai_01.png` は元の構えで、背景に重ねると元絵とほぼ一致します。
 
+## 人物A (ゲーム用の静止アセット)
+
+`CHARACTER_A_ASSET_SPEC.md` に沿って、同じ武者を「サイズ・座標・接地点をそろえたゲーム用の人物」にしています。
+
+```bash
+python3 tools/make_assets.py       # 先にマスクを作る
+python3 tools/make_character_a.py
+```
+
+| 出力 (`assets/characters/character_a/`) | 内容 |
+|---|---|
+| `source/character_a_source.png` | 元サイズの切り出し (528×491) |
+| `character_a.png` | 384×384 のゲーム用 (RGBA、背景透明) |
+| `character_a_reference.png` | 基準身長・接地点・中心線を重ねた確認用 |
+
+- **基準身長 256px:** 元の高さ 491px (刀を含む) を 256px にする比率 (0.5214) で、縦横同倍率に縮めています。
+- **接地点:** 草鞋の底の中心で、キャンバス内の (91, 352) です。
+- **`scenes/character_a.tscn`:** `CharacterA.position` が足元です。`scale = 1.0` で人物の高さが 256px になります。
+
+Godot で `scale` を 0.8 / 1.0 / 1.2 にして描画し、高さが 205 / 256 / 308px、足元が動かないことを確認しています。
+
 ## 動かし方
 
 画像全体を滑らせるのではなく、部位ごとに動きの量を変えています。
