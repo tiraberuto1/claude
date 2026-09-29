@@ -1,0 +1,1295 @@
+<title>水音の坪庭</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* レイアウト: 画面いっぱいの3D庭。左上に縦書きの題、下端に視点と音量、初回だけ中央下に入口カード */
+  :root{
+    --sumi:#151a19;
+    --sumi-glass:rgba(21,26,25,.62);
+    --kinu:#eee9dc;
+    --kinu-dim:#bcbbad;
+    --koke:#93a96c;
+    --line:rgba(238,233,220,.24);
+    --font-disp:'Shippori Mincho','Hiragino Mincho ProN','Yu Mincho',serif;
+    --font-ui:'Zen Kaku Gothic New','Hiragino Sans','Yu Gothic',sans-serif;
+    color-scheme:dark;
+  }
+  html,body{height:100%}
+  body{margin:0;background:var(--sumi);color:var(--kinu);font-family:var(--font-ui);font-size:14px;line-height:1.6;overflow:hidden}
+  #stage{position:relative;width:100%;height:100%;overflow:hidden;background:var(--sumi)}
+  #c{display:block;width:100%;height:100%;touch-action:none;cursor:grab;outline:none}
+  #c.drag{cursor:grabbing}
+
+  #title{position:absolute;top:16px;left:16px;margin:0;writing-mode:vertical-rl;font-family:var(--font-disp);font-weight:700;font-size:34px;letter-spacing:.32em;line-height:1;color:var(--kinu);text-shadow:0 0 3px rgba(10,14,13,.5),0 1px 16px rgba(10,14,13,.7);pointer-events:none}
+  #title small{display:block;font-weight:500;font-size:12px;letter-spacing:.3em;margin-top:.9em;color:var(--kinu);opacity:.85}
+
+  #bar{position:absolute;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px 16px;pointer-events:none;transition:opacity .8s ease}
+  #bar[hidden]{display:none!important}
+  #bar > *{pointer-events:auto}
+  .group{display:flex;flex-wrap:wrap;gap:8px;min-width:0}
+  .chip{font:inherit;font-size:13px;letter-spacing:.12em;color:var(--kinu);background:var(--sumi-glass);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid var(--line);padding:8px 14px;border-radius:2px;cursor:pointer}
+  .chip:hover{border-color:var(--kinu)}
+  .chip[aria-pressed="true"]{background:var(--kinu);color:var(--sumi);border-color:var(--kinu)}
+  .chip:focus-visible,#vol:focus-visible,#enter:focus-visible{outline:2px solid var(--koke);outline-offset:2px}
+  #sound{align-items:center}
+  #vol{width:110px;accent-color:var(--kinu)}
+  #sound label{font-size:12px;letter-spacing:.2em;color:var(--kinu);text-shadow:0 1px 10px rgba(10,14,13,.6)}
+
+  #intro{position:absolute;left:50%;bottom:calc(9% + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(430px,calc(100% - 32px));box-sizing:border-box;padding:22px 24px 24px;background:var(--sumi-glass);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:2px;transition:opacity .9s ease,transform .9s ease}
+  #intro.gone{opacity:0;transform:translate(-50%,10px);pointer-events:none}
+  #intro h1{margin:0 0 10px;font-family:var(--font-disp);font-weight:700;font-size:26px;letter-spacing:.24em}
+  #intro p{margin:0 0 18px;color:var(--kinu-dim);max-width:34em}
+  #enter{font:inherit;font-weight:500;letter-spacing:.24em;color:var(--sumi);background:var(--kinu);border:0;padding:11px 26px;border-radius:2px;cursor:pointer}
+  #enter:hover{background:#fff}
+
+  #nogl{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:24px;text-align:center;color:var(--kinu-dim)}
+  @media (max-width:520px){
+    #title{font-size:24px}
+    #vol{width:84px}
+  }
+</style>
+
+<div id="stage">
+  <canvas id="c" tabindex="0" aria-label="坪庭の3D表示。ドラッグで見回せます。"></canvas>
+  <h2 id="title">坪庭</h2>
+  <div id="nogl">この環境では WebGL が使えないため、庭を表示できません。</div>
+
+  <div id="bar" hidden>
+    <div class="group" id="views" role="group" aria-label="視点">
+      <button class="chip" type="button" data-view="engawa" aria-pressed="true">縁側</button>
+      <button class="chip" type="button" data-view="tobi" aria-pressed="false">飛び石</button>
+      <button class="chip" type="button" data-view="shishi" aria-pressed="false">鹿威し</button>
+      <button class="chip" type="button" data-view="sky" aria-pressed="false">見上げる</button>
+    </div>
+    <div class="group" id="sound">
+      <label for="vol">音量</label>
+      <input id="vol" type="range" min="0" max="100" value="70">
+      <button class="chip" type="button" id="mute" aria-pressed="false">消音</button>
+    </div>
+  </div>
+
+  <div id="intro">
+    <h1>水音の坪庭</h1>
+    <p>聞こえるのは、水の流れと鹿威しの音だけです。端末の音量を少し上げてください。ドラッグで見回せます。</p>
+    <button id="enter" type="button">庭に入る</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+const T = THREE;
+const $ = s => document.querySelector(s);
+
+/* ================= 共通ユーティリティ ================= */
+let seed = 20260929;
+const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+const rr = (a, b) => a + (b - a) * rnd();
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const C = h => new T.Color(h).convertSRGBToLinear();
+const hash2 = (x, y) => { const h = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return h - Math.floor(h); };
+function vnoise(x, y){
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  return lerp(lerp(hash2(xi, yi), hash2(xi + 1, yi), u), lerp(hash2(xi, yi + 1), hash2(xi + 1, yi + 1), u), v);
+}
+const fbm = (x, y) => vnoise(x, y) * 0.5 + vnoise(x * 2.1, y * 2.1) * 0.25 + vnoise(x * 4.3, y * 4.3) * 0.125;
+
+/* ================= レンダラー ================= */
+const canvas = $('#c');
+let renderer;
+try{
+  renderer = new T.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+}catch(e){
+  $('#nogl').style.display = 'flex';
+  $('#intro').style.display = 'none';
+  return;
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.outputEncoding = T.sRGBEncoding;
+renderer.toneMapping = T.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = T.PCFSoftShadowMap;
+
+const scene = new T.Scene();
+scene.fog = new T.FogExp2(C('#c9d6d0'), 0.05);
+const camera = new T.PerspectiveCamera(62, 1, 0.05, 150);
+const timeU = { value: 0 };
+
+const SUN_DIR = new T.Vector3(0.2, 6.5, 3.0).normalize();
+const hemi = new T.HemisphereLight(C('#b9d0e6'), C('#8b7c5e'), 0.8);
+scene.add(hemi);
+const sun = new T.DirectionalLight(C('#fff0d4'), 2.25);
+sun.position.copy(SUN_DIR).multiplyScalar(16);
+sun.target.position.set(0, 0, -0.6);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5, near: 2, far: 34 });
+sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.025;
+scene.add(sun, sun.target);
+
+/* ================= テクスチャ ================= */
+function tex(w, h, draw, srgb){
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'); draw(g, w, h);
+  const t = new T.CanvasTexture(c);
+  if(srgb !== false) t.encoding = T.sRGBEncoding;
+  t.wrapS = t.wrapT = T.RepeatWrapping;
+  t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  return t;
+}
+function dots(g, w, h, n, cols, r0, r1, a){
+  for(let i = 0; i < n; i++){
+    g.globalAlpha = a * (0.5 + rnd() * 0.5);
+    g.fillStyle = cols[(rnd() * cols.length) | 0];
+    g.beginPath(); g.arc(rnd() * w, rnd() * h, rr(r0, r1), 0, 6.2832); g.fill();
+  }
+  g.globalAlpha = 1;
+}
+
+/* 砂利 (庭全体に1枚。ワールド座標 x:-2.6..2.6, z:-2.8..2.0 に対応) */
+const GW = 1300, GH = 1200, PPM = 250;
+const gPx = x => (x + 2.6) * PPM, gPy = z => (z + 2.8) * PPM;
+const ISLETS = [[0.95, 0.45, 0.3], [1.9, 1.15, 0.22]];
+const gravelTex = tex(GW, GH, (g, w, h) => {
+  g.fillStyle = '#9d988c'; g.fillRect(0, 0, w, h);
+  for(let i = 0; i < 260; i++){
+    g.globalAlpha = 0.1; g.fillStyle = rnd() < 0.5 ? '#b9b3a6' : '#e4e0d6';
+    g.beginPath(); g.arc(rnd() * w, rnd() * h, rr(14, 60), 0, 6.283); g.fill();
+  }
+  g.globalAlpha = 1;
+  dots(g, w, h, 30000, ['#8f8a7e', '#d8d4ca', '#75716a', '#aaa494', '#c3bba7', '#9c968a'], 0.8, 2.6, 0.75);
+  // 砂紋: 別キャンバスに描いて、飛び石の周りは円形にくり抜く
+  const rk = document.createElement('canvas'); rk.width = w; rk.height = h;
+  const rg = rk.getContext('2d');
+  const x0 = gPx(-0.3), x1 = gPx(2.58);
+  const wave = (z, off) => {
+    rg.beginPath();
+    for(let px = x0; px <= x1; px += 8){
+      const y = gPy(z) + off + Math.sin(px * 0.02 + z * 9) * 2.2;
+      if(px === x0) rg.moveTo(px, y); else rg.lineTo(px, y);
+    }
+    rg.stroke();
+  };
+  for(let z = -0.3; z < 1.98; z += 0.055){
+    rg.strokeStyle = 'rgba(70,64,54,0.34)'; rg.lineWidth = 2.6; wave(z, 0);
+    rg.strokeStyle = 'rgba(255,255,248,0.42)'; rg.lineWidth = 1.7; wave(z, 3.2);
+  }
+  rg.globalCompositeOperation = 'destination-out';
+  ISLETS.forEach(([x, z, r]) => { rg.beginPath(); rg.arc(gPx(x), gPy(z), (r + 0.5) * PPM, 0, 6.283); rg.fill(); });
+  rg.globalCompositeOperation = 'source-over';
+  g.drawImage(rk, 0, 0);
+  // 島の周りの同心円
+  ISLETS.forEach(([x, z, r]) => {
+    for(let k = 0; k < 6; k++){
+      const rad = (r + 0.06 + k * 0.075) * PPM;
+      g.strokeStyle = 'rgba(70,64,54,0.34)'; g.lineWidth = 2.6;
+      g.beginPath(); g.arc(gPx(x), gPy(z), rad, 0, 6.283); g.stroke();
+      g.strokeStyle = 'rgba(255,255,248,0.42)'; g.lineWidth = 1.7;
+      g.beginPath(); g.arc(gPx(x), gPy(z), rad + 3.2, 0, 6.283); g.stroke();
+    }
+  });
+});
+gravelTex.wrapS = gravelTex.wrapT = T.ClampToEdgeWrapping;
+
+const plasterTex = tex(512, 512, (g, w, h) => {
+  g.fillStyle = '#e6e0d1'; g.fillRect(0, 0, w, h);
+  for(let i = 0; i < 90; i++){
+    g.globalAlpha = 0.07; g.fillStyle = rnd() < 0.5 ? '#c9c0ac' : '#f4f0e6';
+    g.beginPath(); g.arc(rnd() * w, rnd() * h, rr(20, 90), 0, 6.283); g.fill();
+  }
+  g.globalAlpha = 1;
+  dots(g, w, h, 5000, ['#b8ae98', '#f7f4ec', '#a79d88'], 0.6, 1.8, 0.35);
+});
+const yakiTex = tex(256, 512, (g, w, h) => {
+  g.fillStyle = '#1f1b18'; g.fillRect(0, 0, w, h);
+  for(let b = 0; b < 8; b++){
+    const x = b * 32;
+    g.fillStyle = `rgba(${40 + rnd() * 20},${34 + rnd() * 14},${30 + rnd() * 10},0.55)`; g.fillRect(x + 2, 0, 28, h);
+    for(let i = 0; i < 26; i++){
+      g.strokeStyle = `rgba(${70 + rnd() * 40},${62 + rnd() * 30},${54 + rnd() * 20},${0.12 + rnd() * 0.25})`;
+      g.lineWidth = rr(0.6, 1.6); const gx = x + rr(3, 29);
+      g.beginPath(); g.moveTo(gx, 0); g.lineTo(gx + rr(-2, 2), h); g.stroke();
+    }
+    g.fillStyle = '#0d0b0a'; g.fillRect(x, 0, 2, h);
+  }
+});
+const woodTex = tex(128, 256, (g, w, h) => {
+  g.fillStyle = '#8b6440'; g.fillRect(0, 0, w, h);
+  for(let i = 0; i < 70; i++){
+    g.strokeStyle = `rgba(${50 + rnd() * 40},${30 + rnd() * 25},${15 + rnd() * 15},${0.1 + rnd() * 0.3})`;
+    g.lineWidth = rr(0.6, 2.4); const x = rnd() * w;
+    g.beginPath(); g.moveTo(x, 0); g.bezierCurveTo(x + rr(-6, 6), h * 0.3, x + rr(-6, 6), h * 0.7, x + rr(-3, 3), h); g.stroke();
+  }
+});
+const floorTex = tex(512, 512, (g, w, h) => {
+  g.fillStyle = '#a97f52'; g.fillRect(0, 0, w, h);
+  const rows = 8, rh = h / rows;
+  for(let r = 0; r < rows; r++){
+    g.fillStyle = `rgba(${rnd() * 40},${rnd() * 25},0,${0.10 + rnd() * 0.1})`; g.fillRect(0, r * rh, w, rh);
+    for(let i = 0; i < 26; i++){
+      g.strokeStyle = `rgba(${70 + rnd() * 30},${44 + rnd() * 20},${20 + rnd() * 12},${0.12 + rnd() * 0.28})`;
+      g.lineWidth = rr(0.6, 1.8); const y = r * rh + rr(3, rh - 3);
+      g.beginPath(); g.moveTo(0, y); g.bezierCurveTo(w * 0.3, y + rr(-2, 2), w * 0.7, y + rr(-2, 2), w, y); g.stroke();
+    }
+    g.fillStyle = '#4a3220'; g.fillRect(0, r * rh, w, 2.5);
+  }
+});
+const shojiTex = tex(256, 512, (g, w, h) => {
+  g.fillStyle = '#f2e9d2'; g.fillRect(0, 0, w, h);
+  dots(g, w, h, 1800, ['#e4d8b8', '#fbf5e4'], 0.5, 1.6, 0.4);
+  g.fillStyle = '#4b3625';
+  const bar = 6;
+  g.fillRect(0, 0, bar * 1.6, h); g.fillRect(w - bar * 1.6, 0, bar * 1.6, h);
+  g.fillRect(0, 0, w, bar * 1.6); g.fillRect(0, h - bar * 1.6, w, bar * 1.6);
+  for(let i = 1; i < 4; i++) g.fillRect(i * w / 4 - 2, 0, 4, h);
+  for(let j = 1; j < 10; j++) g.fillRect(0, j * h / 10 - 2, w, 4);
+});
+const tileTex = tex(256, 128, (g, w, h) => {
+  g.fillStyle = '#3a4043'; g.fillRect(0, 0, w, h);
+  for(let x = 0; x < w; x += 16){
+    const gr = g.createLinearGradient(x, 0, x + 16, 0);
+    gr.addColorStop(0, '#22282a'); gr.addColorStop(0.5, '#565e61'); gr.addColorStop(1, '#22282a');
+    g.fillStyle = gr; g.fillRect(x, 0, 16, h);
+  }
+});
+const barkTex = tex(128, 256, (g, w, h) => {
+  g.fillStyle = '#6b5f52'; g.fillRect(0, 0, w, h);
+  for(let i = 0; i < 90; i++){
+    g.strokeStyle = `rgba(${30 + rnd() * 40},${26 + rnd() * 30},${22 + rnd() * 20},${0.15 + rnd() * 0.3})`;
+    g.lineWidth = rr(0.6, 2.2); const x = rnd() * w;
+    g.beginPath(); g.moveTo(x, 0); g.bezierCurveTo(x + rr(-5, 5), h * 0.3, x + rr(-5, 5), h * 0.7, x + rr(-3, 3), h); g.stroke();
+  }
+  dots(g, w, h, 500, ['#9a9a86', '#4b463c'], 0.8, 2.2, 0.3);
+});
+const bambooTex = tex(64, 256, (g, w, h) => {
+  const gr = g.createLinearGradient(0, 0, w, 0);
+  gr.addColorStop(0, '#5a8440'); gr.addColorStop(0.35, '#86b25a'); gr.addColorStop(1, '#55803c');
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  for(let i = 0; i < 18; i++){
+    g.strokeStyle = `rgba(230,240,190,${0.05 + rnd() * 0.12})`; g.lineWidth = 1; const x = rnd() * w;
+    g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke();
+  }
+  g.fillStyle = '#b6bf84'; g.fillRect(0, 0, w, 16);
+  g.fillStyle = '#3f5f2c'; g.fillRect(0, 10, w, 3);
+});
+const rockTex = tex(256, 256, (g, w, h) => {
+  g.fillStyle = '#8b8d88'; g.fillRect(0, 0, w, h);
+  for(let i = 0; i < 70; i++){
+    g.globalAlpha = 0.16; g.fillStyle = ['#6d6f6b', '#a9a89f', '#867a68', '#75827a'][(rnd() * 4) | 0];
+    g.beginPath(); g.arc(rnd() * w, rnd() * h, rr(8, 40), 0, 6.283); g.fill();
+  }
+  g.globalAlpha = 1;
+  dots(g, w, h, 4500, ['#5c5e5a', '#cfcdc2', '#3f4240', '#b4b0a0'], 0.6, 1.8, 0.5);
+});
+const dotSprite = tex(64, 64, (g, w, h) => {
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,244,214,1)'); gr.addColorStop(0.35, 'rgba(255,236,190,0.45)'); gr.addColorStop(1, 'rgba(255,230,180,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+});
+
+/* ================= マテリアル ================= */
+const std = (o) => new T.MeshStandardMaterial(o);
+const M = {
+  plaster: std({ map: plasterTex, color: C('#d8d2c2'), roughness: 1 }),
+  yaki: std({ map: yakiTex, roughness: 0.85 }),
+  wood: std({ map: woodTex, roughness: 0.8 }),
+  dwood: std({ map: woodTex, color: C('#6a5443'), roughness: 0.85 }),
+  floor: std({ map: floorTex, roughness: 0.7 }),
+  ceil: std({ map: floorTex, color: C('#7a624d'), roughness: 0.9 }),
+  tile: std({ map: tileTex, roughness: 0.6 }),
+  shoji: std({ map: shojiTex, roughness: 0.95, emissive: C('#ffe2a8'), emissiveMap: shojiTex, emissiveIntensity: 0.32 }),
+  bark: std({ map: barkTex, roughness: 1, side: T.DoubleSide }),
+  bamboo: std({ map: bambooTex, roughness: 0.5 }),
+  moss: std({ roughness: 1, color: 0xffffff }),
+  dark: std({ color: C('#2a231e'), roughness: 1 }),
+  rock: [
+    std({ map: rockTex, color: C('#ffffff'), roughness: 0.95 }),
+    std({ map: rockTex, color: C('#e8e2d4'), roughness: 0.95 }),
+    std({ map: rockTex, color: C('#cfd5d2'), roughness: 0.95 }),
+    std({ map: rockTex, color: C('#cdbfae'), roughness: 0.95 })
+  ]
+};
+const addMesh = (geo, mat, x, y, z, o = {}) => {
+  const m = new T.Mesh(geo, mat); m.position.set(x, y, z);
+  m.castShadow = o.cast !== false; m.receiveShadow = o.recv !== false;
+  if(o.ry) m.rotation.y = o.ry;
+  (o.parent || scene).add(m); return m;
+};
+function fixBoxUV(g, w, h, d, s){
+  const uv = g.attributes.uv;
+  for(let f = 0; f < 6; f++){
+    const a = f < 2 ? d : w, b = f < 2 ? h : (f < 4 ? d : h);
+    for(let k = 0; k < 4; k++){ const i = f * 4 + k; uv.setXY(i, uv.getX(i) * a * s, uv.getY(i) * b * s); }
+  }
+}
+function box(w, h, d, mat, x, y, z, o = {}){
+  const g = new T.BoxGeometry(w, h, d); fixBoxUV(g, w, h, d, o.uv || 1);
+  return addMesh(g, mat, x, y, z, o);
+}
+
+/* ================= 地形 (流れと池を彫り込んだ地面) ================= */
+const STREAM = new T.CatmullRomCurve3([
+  [0.5, -1.9], [0.05, -1.72], [-0.5, -1.38], [-0.95, -0.88], [-1.28, -0.25], [-1.85, 0.28], [-2.4, 0.42], [-3.0, 0.45]
+].map(p => new T.Vector3(p[0], 0, p[1])));
+const NS = 180;
+const SP = STREAM.getSpacedPoints(NS);
+const SPX = SP.map(p => p.x), SPZ = SP.map(p => p.z);
+const SPT = SP.map((p, i) => STREAM.getTangentAt(i / NS));
+const PC = [1.05, -1.9];           // 池の中心
+const WL = -0.045;                 // 水面の高さ
+function streamDist(x, z){
+  let m = 1e9;
+  for(let i = 0; i <= NS; i++){ const dx = x - SPX[i], dz = z - SPZ[i], d = dx * dx + dz * dz; if(d < m) m = d; }
+  return Math.sqrt(m);
+}
+function heightFrom(x, z, d){
+  const bw = 0.17 + 0.03 * Math.sin(x * 3.1 + z * 2.3);
+  let y = -0.11 * (1 - smooth(bw, 0.52, d));
+  const px = x - PC[0], pz = z - PC[1], pd = Math.hypot(px, pz), a = Math.atan2(pz, px);
+  const R = 0.5 + 0.05 * Math.sin(3 * a + 1) + 0.03 * Math.sin(5 * a + 2);
+  y = Math.min(y, -0.17 * (1 - smooth(0.55 * R, 1.18 * R, pd)));
+  return y + (fbm(x * 9, z * 9) - 0.4) * 0.012;
+}
+const heightAt = (x, z) => heightFrom(x, z, streamDist(x, z));
+function mossAmt(x, z, d){
+  const wd = Math.min(x + 2.6, 2.6 - x, z + 2.8);
+  let m = smooth(0.9, 0.05, wd) * 0.9;
+  m = Math.max(m, smooth(0.95, 0.42, d) * 0.85);
+  m = Math.max(m, smooth(1.15, 0.3, Math.hypot(x + 1.9, z + 1.55)));
+  m *= smooth(0.28, 0.62, fbm(x * 2.3 + 7, z * 2.3 + 3) + 0.25);
+  if(x > -0.3 && z > -0.3 && z < 2.0) m *= 0.12;
+  return m;
+}
+(function buildGround(){
+  const nx = 208, nz = 192, W = 5.2, D = 4.8;
+  const pos = new Float32Array((nx + 1) * (nz + 1) * 3), uv = new Float32Array((nx + 1) * (nz + 1) * 2), col = new Float32Array((nx + 1) * (nz + 1) * 3);
+  const cBed = C('#8a8f88'), cMoss = C('#6f8a4c'), cMossD = C('#405a2e'), tmp = new T.Color(), mc = new T.Color();
+  let k = 0;
+  for(let j = 0; j <= nz; j++){
+    for(let i = 0; i <= nx; i++){
+      const x = -2.6 + W * i / nx, z = -2.8 + D * j / nz;
+      const d = streamDist(x, z), y = heightFrom(x, z, d);
+      pos[k * 3] = x; pos[k * 3 + 1] = y; pos[k * 3 + 2] = z;
+      uv[k * 2] = i / nx; uv[k * 2 + 1] = 1 - j / nz;
+      const m = mossAmt(x, z, d);
+      mc.copy(cMoss).lerp(cMossD, fbm(x * 5, z * 5));
+      tmp.setRGB(1, 1, 1).lerp(mc, m * 0.92);
+      tmp.lerp(cBed, smooth(-0.03, -0.1, y) * 0.85);
+      const wd = Math.min(x + 2.6, 2.6 - x, z + 2.8, (2.0 - z) * 1.2);
+      const ao = 0.62 + 0.38 * smooth(0, 0.5, wd);
+      col[k * 3] = tmp.r * ao; col[k * 3 + 1] = tmp.g * ao; col[k * 3 + 2] = tmp.b * ao;
+      k++;
+    }
+  }
+  const idx = [];
+  for(let j = 0; j < nz; j++) for(let i = 0; i < nx; i++){
+    const a = j * (nx + 1) + i, b = a + 1, c = a + nx + 1, d = c + 1;
+    idx.push(a, c, b, b, c, d);
+  }
+  const g = new T.BufferGeometry();
+  g.setAttribute('position', new T.BufferAttribute(pos, 3));
+  g.setAttribute('uv', new T.BufferAttribute(uv, 2));
+  g.setAttribute('color', new T.BufferAttribute(col, 3));
+  g.setIndex(idx); g.computeVertexNormals();
+  const m = new T.Mesh(g, std({ map: gravelTex, vertexColors: true, roughness: 1 }));
+  m.receiveShadow = true; scene.add(m);
+})();
+
+/* ================= 水面 ================= */
+const rip = []; for(let i = 0; i < 6; i++) rip.push(new T.Vector4(0, 0, -100, 0));
+let ripI = 0;
+function addRipple(x, z, amp){ rip[ripI].set(x, z, timeU.value, amp); ripI = (ripI + 1) % 6; }
+
+const waterMat = new T.ShaderMaterial({
+  transparent: true, depthWrite: false, side: T.DoubleSide,
+  uniforms: {
+    uTime: timeU, uRip: { value: rip }, uSunDir: { value: SUN_DIR },
+    uDeep: { value: C('#10292b') }, uShallow: { value: C('#456f65') },
+    uSkyTop: { value: C('#8fb0c9') }, uSkyHor: { value: C('#d3dcd8') }
+  },
+  vertexShader: `
+    attribute vec2 aFlow; attribute float aEdge;
+    varying vec3 vW; varying vec2 vFlow; varying float vEdge;
+    void main(){ vW = position; vFlow = aFlow; vEdge = aEdge; gl_Position = projectionMatrix * viewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `
+    uniform float uTime; uniform vec4 uRip[6]; uniform vec3 uSunDir, uDeep, uShallow, uSkyTop, uSkyHor;
+    varying vec3 vW; varying vec2 vFlow; varying float vEdge;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+      return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y); }
+    float hgt(vec2 p){
+      float t = uTime; vec2 fl = vFlow;
+      float h = (vn(p * 7.0 - fl * t * 1.4) * 0.5 + vn(p * 15.0 - fl * t * 2.3 + 5.2) * 0.28 + vn(p * 31.0 - fl * t * 3.1 + 9.1) * 0.12) * 0.012;
+      for(int i = 0; i < 6; i++){
+        vec4 r = uRip[i]; float age = t - r.z;
+        if(age > 0.0 && age < 3.5){
+          float x = length(p - r.xy) - age * 0.42;
+          h += sin(x * 52.0) * exp(-x * x * 90.0) * exp(-age * 1.0) * r.w * 0.004;
+        }
+      }
+      return h;
+    }
+    void main(){
+      vec2 p = vW.xz; float e = 0.01;
+      float hx = hgt(p + vec2(e, 0.0)) - hgt(p - vec2(e, 0.0));
+      float hz = hgt(p + vec2(0.0, e)) - hgt(p - vec2(0.0, e));
+      vec3 N = normalize(vec3(-hx / (2.0 * e), 1.0, -hz / (2.0 * e)));
+      vec3 V = normalize(cameraPosition - vW);
+      float fres = 0.03 + 0.97 * pow(1.0 - max(dot(N, V), 0.0), 5.0);
+      vec3 R = reflect(-V, N);
+      vec3 sky = mix(uSkyHor, uSkyTop, pow(max(R.y, 0.0), 0.6)) * 0.85;
+      float hy = vW.y + (R.z < -0.05 ? (-2.8 - vW.z) / R.z * R.y : 99.0);
+      vec3 refl = mix(vec3(0.02, 0.019, 0.018), vec3(0.30, 0.285, 0.25), smoothstep(0.9, 1.05, hy));
+      refl = mix(refl, sky, smoothstep(3.3, 3.5, hy));
+      float deep = 1.0 - smoothstep(0.0, 0.8, vEdge);
+      vec3 body = mix(uShallow, uDeep, deep);
+      vec3 col = mix(body, refl, clamp(fres + 0.05, 0.0, 1.0));
+      float tw = smoothstep(0.84, 1.0, vn(p * 38.0 - vFlow * uTime * 3.0 + uTime * 0.25));
+      col += vec3(1.0, 0.96, 0.85) * tw * 0.35;
+      float foam = smoothstep(0.62, 1.0, vEdge) * smoothstep(0.55, 0.9, vn(p * 22.0 - vFlow * uTime * 2.2)) * length(vFlow);
+      col = mix(col, vec3(0.9, 0.95, 0.95), foam * 0.5);
+      float a = mix(0.74, 0.2, smoothstep(0.4, 0.92, vEdge)) + fres * 0.25 + foam * 0.25 + tw * 0.15;
+      gl_FragColor = vec4(col, clamp(a, 0.0, 0.95));
+      #include <tonemapping_fragment>
+      #include <encodings_fragment>
+    }`
+});
+(function buildWater(){
+  // 流れ
+  const N = 140, pts = STREAM.getSpacedPoints(N), pos = [], fl = [], ed = [], idx = [];
+  for(let i = 0; i <= N; i++){
+    const p = pts[i], t = STREAM.getTangentAt(i / N), nx = -t.z, nz = t.x;
+    const w = 0.46 * (1 + 0.1 * Math.sin(i * 0.31)), sp = 0.9 + 0.3 * Math.sin(i * 0.2);
+    [[-w, 1], [0, 0], [w, 1]].forEach(([o, e]) => {
+      pos.push(p.x + nx * o, WL, p.z + nz * o); fl.push(t.x * sp, t.z * sp); ed.push(e);
+    });
+    if(i < N){ const a = i * 3; for(let s = 0; s < 2; s++){ idx.push(a + s, a + s + 3, a + s + 1, a + s + 1, a + s + 3, a + s + 4); } }
+  }
+  const g = new T.BufferGeometry();
+  g.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+  g.setAttribute('aFlow', new T.Float32BufferAttribute(fl, 2));
+  g.setAttribute('aEdge', new T.Float32BufferAttribute(ed, 1));
+  g.setIndex(idx);
+  const m = new T.Mesh(g, waterMat); m.renderOrder = 2; scene.add(m);
+  // 池
+  const rings = [0, 0.4, 0.75, 1.0], seg = 64, pp = [], pf = [], pe = [], pi = [];
+  rings.forEach(fr => {
+    for(let s = 0; s < (fr === 0 ? 1 : seg); s++){
+      const a = s / seg * 6.2832;
+      const R = (0.5 + 0.05 * Math.sin(3 * a + 1) + 0.03 * Math.sin(5 * a + 2)) * 1.25 * fr;
+      pp.push(PC[0] + Math.cos(a) * R, WL, PC[1] + Math.sin(a) * R); pf.push(-0.22, 0.09); pe.push(fr);
+    }
+  });
+  for(let r = 1; r < rings.length; r++){
+    const base = r === 1 ? 1 : 1 + (r - 1) * seg, prev = r === 1 ? 0 : 1 + (r - 2) * seg;
+    for(let s = 0; s < seg; s++){
+      const s2 = (s + 1) % seg;
+      if(r === 1){ pi.push(0, base + s, base + s2); }
+      else { pi.push(prev + s, base + s, base + s2, prev + s, base + s2, prev + s2); }
+    }
+  }
+  const g2 = new T.BufferGeometry();
+  g2.setAttribute('position', new T.Float32BufferAttribute(pp, 3));
+  g2.setAttribute('aFlow', new T.Float32BufferAttribute(pf, 2));
+  g2.setAttribute('aEdge', new T.Float32BufferAttribute(pe, 1));
+  g2.setIndex(pi);
+  const m2 = new T.Mesh(g2, waterMat); m2.renderOrder = 2; scene.add(m2);
+})();
+
+/* ================= 石・苔・シダ ================= */
+function smoothSeams(g){
+  g.computeVertexNormals();
+  const p = g.attributes.position, n = g.attributes.normal, map = new Map();
+  for(let i = 0; i < p.count; i++){
+    const key = p.getX(i).toFixed(4) + ',' + p.getY(i).toFixed(4) + ',' + p.getZ(i).toFixed(4);
+    const e = map.get(key) || { x: 0, y: 0, z: 0, ids: [] };
+    e.x += n.getX(i); e.y += n.getY(i); e.z += n.getZ(i); e.ids.push(i); map.set(key, e);
+  }
+  map.forEach(e => { const l = Math.hypot(e.x, e.y, e.z) || 1; e.ids.forEach(i => n.setXYZ(i, e.x / l, e.y / l, e.z / l)); });
+}
+function rockGeo(s){
+  const g = new T.SphereGeometry(1, 22, 16), p = g.attributes.position;
+  for(let i = 0; i < p.count; i++){
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const n = (vnoise(x * 1.4 + s, y * 1.4 + z * 0.7) + vnoise(z * 1.9 - s, x * 1.5 + y) * 0.8 + vnoise(x * 3.7 + y * 2.1 + z * 1.3 + s * 2, y * 3.3 - x) * 0.35) / 2.15;
+    const k = 0.78 + 0.44 * n; p.setXYZ(i, x * k, y * k, z * k);
+  }
+  smoothSeams(g); return g;
+}
+function placeRock(x, z, sx, sy, sz, o = {}){
+  const m = new T.Mesh(rockGeo(o.seed != null ? o.seed : rnd() * 50), M.rock[o.mat != null ? o.mat : (rnd() * 4) | 0]);
+  m.scale.set(sx, sy, sz);
+  m.position.set(x, heightAt(x, z) + sy * (o.sink != null ? o.sink : 0.55), z);
+  m.rotation.y = o.ry != null ? o.ry : rnd() * 6.28;
+  m.castShadow = true; m.receiveShadow = true; scene.add(m); return m;
+}
+// 鹿威しが当たる石
+placeRock(1.97, -2.0, 0.21, 0.31, 0.22, { seed: 4, mat: 2, ry: 0.4 });
+// 池の縁石
+[[-165, .66, .2, .8], [-130, .63, .15, .8], [-95, .64, .21, .8], [-60, .66, .14, .8], [40, .62, .11, .45], [75, .6, .09, .4], [105, .63, .12, .45], [140, .66, .1, .45]].forEach(([a, r, s, h]) => {
+  const rad = a * Math.PI / 180;
+  placeRock(PC[0] + Math.cos(rad) * r, PC[1] + Math.sin(rad) * r, s * 1.2, s * h, s, { sink: 0.4 });
+});
+// 流れの縁石
+[0.16, 0.3, 0.44, 0.7, 0.8, 0.9].forEach((t, i) => {
+  const p = STREAM.getPointAt(t), tg = STREAM.getTangentAt(t);
+  [1, -1].forEach(sd => {
+    if(rnd() < 0.25) return;
+    const off = rr(0.44, 0.56), s = rr(0.07, 0.14);
+    placeRock(p.x - tg.z * off * sd, p.z + tg.x * off * sd, s * 1.3, s * 0.8, s, { sink: 0.35 });
+  });
+});
+// 北壁ぎわの組石
+placeRock(0.45, -2.5, 0.22, 0.28, 0.2, { sink: 0.5 });
+placeRock(0.14, -2.62, 0.15, 0.15, 0.14);
+placeRock(-0.7, -2.58, 0.17, 0.12, 0.15);
+placeRock(-2.3, -0.7, 0.25, 0.2, 0.22);
+// 砂紋の島
+placeRock(0.95, 0.45, 0.3, 0.16, 0.25, { seed: 9, mat: 2 });
+placeRock(1.9, 1.15, 0.24, 0.16, 0.2, { seed: 13, mat: 1 });
+// 縁側の沓脱石
+placeRock(0.12, 1.72, 0.36, 0.13, 0.22, { seed: 21, mat: 1, ry: 0.1 });
+
+// 橋石と飛び石
+const bt = 0.58, bp = STREAM.getPointAt(bt), btg = STREAM.getTangentAt(bt);
+let bn = new T.Vector3(-btg.z, 0, btg.x); if(bn.x < 0) bn.negate();
+const slab = placeRock(bp.x, bp.z, 0.56, 0.075, 0.28, { seed: 30, mat: 1, ry: Math.atan2(-bn.z, bn.x), sink: 0.75 });
+slab.position.y = 0.045;
+function chain(a, b, n, sc){
+  for(let i = 0; i < n; i++){
+    const t = (i + 0.5) / n, x = lerp(a[0], b[0], t) + Math.sin(i * 2.3) * 0.06, z = lerp(a[1], b[1], t) + Math.cos(i * 1.7) * 0.05;
+    placeRock(x, z, rr(0.17, 0.23) * sc, 0.06, rr(0.14, 0.19) * sc, { mat: 1, sink: 0.6 });
+  }
+}
+chain([0.12, 1.5], [bp.x + bn.x * 0.95, bp.z + bn.z * 0.95], 4, 1);
+chain([bp.x - bn.x * 0.95, bp.z - bn.z * 0.95], [-1.45, -1.25], 2, 1);
+
+// 灯籠
+(function lantern(){
+  const g = new T.Group(); g.position.set(-0.25, heightAt(-0.25, -2.35), -2.35);
+  const S = M.rock[2];
+  const part = (geo, y) => { const m = new T.Mesh(geo, S); m.position.y = y; m.castShadow = m.receiveShadow = true; g.add(m); return m; };
+  part(new T.CylinderGeometry(0.15, 0.19, 0.1, 6), 0.05);
+  part(new T.CylinderGeometry(0.055, 0.065, 0.42, 8), 0.31);
+  part(new T.CylinderGeometry(0.15, 0.12, 0.08, 6), 0.56);
+  const fb = part(new T.CylinderGeometry(0.105, 0.105, 0.22, 6), 0.71);
+  [0, 1, 2].forEach(i => { const w = new T.Mesh(new T.BoxGeometry(0.075, 0.1, 0.02), M.dark); w.position.set(Math.sin(i * 2.094) * 0.092, 0.71, Math.cos(i * 2.094) * 0.092); w.rotation.y = i * 2.094; g.add(w); });
+  const roof = part(new T.ConeGeometry(0.26, 0.17, 6), 0.9);
+  const roof2 = part(new T.CylinderGeometry(0.03, 0.1, 0.05, 6), 0.985);
+  part(new T.SphereGeometry(0.035, 10, 8), 1.04);
+  g.rotation.y = 0.3; scene.add(g);
+})();
+
+// 苔
+(function mossClumps(){
+  const list = []; let tries = 0;
+  while(list.length < 1500 && tries++ < 16000){
+    const x = rr(-2.6, 2.6), z = rr(-2.8, 1.98), d = streamDist(x, z);
+    if(rnd() > mossAmt(x, z, d) || d < 0.3) continue;
+    const y = heightFrom(x, z, d); if(y < -0.02) continue;
+    list.push([x, y, z, rr(0.04, 0.11)]);
+  }
+  const im = new T.InstancedMesh(new T.SphereGeometry(1, 10, 6), M.moss, list.length);
+  const m = new T.Matrix4(), q = new T.Quaternion(), col = new T.Color();
+  list.forEach(([x, y, z, s], i) => {
+    q.setFromEuler(new T.Euler(0, rnd() * 6.28, 0));
+    m.compose(new T.Vector3(x, y + s * 0.12, z), q, new T.Vector3(s * rr(0.9, 1.4), s * 0.42, s * rr(0.9, 1.4)));
+    im.setMatrixAt(i, m);
+    col.setHSL(0.2 + rnd() * 0.07, 0.34 + rnd() * 0.16, 0.13 + rnd() * 0.14).convertSRGBToLinear();
+    im.setColorAt(i, col);
+  });
+  im.receiveShadow = true; scene.add(im);
+})();
+// 川底と岸の小石
+(function pebbles(){
+  const N = 380, im = new T.InstancedMesh(new T.SphereGeometry(1, 6, 5), std({ roughness: 0.9 }), N);
+  const m = new T.Matrix4(), q = new T.Quaternion(), col = new T.Color();
+  for(let i = 0; i < N; i++){
+    let x, z;
+    if(rnd() < 0.75){
+      const k = (rnd() * NS) | 0, off = rr(-0.5, 0.5), tg = SPT[k]; x = SPX[k] - tg.z * off; z = SPZ[k] + tg.x * off;
+    } else { const a = rnd() * 6.28, r = rr(0.05, 0.6); x = PC[0] + Math.cos(a) * r; z = PC[1] + Math.sin(a) * r; }
+    if(x < -2.55 || x > 2.55 || z < -2.75 || z > 1.95) x = clamp(x, -2.5, 2.5), z = clamp(z, -2.7, 1.9);
+    const s = rr(0.012, 0.034);
+    q.setFromEuler(new T.Euler(rnd() * 3, rnd() * 3, rnd() * 3));
+    m.compose(new T.Vector3(x, heightAt(x, z) + s * 0.3, z), q, new T.Vector3(s * rr(1, 1.5), s * 0.7, s));
+    im.setMatrixAt(i, m);
+    col.setHSL(0.08 + rnd() * 0.06, 0.06 + rnd() * 0.1, 0.25 + rnd() * 0.3).convertSRGBToLinear(); im.setColorAt(i, col);
+  }
+  im.receiveShadow = true; scene.add(im);
+})();
+// シダ
+(function ferns(){
+  const pos = [], nor = [], idx = [];
+  for(let b = 0; b < 11; b++){
+    const a = b / 11 * 6.283 + rnd() * 0.4, L = rr(0.26, 0.38), ca = Math.cos(a), sa = Math.sin(a), base = pos.length / 3, seg = 10;
+    for(let i = 0; i <= seg; i++){
+      const s = i / seg, r = L * s * 0.85, h = L * (1.15 * s - 0.9 * s * s) + 0.02;
+      const w = 0.034 * Math.sin(Math.PI * Math.pow(s, 0.75)) * (i % 2 ? 0.6 : 1);
+      const cx = ca * r, cz = sa * r, px = -sa * w, pz = ca * w;
+      pos.push(cx - px, h, cz - pz, cx + px, h, cz + pz); nor.push(0, 1, 0, 0, 1, 0);
+    }
+    for(let i = 0; i < seg; i++){ const k = base + i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
+  }
+  const g = new T.BufferGeometry();
+  g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new T.Float32BufferAttribute(nor, 3)); g.setIndex(idx);
+  const spots = [[-0.55, -2.5], [0.05, -2.55], [-2.3, -1.3], [-2.25, -0.2], [-1.4, -2.55], [0.6, -1.15], [-0.05, -1.35], [2.3, -0.3], [-2.3, 0.9], [2.35, 1.5], [1.6, -2.55], [-1.05, -1.6]];
+  const im = new T.InstancedMesh(g, std({ color: C('#4f7a36'), roughness: 0.8, side: T.DoubleSide }), spots.length);
+  const m = new T.Matrix4(), q = new T.Quaternion();
+  spots.forEach(([x, z], i) => {
+    q.setFromEuler(new T.Euler(0, rnd() * 6.28, 0)); const s = rr(0.8, 1.3);
+    m.compose(new T.Vector3(x, heightAt(x, z), z), q, new T.Vector3(s, s, s)); im.setMatrixAt(i, m);
+  });
+  im.castShadow = true; im.receiveShadow = true; scene.add(im);
+})();
+
+/* ================= 建物 (壁・軒・縁側) ================= */
+// 北壁
+box(5.8, 0.95, 0.3, M.yaki, 0, 0.475, -2.95, { uv: 1.6 });
+box(5.8, 2.45, 0.3, M.plaster, 0, 2.175, -2.95, { uv: 0.7 });
+// 東壁
+box(0.3, 0.95, 5.8, M.yaki, 2.75, 0.475, 0.2, { uv: 1.6 });
+box(0.3, 2.45, 5.8, M.plaster, 2.75, 2.175, 0.2, { uv: 0.7 });
+// 西壁 (障子)
+box(0.3, 3.4, 5.8, M.plaster, -2.75, 1.7, 0.2, { uv: 0.7 });
+(function westShoji(){
+  const w = 5.0, h = 1.75, g = new T.PlaneGeometry(w, h), uv = g.attributes.uv;
+  for(let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 5.5, uv.getY(i));
+  const m = new T.Mesh(g, M.shoji); m.rotation.y = Math.PI / 2; m.position.set(-2.585, 1.33, -0.35); m.receiveShadow = true; scene.add(m);
+  box(0.08, 0.1, 5.1, M.wood, -2.57, 2.25, -0.35, { uv: 1.5 });
+  box(0.1, 0.08, 5.1, M.wood, -2.56, 0.42, -0.35, { uv: 1.5 });
+  box(0.1, 0.42, 5.1, M.rock[2], -2.58, 0.21, -0.35, { uv: 1 });
+  for(let i = 0; i <= 5; i++) box(0.09, 1.84, 0.07, M.wood, -2.56, 1.33, -0.35 - 2.5 + i * (5.0 / 5), { uv: 1.5 });
+})();
+// 東壁の丸窓
+(function roundWindow(){
+  const cx = 2.585, cy = 1.95, cz = -0.25;
+  const disc = new T.Mesh(new T.CircleGeometry(0.46, 40), std({ color: C('#1b1510'), emissive: C('#3a2410'), emissiveIntensity: 0.6, roughness: 1 }));
+  disc.rotation.y = -Math.PI / 2; disc.position.set(cx - 0.0, cy, cz); scene.add(disc);
+  const ring = new T.Mesh(new T.TorusGeometry(0.5, 0.05, 8, 40), M.dwood); ring.rotation.y = -Math.PI / 2; ring.position.set(cx - 0.02, cy, cz); ring.castShadow = true; scene.add(ring);
+  for(let i = -3; i <= 3; i++){
+    const hh = 2 * Math.sqrt(Math.max(0.2116 - Math.pow(i * 0.13, 2), 0));
+    const b = addMesh(new T.CylinderGeometry(0.008, 0.008, hh, 5), M.bamboo, cx - 0.04, cy, cz + i * 0.13, { cast: false });
+  }
+  [-0.2, 0, 0.2].forEach(dy => {
+    const hw = 2 * Math.sqrt(Math.max(0.2116 - dy * dy, 0));
+    const b = addMesh(new T.CylinderGeometry(0.008, 0.008, hw, 5), M.bamboo, cx - 0.06, cy + dy, cz, { cast: false }); b.rotation.x = Math.PI / 2;
+  });
+})();
+// 四隅の柱・貫
+[[-2.53, -2.73], [2.53, -2.73]].forEach(([x, z]) => box(0.14, 3.4, 0.14, M.wood, x, 1.7, z, { uv: 1.5 }));
+box(5.2, 0.16, 0.06, M.wood, 0, 3.2, -2.79, { uv: 1.5 });
+box(0.06, 0.16, 5.4, M.wood, 2.57, 3.2, 0.0, { uv: 1.5 });
+// 軒 (北・東・西)。天井側は暗い木、先端はこげ茶
+const fascia = M.dwood;
+box(5.8, 0.22, 0.9, [fascia, fascia, M.tile, M.dwood, fascia, fascia], 0, 3.51, -2.65, { uv: 1.2 });
+box(0.9, 0.22, 4.5, [fascia, fascia, M.tile, M.dwood, fascia, fascia], -2.45, 3.51, -0.85, { uv: 1.2 });
+box(0.9, 0.22, 4.5, [fascia, fascia, M.tile, M.dwood, fascia, fascia], 2.45, 3.51, -0.85, { uv: 1.2 });
+// 南 (縁側とその屋根)
+box(5.2, 0.12, 1.4, M.floor, 0, 0.39, 2.7, { uv: 0.8 });
+box(5.2, 0.33, 0.1, M.dark, 0, 0.165, 2.02, { uv: 1 });
+box(5.2, 0.05, 0.16, M.floor, 0, 0.42, 2.0, { uv: 0.8 });
+box(5.2, 0.12, 1.9, M.ceil, 0, 2.5, 2.35, { uv: 0.8 });
+box(5.8, 0.34, 0.18, M.wood, 0, 2.72, 1.42, { uv: 1.5 });
+box(5.8, 0.15, 0.55, M.tile, 0, 2.99, 1.35, { uv: 1 });
+[-2.45, 2.45].forEach(x => box(0.16, 2.1, 0.16, M.wood, x, 1.5, 1.55, { uv: 1.5 }));
+box(5.6, 3.4, 0.2, M.plaster, 0, 1.7, 3.5, { uv: 0.7 });
+(function southShoji(){
+  const g = new T.PlaneGeometry(5.2, 1.9), uv = g.attributes.uv;
+  for(let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 6, uv.getY(i));
+  const m = new T.Mesh(g, M.shoji); m.rotation.y = Math.PI; m.position.set(0, 1.45, 3.39); scene.add(m);
+})();
+
+/* ================= 竹垣・筧・竹林 ================= */
+function bambooCyl(r0, r1, len, seg){
+  const g = new T.CylinderGeometry(r1, r0, len, seg || 7, 1), uv = g.attributes.uv;
+  for(let i = 0; i < uv.count; i++) uv.setY(i, uv.getY(i) * len / 0.3);
+  return g;
+}
+(function fence(){
+  const z = -2.6;
+  [0.85, 1.45, 2.05, 2.5].forEach(x => addMesh(bambooCyl(0.03, 0.03, 1.55), M.bamboo, x, 0.75, z - 0.04));
+  [0.3, 0.8, 1.28].forEach(y => { const b = addMesh(bambooCyl(0.016, 0.016, 1.8), M.bamboo, 1.7, y, z + 0.0); b.rotation.z = Math.PI / 2; });
+  for(let i = 0; i < 16; i++) addMesh(bambooCyl(0.012, 0.012, 1.34), M.bamboo, 0.88 + i * 0.108, 0.7, z + 0.04);
+  // 筧 (かけひ) と支柱
+  const pipe = addMesh(bambooCyl(0.024, 0.024, 0.85, 8), M.bamboo, 1.48, 1.08, -2.42); pipe.rotation.x = Math.PI / 2;
+  addMesh(bambooCyl(0.018, 0.018, 1.04), M.bamboo, 1.48, 0.52, -2.3);
+})();
+
+function taperedTube(curve, segs, radial, r0, r1, vScale){
+  const fr = curve.computeFrenetFrames(segs, false), len = curve.getLength();
+  const pos = [], nor = [], uv = [], idx = [];
+  for(let i = 0; i <= segs; i++){
+    const t = i / segs, p = curve.getPointAt(t), N = fr.normals[i], B = fr.binormals[i], r = lerp(r0, r1, Math.pow(t, 0.9));
+    for(let j = 0; j <= radial; j++){
+      const a = j / radial * 6.2832, cx = Math.cos(a), sx = Math.sin(a);
+      const nx = cx * N.x + sx * B.x, ny = cx * N.y + sx * B.y, nz = cx * N.z + sx * B.z;
+      pos.push(p.x + r * nx, p.y + r * ny, p.z + r * nz); nor.push(nx, ny, nz); uv.push(j / radial, t * len / vScale);
+    }
+  }
+  for(let i = 0; i < segs; i++) for(let j = 0; j < radial; j++){
+    const a = i * (radial + 1) + j, b = a + radial + 1;
+    idx.push(a, b, a + 1, b, b + 1, a + 1);
+  }
+  const g = new T.BufferGeometry();
+  g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new T.Float32BufferAttribute(nor, 3)); g.setAttribute('uv', new T.Float32BufferAttribute(uv, 2)); g.setIndex(idx);
+  return g;
+}
+function swayMat(mat){
+  mat.onBeforeCompile = sh => {
+    sh.uniforms.uTime = timeU;
+    sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      #ifdef USE_INSTANCING
+      float ph = instanceMatrix[3][0] * 2.1 + instanceMatrix[3][1] * 1.7 + instanceMatrix[3][2] * 1.3;
+      transformed.x += sin(uTime * 2.1 + ph) * 0.018; transformed.z += cos(uTime * 1.7 + ph * 1.3) * 0.018; transformed.y += sin(uTime * 2.6 + ph) * 0.008;
+      #endif`);
+  };
+  return mat;
+}
+function mapleLeafGeo(){
+  const s = new T.Shape(), n = 64;
+  for(let i = 0; i <= n; i++){
+    const a = i / n * 6.2832, ap = a - Math.PI / 2;
+    const r = 0.062 * (0.4 + 0.6 * Math.pow(Math.abs(Math.cos(2.5 * ap)), 1.6)) * (1 + 0.07 * Math.sin(a * 25));
+    const x = Math.cos(a) * r, y = Math.sin(a) * r; if(i === 0) s.moveTo(x, y); else s.lineTo(x, y);
+  }
+  return new T.ShapeGeometry(s);
+}
+const mapleGeo = mapleLeafGeo();
+const mapleMat = swayMat(std({ color: 0xffffff, roughness: 0.75, side: T.DoubleSide, emissive: C('#2e1206'), emissiveIntensity: 0.4 }));
+function mapleColor(){
+  const r = rnd(), c = new T.Color();
+  if(r < 0.42) c.setHSL(0.012 + rnd() * 0.02, 0.78, 0.36 + rnd() * 0.1);
+  else if(r < 0.72) c.setHSL(0.07 + rnd() * 0.03, 0.85, 0.45 + rnd() * 0.08);
+  else if(r < 0.86) c.setHSL(0.14 + rnd() * 0.03, 0.7, 0.42);
+  else c.setHSL(0.22 + rnd() * 0.05, 0.5, 0.32);
+  return c.convertSRGBToLinear();
+}
+function leavesMesh(geo, mat, list, shadow){
+  const im = new T.InstancedMesh(geo, mat, list.length), m = new T.Matrix4();
+  list.forEach((L, i) => { m.compose(L.p, L.q, new T.Vector3(L.s, L.s, L.s)); im.setMatrixAt(i, m); im.setColorAt(i, L.c); });
+  im.castShadow = shadow !== false; im.receiveShadow = true; scene.add(im); return im;
+}
+
+// もみじ
+(function maple(){
+  const P = (x, y, z) => new T.Vector3(x, y, z);
+  const trunk = new T.CatmullRomCurve3([P(-1.92, -0.05, -1.58), P(-1.9, 0.5, -1.52), P(-1.8, 1.1, -1.44), P(-1.62, 1.75, -1.34), P(-1.42, 2.4, -1.28)]);
+  addMesh(taperedTube(trunk, 24, 8, 0.09, 0.035, 0.4), M.bark, 0, 0, 0);
+  const leaves = [];
+  const cluster = (c, n, rad) => {
+    for(let i = 0; i < n; i++){
+      const p = P(c.x + rr(-1, 1) * rad, c.y + rr(-0.7, 0.7) * rad, c.z + rr(-1, 1) * rad);
+      if(p.y < 3.55){ p.x = Math.max(p.x, -1.95); p.z = Math.max(p.z, -2.15); }
+      const q = new T.Quaternion().setFromEuler(new T.Euler(-Math.PI / 2 + rr(-0.9, 0.9), rnd() * 6.28, rnd() * 6.28, 'YXZ'));
+      leaves.push({ p, q, s: rr(0.8, 1.4), c: mapleColor() });
+    }
+  };
+  const branch = (start, dir, len, depth, r0) => {
+    const p1 = start.clone().addScaledVector(dir, len * 0.4).add(P(rr(-0.05, 0.05), len * 0.05, rr(-0.05, 0.05)));
+    const d2 = dir.clone().add(P(rr(-0.3, 0.3), rr(-0.1, 0.25), rr(-0.3, 0.3))).normalize();
+    const p2 = p1.clone().addScaledVector(d2, len * 0.35);
+    const d3 = d2.clone().add(P(rr(-0.3, 0.3), rr(0, 0.3), rr(-0.3, 0.3))).normalize();
+    const p3 = p2.clone().addScaledVector(d3, len * 0.3);
+    const cv = new T.CatmullRomCurve3([start, p1, p2, p3]);
+    addMesh(taperedTube(cv, 10, 6, r0, r0 * 0.35, 0.4), M.bark, 0, 0, 0);
+    cluster(p2, depth === 0 ? 26 : 34, 0.34); cluster(p3, 46, 0.42);
+    if(depth === 0){ for(let k = 0; k < 3; k++){
+      const s = k === 0 ? p1 : (k === 1 ? p2 : p3);
+      const dd = d3.clone().add(P(rr(-0.7, 0.7), rr(0.05, 0.5), rr(-0.7, 0.7))).normalize();
+      branch(s.clone(), dd, len * 0.6, 1, r0 * 0.45);
+    } }
+  };
+  for(let i = 0; i < 7; i++){
+    const t = 0.42 + i * 0.085, s = trunk.getPointAt(Math.min(t, 1));
+    const a = rr(-0.5, 2.1), up = rr(0.45, 0.95);
+    branch(s, P(Math.cos(a) * (1 - up * 0.5), up, Math.sin(a) * (1 - up * 0.5)).normalize(), rr(0.9, 1.35), 0, 0.038);
+  }
+  cluster(P(-1.4, 2.5, -1.3), 60, 0.5);
+  leavesMesh(mapleGeo, mapleMat, leaves);
+})();
+
+// 竹
+(function bamboo(){
+  const P = (x, y, z) => new T.Vector3(x, y, z);
+  const bases = [[2.28, -2.68, 5.4, 1.0], [2.48, -2.58, 5.0, 0.8], [2.12, -2.72, 5.6, 1.15], [2.38, -2.7, 4.8, 0.7], [1.95, -2.7, 5.2, 0.9], [2.52, -2.72, 5.5, 0.9]];
+  const leaves = [], geoL = new T.ShapeGeometry((() => { const s = new T.Shape(); s.moveTo(0, 0); s.quadraticCurveTo(0.03, 0.09, 0, 0.24); s.quadraticCurveTo(-0.03, 0.09, 0, 0); return s; })(), 4);
+  const up = P(0, 1, 0);
+  bases.forEach(([x, z0, h, lean]) => {
+    const pts = []; for(let i = 0; i <= 6; i++){ const s = i / 6, y = h * s; pts.push(P(x - 0.9 * lean * s * s, y, z0 + 1.05 * lean * s * s)); }
+    const cv = new T.CatmullRomCurve3(pts);
+    addMesh(taperedTube(cv, 30, 7, 0.028, 0.011, 0.3), M.bamboo, 0, 0, 0);
+    for(let i = 0; i < 90; i++){
+      const t = rr(0.55, 1.0), p = cv.getPointAt(t);
+      p.add(P(rr(-0.3, 0.3), rr(-0.2, 0.2), rr(-0.3, 0.3)));
+      const dir = P(rr(-1, 1), rr(-0.7, 0.2), rr(-1, 1)).normalize();
+      const q = new T.Quaternion().setFromUnitVectors(up, dir).multiply(new T.Quaternion().setFromAxisAngle(up, rnd() * 6.28));
+      const c = new T.Color().setHSL(0.24 + rnd() * 0.05, 0.5, 0.26 + rnd() * 0.12).convertSRGBToLinear();
+      leaves.push({ p, q, s: rr(0.8, 1.4), c });
+    }
+  });
+  leavesMesh(geoL, swayMat(std({ color: 0xffffff, roughness: 0.7, side: T.DoubleSide, emissive: C('#0c1a06'), emissiveIntensity: 0.4 })), leaves);
+})();
+
+/* ================= 鹿威し ================= */
+const SH = { x: 1.75, y: 0.6, z: -2.0 };
+const shishi = new T.Group(); shishi.position.set(SH.x, 0, SH.z); scene.add(shishi);
+const pivot = new T.Group(); pivot.position.y = SH.y; pivot.rotation.y = Math.PI; shishi.add(pivot);
+const arm = new T.Group(); pivot.add(arm);
+let waterFill;
+(function buildShishi(){
+  // 支柱・軸
+  [-0.09, 0.09].forEach(z => { addMesh(new T.BoxGeometry(0.05, 0.8, 0.04), M.wood, 0, 0.4, z, { parent: shishi }); });
+  addMesh(new T.BoxGeometry(0.04, 0.03, 0.22), M.wood, 0, 0.25, 0, { parent: shishi });
+  const axle = addMesh(new T.CylinderGeometry(0.011, 0.011, 0.26, 8), M.dwood, 0, 0, 0, { parent: pivot }); axle.rotation.x = Math.PI / 2;
+  // 竹の筒 (軸は局所 +x、口が +x)
+  const mat = std({ map: bambooTex, color: C('#f0f0c0'), roughness: 0.5, side: T.DoubleSide });
+  const back = new T.CylinderGeometry(0.035, 0.035, 0.14, 12, 1, true); back.rotateZ(-Math.PI / 2); back.translate(-0.09, 0, 0);
+  addMesh(back, mat, 0, 0, 0, { parent: arm });
+  const cap = new T.CircleGeometry(0.035, 12); cap.rotateY(Math.PI / 2); cap.translate(-0.16, 0, 0);
+  addMesh(cap, mat, 0, 0, 0, { parent: arm });
+  const trough = new T.CylinderGeometry(0.035, 0.035, 0.32, 14, 1, true, Math.PI / 2 - 1.75, 3.5); trough.rotateZ(-Math.PI / 2); trough.translate(0.14, 0, 0);
+  addMesh(trough, mat, 0, 0, 0, { parent: arm });
+  const tie = addMesh(new T.TorusGeometry(0.037, 0.005, 6, 14), M.dwood, 0, 0, 0, { parent: arm }); tie.rotation.y = Math.PI / 2;
+  const w = new T.Mesh(new T.CylinderGeometry(0.026, 0.026, 0.45, 10), std({ color: C('#7fb8c4'), transparent: true, opacity: 0.85, roughness: 0.1 }));
+  w.geometry.rotateZ(-Math.PI / 2); w.position.set(-0.15, -0.006, 0); waterFill = w; arm.add(w);
+})();
+
+// 水の細い流れ (筧から筒へ)
+const streamMat = new T.ShaderMaterial({
+  transparent: true, depthWrite: false, uniforms: { uTime: timeU },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `uniform float uTime; varying vec2 vUv;
+    void main(){ float s = 0.5 + 0.5 * sin(vUv.y * 70.0 - uTime * 30.0 + sin(vUv.x * 6.28) * 2.0);
+      gl_FragColor = vec4(0.86, 0.95, 0.98, 0.32 + 0.38 * s);
+      #include <encodings_fragment> }`
+});
+const thread = new T.Mesh(new T.CylinderGeometry(1, 1, 1, 6, 1, true), streamMat); scene.add(thread);
+const SUP = { x: 1.48, top: 1.05, z: -2.0 };
+
+// 落水の粒
+const NP = 90, parts = [];
+const partMesh = new T.InstancedMesh(new T.SphereGeometry(1, 6, 4), std({ color: C('#e6f4f8'), transparent: true, opacity: 0.8, roughness: 0.1, emissive: C('#324046') }), NP);
+partMesh.frustumCulled = false; scene.add(partMesh);
+for(let i = 0; i < NP; i++) parts.push({ on: false, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0 });
+const zeroM = new T.Matrix4().makeScale(0, 0, 0);
+for(let i = 0; i < NP; i++) partMesh.setMatrixAt(i, zeroM);
+
+// 鹿威しの動き
+const S = { th: 0.42, om: 0, f: 0, phase: 'fill', fillT: 4.2, rest: 0.42, min: -0.72, emit: 0, lastRip: 0, lastSplash: 0 };
+function stepShishi(dt){
+  if(S.phase === 'fill'){
+    S.f = Math.min(1, S.f + dt / S.fillT);
+    S.th = S.rest - 0.05 * smooth(0.75, 1.0, S.f);
+    if(S.f >= 1){ S.phase = 'tip'; S.om = 0; Sound.pour(); }
+  } else if(S.phase === 'tip'){
+    S.om += -9 * dt; S.om *= (1 - 1.2 * dt); S.th += S.om * dt;
+    if(S.th < 0.2) S.f = Math.max(0, S.f - dt * 1.6);
+    if(S.th <= S.min){ S.th = S.min; S.om = -S.om * 0.25; }
+    if(S.f < 0.2) S.phase = 'return';
+  } else {
+    S.om += 13 * dt; S.om *= (1 - 0.6 * dt); S.th += S.om * dt;
+    if(S.th < 0.2) S.f = Math.max(0, S.f - dt * 2.2);
+    if(S.th <= S.min){ S.th = S.min; S.om = Math.max(S.om, 0); }
+    if(S.th >= S.rest){
+      S.th = S.rest; Sound.kon(clamp(S.om / 5, 0.15, 1)); S.om = -S.om * 0.28;
+      if(-S.om < 0.6){ S.om = 0; S.phase = 'fill'; S.f = 0; S.fillT = rr(8.5, 11.5); }
+    }
+  }
+  Sound.fill(S.f, S.phase === 'fill');
+  arm.rotation.z = S.th;
+  const f = Math.max(0.001, S.f);
+  waterFill.scale.set(f, 1, 1); waterFill.position.x = -0.15 + 0.225 * f;
+  // 口から落ちる水
+  if((S.phase !== 'fill') && S.th < 0.15 && S.f > 0.02){
+    S.emit += dt * 170 * Math.min(1, S.f * 1.6);
+    while(S.emit >= 1){
+      S.emit -= 1;
+      const p = parts.find(q => !q.on); if(!p) break;
+      const c = Math.cos(S.th), s = Math.sin(S.th), sp = 0.4 + 0.9 * Math.max(0, 0.15 - S.th);
+      p.on = true; p.x = SH.x - 0.31 * c + rr(-0.005, 0.005); p.y = SH.y + 0.31 * s - 0.01; p.z = SH.z + rr(-0.03, 0.03);
+      p.vx = -c * sp + rr(-0.05, 0.05); p.vy = s * sp + rr(-0.1, 0.05); p.vz = rr(-0.05, 0.05);
+    }
+  }
+  const t = timeU.value;
+  for(let i = 0; i < NP; i++){
+    const p = parts[i]; if(!p.on) continue;
+    p.vy -= 9.8 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+    const gh = heightAt(p.x, p.z), lvl = Math.max(gh, WL);
+    if(p.y <= lvl){
+      p.on = false; partMesh.setMatrixAt(i, zeroM);
+      if(gh < WL){
+        if(t - S.lastRip > 0.08){ S.lastRip = t; addRipple(p.x, p.z, rr(0.7, 1.1)); }
+        if(t - S.lastSplash > 0.07){ S.lastSplash = t; Sound.splash(); }
+      }
+    }
+  }
+  const m = new T.Matrix4();
+  for(let i = 0; i < NP; i++){
+    const p = parts[i]; if(!p.on) continue;
+    const l = 1 + Math.min(Math.abs(p.vy) * 0.25, 1.6);
+    m.compose(new T.Vector3(p.x, p.y, p.z), new T.Quaternion(), new T.Vector3(0.0095, 0.0095 * l, 0.0095)); partMesh.setMatrixAt(i, m);
+  }
+  partMesh.instanceMatrix.needsUpdate = true;
+  // 細い流れ
+  const mouthY = SH.y + 0.27 * Math.sin(S.th) + 0.036;
+  const len = SUP.top - mouthY;
+  thread.scale.set(0.0045, Math.max(len, 0.01), 0.0045);
+  thread.position.set(SUP.x, mouthY + len / 2, SUP.z);
+}
+
+/* ================= 鯉・落ち葉・塵 ================= */
+const koi = [];
+(function koiSetup(){
+  const mk = (c1, c2, ph) => {
+    const g = new T.Group();
+    const body = new T.Mesh(new T.SphereGeometry(1, 12, 8), std({ color: C(c1), roughness: 0.5 })); body.scale.set(0.085, 0.02, 0.028); g.add(body);
+    const patch = new T.Mesh(new T.SphereGeometry(1, 10, 6), std({ color: C(c2), roughness: 0.5 })); patch.scale.set(0.035, 0.012, 0.022); patch.position.set(0.02, 0.011, 0); g.add(patch);
+    const tp = new T.Group(); tp.position.x = -0.075; g.add(tp);
+    const tail = new T.Mesh(new T.ConeGeometry(0.028, 0.07, 4), std({ color: C(c1), roughness: 0.6 })); tail.rotation.z = Math.PI / 2; tail.scale.z = 0.25; tail.position.x = -0.035; tp.add(tail);
+    scene.add(g); koi.push({ g, tp, ph });
+  };
+  mk('#e2621b', '#f1ece0', 0); mk('#efe9dc', '#d9481a', 2.1); mk('#d9891f', '#efe9dc', 4.2);
+})();
+function updateKoi(t){
+  koi.forEach(k => {
+    const pos = (u) => [PC[0] + 0.27 * Math.cos(u * 0.33 + k.ph) + 0.05 * Math.sin(u * 0.9), PC[1] + 0.2 * Math.sin(u * 0.47 + k.ph * 1.3)];
+    const a = pos(t), b = pos(t + 0.05);
+    k.g.position.set(a[0], -0.115 + Math.sin(t * 0.5 + k.ph) * 0.006, a[1]);
+    k.g.rotation.y = Math.atan2(-(b[1] - a[1]), b[0] - a[0]);
+    k.tp.rotation.y = Math.sin(t * 5 + k.ph) * 0.45;
+  });
+}
+
+const FL = 16, leafFall = [], fallMesh = new T.InstancedMesh(mapleGeo, mapleMat, FL);
+fallMesh.frustumCulled = false; fallMesh.castShadow = true; scene.add(fallMesh);
+function resetLeaf(l, initial){
+  l.x = rr(-2.0, -0.4); l.z = rr(-2.0, -0.8); l.y = initial ? rr(0.4, 3.6) : rr(3.3, 4.1);
+  l.state = 0; l.ph = rnd() * 6.28; l.spin = rr(-1, 1); l.fall = rr(0.14, 0.26); l.life = 0; l.sc = rr(0.9, 1.3); l.rot = rnd() * 6.28;
+  fallMesh.setColorAt(l.i, mapleColor());
+  if(fallMesh.instanceColor) fallMesh.instanceColor.needsUpdate = true;
+}
+for(let i = 0; i < FL; i++){ const l = { i }; resetLeaf(l, true); leafFall.push(l); }
+const dummy = new T.Object3D();
+function updateLeaves(dt, t){
+  leafFall.forEach(l => {
+    let s = l.sc, rx = -Math.PI / 2, rz = l.rot;
+    if(l.state === 0){
+      l.y -= l.fall * dt; l.x += (Math.sin(t * 0.9 + l.ph) * 0.22 + 0.03) * dt; l.z += Math.cos(t * 0.7 + l.ph) * 0.14 * dt;
+      rx += Math.sin(t * 1.6 + l.ph) * 0.7; rz = l.rot + t * l.spin * 0.6;
+      l.x = clamp(l.x, -2.5, 2.5); l.z = clamp(l.z, -2.7, 1.9);
+      const gh = heightAt(l.x, l.z);
+      if(l.y <= Math.max(gh, WL) + 0.006){
+        if(gh < WL){ l.state = 1; l.y = WL + 0.004; addRipple(l.x, l.z, 0.35); } else { l.state = 2; l.y = gh + 0.008; }
+        l.life = 0; l.rot = rz;
+      }
+    } else if(l.state === 1){
+      l.life += dt; l.y = WL + 0.004;
+      let k = 0, m = 1e9; for(let i = 0; i <= NS; i += 2){ const d = (l.x - SPX[i]) ** 2 + (l.z - SPZ[i]) ** 2; if(d < m){ m = d; k = i; } }
+      const inPond = Math.hypot(l.x - PC[0], l.z - PC[1]) < 0.62;
+      const sp = inPond ? 0.03 : 0.11, tg = SPT[k];
+      if(inPond){ l.x += -0.9 * sp * dt; l.z += 0.35 * sp * dt; } else { l.x += tg.x * sp * dt; l.z += tg.z * sp * dt; }
+      l.rot += dt * 0.08 * l.spin; rz = l.rot;
+      if(l.x < -2.5 || l.life > 55) s = Math.max(0, s * (1 - (l.life - 50) / 5));
+      if(l.x < -2.5 || l.life > 55) resetLeaf(l, false);
+    } else {
+      l.life += dt; if(l.life > 14) s *= Math.max(0, 1 - (l.life - 14) / 3);
+      if(l.life > 17) resetLeaf(l, false);
+    }
+    dummy.position.set(l.x, l.y, l.z); dummy.rotation.set(rx, 0, rz, 'XYZ'); dummy.scale.setScalar(s); dummy.updateMatrix();
+    fallMesh.setMatrixAt(l.i, dummy.matrix);
+  });
+  fallMesh.instanceMatrix.needsUpdate = true;
+}
+
+const NM = 150, moteGeo = new T.BufferGeometry(), motePos = new Float32Array(NM * 3), moteV = [];
+for(let i = 0; i < NM; i++){ motePos[i * 3] = rr(-2, 1.7); motePos[i * 3 + 1] = rr(0.2, 3.2); motePos[i * 3 + 2] = rr(-2.2, -0.2); moteV.push(rr(0, 6.28)); }
+moteGeo.setAttribute('position', new T.BufferAttribute(motePos, 3));
+scene.add(new T.Points(moteGeo, new T.PointsMaterial({ map: dotSprite, size: 0.032, transparent: true, opacity: 0.45, depthWrite: false, blending: T.AdditiveBlending, color: C('#fff0cc') })));
+function updateMotes(t, dt){
+  for(let i = 0; i < NM; i++){
+    motePos[i * 3] += Math.sin(t * 0.3 + moteV[i]) * 0.02 * dt;
+    motePos[i * 3 + 1] += (Math.sin(t * 0.21 + moteV[i] * 2) * 0.02 - 0.004) * dt;
+    motePos[i * 3 + 2] += Math.cos(t * 0.27 + moteV[i]) * 0.02 * dt;
+    if(motePos[i * 3 + 1] < 0.15) motePos[i * 3 + 1] = 3.2;
+  }
+  moteGeo.attributes.position.needsUpdate = true;
+}
+
+/* ================= 空 ================= */
+(function sky(){
+  const m = new T.ShaderMaterial({
+    side: T.BackSide, depthWrite: false, fog: false,
+    uniforms: { uTime: timeU, uSunDir: { value: SUN_DIR }, uTop: { value: C('#7ea6cb') }, uMid: { value: C('#b4cfdf') }, uHor: { value: C('#ebeee2') }, uSun: { value: C('#fff1d0') } },
+    vertexShader: 'varying vec3 vD; void main(){ vD = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `uniform float uTime; uniform vec3 uSunDir, uTop, uMid, uHor, uSun; varying vec3 vD;
+      float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y); }
+      float fbm(vec2 p){ return vn(p) * 0.5 + vn(p * 2.03) * 0.25 + vn(p * 4.1) * 0.125; }
+      void main(){
+        vec3 d = normalize(vD); float y = max(d.y, 0.0);
+        vec3 col = mix(uHor, uMid, smoothstep(0.0, 0.35, y)); col = mix(col, uTop, smoothstep(0.3, 0.95, y));
+        vec2 cp = d.xz / (d.y + 0.3) * 0.9 + vec2(uTime * 0.006, uTime * 0.002);
+        float c = smoothstep(0.5, 0.88, fbm(cp * 1.7)) * smoothstep(0.03, 0.3, d.y);
+        col = mix(col, vec3(1.0), c * 0.6);
+        float s = max(dot(d, normalize(uSunDir)), 0.0); col += uSun * (pow(s, 220.0) * 1.3 + pow(s, 8.0) * 0.12);
+        gl_FragColor = vec4(col, 1.0);
+        #include <encodings_fragment>
+      }`
+  });
+  scene.add(new T.Mesh(new T.SphereGeometry(80, 32, 16), m));
+})();
+
+/* ================= 音 (WebAudio で合成。水の流れと鹿威しのみ) ================= */
+const Sound = (function(){
+  let ctx = null, master, revIn, noiseBuf, loopStart = 0, vol = 0.7, muted = false, analyser = null;
+  const streams = []; let fillOn = false, fillF = 0, plipNext = 0, supplyGain = null;
+  let konV, pourV, splashV, mouthV;
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const setPos = (p, x, y, z) => { if(p.positionX){ p.positionX.value = x; p.positionY.value = y; p.positionZ.value = z; } else p.setPosition(x, y, z); };
+  const gain = v => { const g = ctx.createGain(); g.gain.value = v; return g; };
+  const biq = (type, f, q) => { const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; if(q != null) b.Q.value = q; return b; };
+  function makeNoise(){
+    const len = ctx.sampleRate * 5, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+    for(let i = 0; i < len; i++){
+      const w = Math.random() * 2 - 1;
+      b0 = 0.99886 * b0 + w * 0.0555179; b1 = 0.99332 * b1 + w * 0.0750759; b2 = 0.969 * b2 + w * 0.153852;
+      b3 = 0.8665 * b3 + w * 0.3104856; b4 = 0.55 * b4 + w * 0.5329522; b5 = -0.7616 * b5 - w * 0.016898;
+      d[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11; b6 = w * 0.115926;
+    }
+    const fade = Math.floor(ctx.sampleRate * 0.15);
+    for(let i = 0; i < fade; i++){ const k = i / fade; d[len - fade + i] = d[len - fade + i] * (1 - k) + d[i] * k; }
+    loopStart = fade / ctx.sampleRate; return buf;
+  }
+  function noiseSrc(){
+    const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true; s.loopStart = loopStart; s.loopEnd = noiseBuf.duration;
+    s.start(0, loopStart + Math.random() * (noiseBuf.duration - loopStart - 0.2)); return s;
+  }
+  function makeIR(sec){
+    const n = Math.floor(ctx.sampleRate * sec), buf = ctx.createBuffer(2, n, ctx.sampleRate), pre = Math.floor(ctx.sampleRate * 0.012);
+    for(let ch = 0; ch < 2; ch++){
+      const d = buf.getChannelData(ch); let lp = 0;
+      for(let i = 0; i < n; i++){
+        const t = i / n; lp += ((Math.random() * 2 - 1) - lp) * (0.5 * (1 - t) + 0.06);
+        d[i] = i < pre ? 0 : lp * Math.pow(1 - t, 3.2) * 1.8;
+      }
+    }
+    return buf;
+  }
+  function voice(x, y, z, rev, ref){
+    const inp = ctx.createGain(), p = ctx.createPanner();
+    p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = ref || 1.5; p.rolloffFactor = 0.8; p.maxDistance = 60; setPos(p, x, y, z);
+    inp.connect(p); p.connect(master);
+    const rs = gain(rev); p.connect(rs); rs.connect(revIn); return inp;
+  }
+  function bubble(out, t, a){
+    const o = ctx.createOscillator(), g = ctx.createGain(), f0 = 380 + Math.pow(Math.random(), 1.8) * 2600;
+    o.type = 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f0 * rand(1.5, 2.5), t + rand(0.05, 0.09));
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(rand(0.008, 0.03) * a, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + rand(0.07, 0.15));
+    o.connect(g); g.connect(out); o.start(t); o.stop(t + 0.2);
+  }
+  function burst(out, t, f, q, dur, a){
+    const s = noiseSrc(), b = biq('bandpass', f, q), g = gain(0.0001);
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(a, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(b); b.connect(g); g.connect(out); s.stop(t + dur + 0.05);
+  }
+  function buildStreams(){
+    [{ p: [0.45, 0.1, -1.85], a: 1.0, rate: 20 }, { p: [-0.65, 0.1, -1.05], a: 0.9, rate: 16, rumble: true }, { p: [-1.7, 0.1, 0.25], a: 0.8, rate: 14 }].forEach(d => {
+      const out = voice(d.p[0], d.p[1], d.p[2], 0.2, 1.4), layers = [];
+      const L = (type, f, q, base) => {
+        const s = noiseSrc(), flt = biq(type, f, q), g = gain(base * d.a); s.connect(flt); flt.connect(g); g.connect(out);
+        layers.push({ flt, g, base: base * d.a, f });
+      };
+      L('bandpass', 620, 0.8, 0.9); L('bandpass', 1800, 1.0, 0.55); L('highpass', 5200, 0.5, 0.07);
+      if(d.rumble) L('lowpass', 240, 0.7, 0.55);
+      streams.push({ out, layers, rate: d.rate, next: 0 });
+    });
+    // 筧から落ちる細い水
+    const so = voice(1.48, 0.9, -2.0, 0.25, 1.0);
+    const s1 = noiseSrc(), f1 = biq('bandpass', 3400, 2.2), g1 = gain(0.16); s1.connect(f1); f1.connect(g1); g1.connect(so);
+    const s2 = noiseSrc(), f2 = biq('bandpass', 1400, 1.0), g2 = gain(0.09); s2.connect(f2); f2.connect(g2); g2.connect(so);
+    supplyGain = so;
+  }
+  function modulate(){
+    if(!ctx) return; const t = ctx.currentTime;
+    streams.forEach(st => st.layers.forEach(l => {
+      l.g.gain.setTargetAtTime(l.base * rand(0.65, 1.3), t, 0.12);
+      if(l.flt.type === 'bandpass') l.flt.frequency.setTargetAtTime(l.f * rand(0.82, 1.22), t, 0.15);
+    }));
+  }
+  function tick(){
+    const now = ctx.currentTime, until = now + 0.35;
+    streams.forEach(st => {
+      if(st.next < now) st.next = now + Math.random() * 0.05;
+      while(st.next < until){ bubble(st.out, st.next, 1); st.next += -Math.log(1 - Math.random()) / st.rate; }
+    });
+    if(fillOn){
+      if(plipNext < now) plipNext = now;
+      while(plipNext < until){
+        const o = ctx.createOscillator(), g = ctx.createGain(), f0 = 650 + fillF * 2300;
+        o.type = 'sine'; o.frequency.setValueAtTime(f0, plipNext); o.frequency.exponentialRampToValueAtTime(f0 * 1.35, plipNext + 0.05);
+        g.gain.setValueAtTime(0.0001, plipNext); g.gain.linearRampToValueAtTime(0.05, plipNext + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, plipNext + 0.09);
+        o.connect(g); g.connect(supplyGain); o.start(plipNext); o.stop(plipNext + 0.15);
+        plipNext += rand(0.14, 0.34);
+      }
+    }
+  }
+  return {
+    init(){
+      if(ctx){ ctx.resume(); return; }
+      const AC = window.AudioContext || window.webkitAudioContext; if(!AC) return;
+      ctx = new AC();
+      master = gain(vol * vol);
+      const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -16; comp.knee.value = 18; comp.ratio.value = 3; comp.attack.value = 0.004; comp.release.value = 0.25;
+      analyser = ctx.createAnalyser(); analyser.fftSize = 2048;
+      master.connect(comp); comp.connect(ctx.destination); comp.connect(analyser);
+      revIn = gain(1); const conv = ctx.createConvolver(); conv.buffer = makeIR(1.6); const rg = gain(0.55); revIn.connect(conv); conv.connect(rg); rg.connect(master);
+      noiseBuf = makeNoise();
+      buildStreams();
+      konV = voice(1.97, 0.52, -2.0, 0.55, 2.4); pourV = voice(1.45, 0.45, -2.0, 0.3, 2.0); splashV = voice(1.2, 0.0, -1.9, 0.3, 2.0);
+      setInterval(tick, 120); setInterval(modulate, 140);
+      document.addEventListener('visibilitychange', () => { if(document.hidden) ctx.suspend(); else if(!muted) ctx.resume(); });
+      window.__snd = { ctx, analyser };
+    },
+    ready(){ return !!ctx; },
+    setVol(v){ vol = v; if(ctx) master.gain.setTargetAtTime(muted ? 0 : v * v, ctx.currentTime, 0.05); },
+    setMuted(m){ muted = m; if(ctx) master.gain.setTargetAtTime(m ? 0 : vol * vol, ctx.currentTime, 0.08); },
+    fill(f, on){ fillF = f; fillOn = on; },
+    listen(cam){
+      if(!ctx) return; const L = ctx.listener, p = cam.position, d = new T.Vector3(); cam.getWorldDirection(d);
+      if(L.positionX){ L.positionX.value = p.x; L.positionY.value = p.y; L.positionZ.value = p.z; L.forwardX.value = d.x; L.forwardY.value = d.y; L.forwardZ.value = d.z; L.upX.value = 0; L.upY.value = 1; L.upZ.value = 0; }
+      else { L.setPosition(p.x, p.y, p.z); L.setOrientation(d.x, d.y, d.z, 0, 1, 0); }
+    },
+    kon(v){
+      if(!ctx) return; const t = ctx.currentTime + 0.005, f0 = 780 * rand(0.97, 1.03);
+      [[1, 1.0, 0.45], [2.02, 0.55, 0.25], [3.15, 0.32, 0.15], [4.6, 0.18, 0.09], [6.4, 0.09, 0.06]].forEach(([r, a, dec]) => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = 'sine'; o.frequency.setValueAtTime(f0 * r, t); o.frequency.exponentialRampToValueAtTime(f0 * r * 0.985, t + dec);
+        g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(a * v * 2.0, t + 0.0015); g.gain.exponentialRampToValueAtTime(0.0001, t + dec);
+        o.connect(g); g.connect(konV); o.start(t); o.stop(t + dec + 0.05);
+      });
+      burst(konV, t, 3200, 0.8, 0.02, 3.5 * v);
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(200, t); o.frequency.exponentialRampToValueAtTime(140, t + 0.08);
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(1.4 * v, t + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+      o.connect(g); g.connect(konV); o.start(t); o.stop(t + 0.15);
+    },
+    pour(){
+      if(!ctx) return; const t = ctx.currentTime + 0.02;
+      const s = noiseSrc(), b = biq('bandpass', 1000, 0.9), g = gain(0.0001);
+      b.frequency.setValueAtTime(900, t); b.frequency.linearRampToValueAtTime(1900, t + 0.9);
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(6, t + 0.12); g.gain.setValueAtTime(6, t + 0.45); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.05);
+      s.connect(b); b.connect(g); g.connect(pourV); s.stop(t + 1.2);
+      const s2 = noiseSrc(), b2 = biq('lowpass', 520, 0.7), g2 = gain(0.0001);
+      g2.gain.setValueAtTime(0.0001, t); g2.gain.linearRampToValueAtTime(3.5, t + 0.15); g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.95);
+      s2.connect(b2); b2.connect(g2); g2.connect(pourV); s2.stop(t + 1.1);
+    },
+    splash(){
+      if(!ctx) return; const t = ctx.currentTime + 0.01;
+      burst(splashV, t, rand(1800, 3000), 1.2, 0.05, 5);
+      const o = ctx.createOscillator(), g = ctx.createGain(), f0 = rand(450, 900);
+      o.type = 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f0 * 1.8, t + 0.06);
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.3, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
+      o.connect(g); g.connect(splashV); o.start(t); o.stop(t + 0.15);
+    }
+  };
+})();
+
+/* ================= カメラと操作 ================= */
+const VIEWS = {
+  engawa: { p: [-0.3, 1.32, 2.85], yaw: -0.12, pitch: 0.02, fov: 60 },
+  tobi:   { p: [-0.3, 0.95, 1.15], yaw: 0.42, pitch: 0.1, fov: 66 },
+  shishi: { p: [0.75, 1.0, -0.55], yaw: -0.42, pitch: -0.36, fov: 55 },
+  sky:    { p: [0.0, 1.3, 0.9], yaw: 0.3, pitch: 1.0, fov: 74 }
+};
+const cam = { p: new T.Vector3(...VIEWS.engawa.p), yaw: VIEWS.engawa.yaw, pitch: VIEWS.engawa.pitch, fov: VIEWS.engawa.fov };
+let tween = null;
+const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+function setPressed(k){ document.querySelectorAll('#views .chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === k))); }
+function goView(k){
+  const v = VIEWS[k]; if(!v) return;
+  tween = { t: 0, dur: reduce ? 0.01 : 2.4, from: { p: cam.p.clone(), yaw: cam.yaw, pitch: cam.pitch, fov: cam.fov }, to: v };
+  setPressed(k);
+}
+document.querySelectorAll('#views .chip').forEach(b => b.addEventListener('click', () => goView(b.dataset.view)));
+
+const ptrs = new Map(); let pinch0 = 0, fov0 = 0;
+canvas.addEventListener('pointerdown', e => {
+  canvas.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); canvas.classList.add('drag'); tween = null;
+  if(ptrs.size === 2){ const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); fov0 = cam.fov; }
+});
+canvas.addEventListener('pointermove', e => {
+  const p = ptrs.get(e.pointerId); if(!p) return;
+  const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
+  if(ptrs.size === 1){
+    const k = 0.0036 * (cam.fov / 62);
+    cam.yaw = clamp(cam.yaw + dx * k, -1.9, 1.9); cam.pitch = clamp(cam.pitch + dy * k, -0.6, 1.3); setPressed('');
+  } else if(ptrs.size === 2){
+    const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
+    if(pinch0 > 0) cam.fov = clamp(fov0 * pinch0 / d, 30, 80);
+  }
+});
+const endPtr = e => { ptrs.delete(e.pointerId); if(!ptrs.size) canvas.classList.remove('drag'); };
+canvas.addEventListener('pointerup', endPtr); canvas.addEventListener('pointercancel', endPtr);
+canvas.addEventListener('wheel', e => { e.preventDefault(); cam.fov = clamp(cam.fov + e.deltaY * 0.03, 30, 80); }, { passive: false });
+window.addEventListener('keydown', e => {
+  const k = { '1': 'engawa', '2': 'tobi', '3': 'shishi', '4': 'sky' }[e.key]; if(k){ goView(k); return; }
+  if(e.key === 'ArrowLeft') cam.yaw = clamp(cam.yaw + 0.08, -1.9, 1.9);
+  if(e.key === 'ArrowRight') cam.yaw = clamp(cam.yaw - 0.08, -1.9, 1.9);
+  if(e.key === 'ArrowUp') cam.pitch = clamp(cam.pitch + 0.06, -0.6, 1.3);
+  if(e.key === 'ArrowDown') cam.pitch = clamp(cam.pitch - 0.06, -0.6, 1.3);
+});
+
+$('#enter').addEventListener('click', () => {
+  Sound.init(); Sound.setVol(+$('#vol').value / 100);
+  $('#intro').classList.add('gone'); $('#bar').hidden = false;
+  setTimeout(() => { $('#intro').style.display = 'none'; }, 1000);
+});
+$('#vol').addEventListener('input', e => Sound.setVol(+e.target.value / 100));
+$('#mute').addEventListener('click', e => {
+  const m = e.currentTarget.getAttribute('aria-pressed') !== 'true';
+  e.currentTarget.setAttribute('aria-pressed', String(m)); e.currentTarget.textContent = m ? '音を戻す' : '消音'; Sound.setMuted(m);
+});
+
+function resize(){
+  const w = canvas.clientWidth || window.innerWidth, h = canvas.clientHeight || window.innerHeight;
+  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize); resize();
+
+/* ================= ループ ================= */
+const clock = new T.Clock(); const dir = new T.Vector3();
+function frame(){
+  requestAnimationFrame(frame);
+  const dt = Math.min(clock.getDelta(), 0.05); timeU.value += dt; const t = timeU.value;
+  if(tween){
+    tween.t += dt / tween.dur; const k = ease(clamp(tween.t, 0, 1)), a = tween.from, b = tween.to;
+    cam.p.set(lerp(a.p.x, b.p[0], k), lerp(a.p.y, b.p[1], k), lerp(a.p.z, b.p[2], k));
+    cam.yaw = lerp(a.yaw, b.yaw, k); cam.pitch = lerp(a.pitch, b.pitch, k); cam.fov = lerp(a.fov, b.fov, k);
+    if(tween.t >= 1) tween = null;
+  }
+  const sw = reduce ? 0 : 1;
+  const yaw = cam.yaw + Math.sin(t * 0.37) * 0.004 * sw, pitch = cam.pitch + Math.sin(t * 0.29 + 1) * 0.003 * sw;
+  camera.position.set(cam.p.x, cam.p.y + Math.sin(t * 0.5) * 0.004 * sw, cam.p.z);
+  dir.set(-Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
+  camera.lookAt(camera.position.x + dir.x, camera.position.y + dir.y, camera.position.z + dir.z);
+  const fovNow = cam.fov * (camera.aspect < 1 ? Math.min(1.5, 1 / Math.pow(camera.aspect, 0.45)) : 1);
+  if(Math.abs(camera.fov - fovNow) > 0.01){ camera.fov = fovNow; camera.updateProjectionMatrix(); }
+  stepShishi(dt); updateKoi(t); updateLeaves(dt, t); updateMotes(t, dt);
+  Sound.listen(camera);
+  renderer.render(scene, camera);
+}
+frame();
+window.__garden = { S, cam, Sound, goView, snap: k => { const v = VIEWS[k]; cam.p.set(v.p[0], v.p[1], v.p[2]); cam.yaw = v.yaw; cam.pitch = v.pitch; cam.fov = v.fov; tween = null; setPressed(k); } };
+})();
+</script>
