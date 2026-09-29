@@ -14,9 +14,12 @@
 再生成: python3 tools/make_character_a.py
 """
 import os
-import cv2
+import sys
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import game_canvas as GC  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCROLL = os.path.join(ROOT, "assets/scroll/scroll_original.png")
@@ -25,7 +28,8 @@ OUT = os.path.join(ROOT, "assets/characters/character_a")
 
 CANVAS = 384        # 固定キャンバスの一辺 (px)
 BASE_H = 256        # 人物の基準身長 (px)
-GROUND_Y = 352      # 接地点の y (キャンバス内)。下に 32px、上に 96px の余白ができる
+GROUND_Y = GC.GROUND[1]   # 接地点の y (キャンバス内)。下に 32px、上に約 96px の余白ができる
+CH_W = CH_H = 580         # make_assets.py のスプライトキャンバス
 
 
 def main():
@@ -41,28 +45,17 @@ def main():
     rgba[rgba[..., 3] == 0, :3] = 0
     Image.fromarray(rgba, "RGBA").save(os.path.join(OUT, "source/character_a_source.png"))
 
-    # 接地点: 最も低い点 (草鞋の底) の中心
-    low = ys >= ys.max() - 3
-    foot_x = xs[low].mean() + 0.5 - bx0            # 切り出し内の x
-    # --- 2. 縦横同倍率で縮小 (アルファ乗算済みで縮めて縁の色にじみを防ぐ)
-    scale = BASE_H / H
-    nw = int(round(W * scale))
-    a = rgba[..., 3:4].astype(np.float32) / 255.0
-    pm = np.concatenate([rgba[..., :3].astype(np.float32) * a, a], axis=-1)
-    small = cv2.resize(pm, (nw, BASE_H), interpolation=cv2.INTER_AREA)
-    sa = small[..., 3:4]
-    srgb = np.where(sa > 1e-4, small[..., :3] / np.maximum(sa, 1e-4), 0)
-    small8 = np.clip(np.concatenate([srgb, sa * 255.0], axis=-1) + 0.5, 0, 255).astype(np.uint8)
-
-    # --- 3. 384x384 に配置。左右は中央、足元の下端を GROUND_Y に合わせる
-    x0 = (CANVAS - nw) // 2
-    y0 = GROUND_Y - BASE_H
-    canvas = np.zeros((CANVAS, CANVAS, 4), np.uint8)
-    canvas[y0:y0 + BASE_H, x0:x0 + nw] = small8
-    canvas[canvas[..., 3] == 0, :3] = 0          # 完全透明の画素は RGB も 0 にそろえる
+    # --- 2・3. 高さ 256px 基準で縮小し、384x384 に置く。処理は 8 フレームと共通 (game_canvas.py)
+    a = np.zeros((CH_H, CH_W, 4), np.float32)
+    sub = np.dstack([rgb, mask.astype(np.uint8) * 255])[GC.SPRITE_Y0:GC.SPRITE_Y0 + CH_H, GC.SPRITE_X0:GC.SPRITE_X0 + CH_W]
+    al = sub[..., 3:4].astype(np.float32) / 255.0
+    a[...] = np.concatenate([sub[..., :3].astype(np.float32) * al, al], axis=-1)
+    canvas = GC.to_game_rgba8(a)
     Image.fromarray(canvas, "RGBA").save(os.path.join(OUT, "character_a.png"))
-    gx = int(round(x0 + foot_x * nw / W))
-    gy = GROUND_Y
+    gx, gy = GC.GROUND
+    cys, cxs = np.where(canvas[..., 3] > 0)
+    x0, y0 = int(cxs.min()), GROUND_Y - BASE_H
+    nw = int(cxs.max() - cxs.min() + 1)
 
     # --- デバッグ用画像
     ref = Image.new("RGBA", (CANVAS, CANVAS))
@@ -88,7 +81,7 @@ def main():
     d.text((min(gx + 8, CANVAS - 110), gy + 6), "接地点 (%d, %d)" % (gx, gy), fill=(200, 30, 30, 255), font=font)
     ref.save(os.path.join(OUT, "character_a_reference.png"))
 
-    print("元サイズ %dx%d  scale=%.5f  縮小後 %dx%d" % (W, H, scale, nw, BASE_H))
+    print("元サイズ %dx%d  scale=%.5f  縮小後 幅%d 高さ%d" % (W, H, GC.CANVAS / GC.WIN, nw, cys.max() - cys.min() + 1))
     print("配置 x0=%d y0=%d  接地点=(%d, %d)  offset=Vector2(%d, %d)" % (x0, y0, gx, gy, -gx, -gy))
 
 

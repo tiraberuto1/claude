@@ -88,7 +88,9 @@ def build_mask(rgb):
     wide = cv2.dilate(poly_mask(rgb.shape, SWORD), K(7))
     expect = cv2.inpaint(bgr, wide * 255, 5, cv2.INPAINT_TELEA)
     far = np.abs(bgr.astype(int) - expect.astype(int)).max(axis=2) > 28
-    blade = np.maximum(blade, (tight * far).astype(np.uint8))
+    green = (g > r) & (g >= b) & (lum > 90)                  # 草の緑
+    ochre = (r > g + 10) & (g > b + 10) & (lum > 120)        # 黄土色の地
+    blade = np.maximum(blade, (tight * far * ~green * ~ochre).astype(np.uint8))
     blade[390:] = 0
     blade = cv2.morphologyEx(blade, cv2.MORPH_OPEN, K(1))
     blade = cv2.morphologyEx(blade, cv2.MORPH_CLOSE, K(2))
@@ -109,11 +111,33 @@ def build_mask(rgb):
     cs, _ = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     filled = np.zeros_like(m)
     cv2.drawContours(filled, cs, -1, 1, -1)
-    return filled
+    return peel_background(rgb, filled)
+
+
+def peel_background(rgb, mask, thresh=22, max_iter=16):
+    """マスクの縁に混ざった背景 (畳の緑・黄土色) を外側から 1px ずつ剥がす。
+    周囲から補間した「人物が無い場合の地」との色差が小さい縁の画素だけを外す。
+    人物の線・彩色は地との色差が大きいので残る。"""
+    est = build_clean_plate(rgb, mask, add_noise=False).astype(np.int16)
+    diff = np.abs(rgb.astype(np.int16) - est).max(axis=2)
+    cross = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
+    m = mask.copy()
+    for _ in range(max_iter):
+        edge = (m > 0) & (cv2.erode(m, cross) == 0)
+        rem = edge & (diff <= thresh)
+        if not rem.any():
+            break
+        m[rem] = 0
+    # 剥がした結果できた孤立した小片を除く
+    n, lab, st, _ = cv2.connectedComponentsWithStats(m)
+    for i in range(1, n):
+        if st[i, 4] < 40:
+            m[lab == i] = 0
+    return m
 
 
 # ---------------------------------------------------------------- 背景復元
-def build_clean_plate(rgb, mask):
+def build_clean_plate(rgb, mask, add_noise=True):
     """人物を除去した背景。周囲の色を Telea 法で回して埋める。
     パッチコピー系の手法は鬼の顔などを複製してしまうため使わない。"""
     hole = cv2.dilate(mask, K(1))
@@ -132,7 +156,8 @@ def build_clean_plate(rgb, mask):
     noise *= sigma / max(noise.std(), 1e-6)
     hm = hole[y0:y1, x0:x1] > 0
     out = filled.astype(np.float32)
-    out[hm] += noise[hm][:, None]
+    if add_noise:
+        out[hm] += noise[hm][:, None]
     plate = bgr.copy()
     plate[y0:y1, x0:x1] = np.clip(out, 0, 255).astype(np.uint8)
     return cv2.cvtColor(plate, cv2.COLOR_BGR2RGB)
@@ -201,7 +226,7 @@ def canvas_pt(p):
 
 
 class Rig:
-    def __init__(self, sprite_premul, mask_canvas):
+    def __init__(self, sprite_premul, mask_canvas, keep_joints=()):
         self.P = sprite_premul                       # float32 HxWx4 (premultiplied)
         h, w = self.P.shape[:2]
         self.h, self.w = h, w
@@ -219,6 +244,9 @@ class Rig:
             "fore": forearm,
         }
         cut = self.parts["sword"] | self.parts["fore"]
+        # 関節付近 (中心, 半径) は土台に残す。回した部位の下で継ぎ目が透けるのを防ぐ
+        for cx, cy, r in keep_joints:
+            cut &= ((xx - (cx - CX0)) ** 2 + (yy - (cy - CY0)) ** 2) > r * r
         self.base = self.P * (~cut)[..., None]
         # 布の揺れ・頭の補正用の重み
         def soft(pts, s):

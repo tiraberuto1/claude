@@ -30,26 +30,32 @@ python3 tools/make_assets.py
 - スプライトの左上は元絵の座標 (0, 120) です。Background と同じ原点に置けば元の位置に重なります。
 - `samurai_01.png` は元の構えで、背景に重ねると元絵とほぼ一致します。
 
-## 人物A (ゲーム用の静止アセット)
+## 人物A (ゲーム用のアセット)
 
 `CHARACTER_A_ASSET_SPEC.md` に沿って、同じ武者を「サイズ・座標・接地点をそろえたゲーム用の人物」にしています。
 
 ```bash
-python3 tools/make_assets.py       # 先にマスクを作る
-python3 tools/make_character_a.py
+python3 tools/make_assets.py               # マスクを作る
+python3 tools/make_character_a.py          # 静止画
+python3 tools/make_character_a_frames.py   # 8 フレーム
 ```
 
 | 出力 (`assets/characters/character_a/`) | 内容 |
 |---|---|
-| `source/character_a_source.png` | 元サイズの切り出し (528×491) |
+| `source/character_a_source.png` | 元サイズの切り出し (524×490) |
 | `character_a.png` | 384×384 のゲーム用 (RGBA、背景透明) |
 | `character_a_reference.png` | 基準身長・接地点・中心線を重ねた確認用 |
+| `frames/character_a_01〜08.png` | 8 フレーム (384×384)。1 枚目は `character_a.png` と同じ |
 
-- **基準身長 256px:** 元の高さ 491px (刀を含む) を 256px にする比率 (0.5214) で、縦横同倍率に縮めています。
-- **接地点:** 草鞋の底の中心で、キャンバス内の (91, 352) です。
-- **`scenes/character_a.tscn`:** `CharacterA.position` が足元です。`scale = 1.0` で人物の高さが 256px になります。
+- **基準身長 256px:** 元の高さ 490px (刀を含む) を縮め、人物の高さが約 256px になります (倍率 0.521、縦横同倍率)。
+- **接地点:** 草鞋の底の中心で、キャンバス内の (90, 352) です。全フレームで動きません。
+- **`scenes/character_a.tscn`:** 静止画。`CharacterA.position` が足元で、`scale = 1.0` が標準サイズです。
+- **`scenes/character_a_anim.tscn`:** 8 フレームを `AnimatedSprite2D` で 12fps ループ再生します。足元の扱いは同じです。
+- **動き:** 下の「動かし方」と同じ部位分け・角度・表示時間です。頭は胴体の動きの 3 割、刀は -6° から +15°、足元は固定です。
+- 8 フレームの背景は透明です。刀が動いた跡や部位の継ぎ目が透けないよう、肘と握りの付近は元の画素を土台に残しています。
 
-Godot で `scale` を 0.8 / 1.0 / 1.2 にして描画し、高さが 205 / 256 / 308px、足元が動かないことを確認しています。
+Godot で `scale` を 0.8 / 1.0 / 1.2 にして描画すると、高さは約 205 / 256 / 308px で、足元は動きません。
+8 フレームの再生中も、足元は同じ画素に固定されています。
 
 ## 動かし方
 
@@ -74,3 +80,4 @@ Godot で `scale` を 0.8 / 1.0 / 1.2 にして描画し、高さが 205 / 256 /
   `scroll_background_clean.png` 単体で見ると、人物のいた場所は滲んで見えます。
 - 刀を大きく振ると、手の下に出ている柄の先端が少し浮きます。
 - 手の周りには畳縁の一部が少し混ざっています。
+- 人物Aの縁には、兜の上の鬼の唇の赤や、袖の上の黄土色が数画素残っています。これ以上マスクを削ると指先や草鞋の紐まで削れるため、そのままにしています。

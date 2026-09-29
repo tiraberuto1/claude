@@ -1,0 +1,54 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/characters/character_a/frames/character_a_01.png" id="1_f01"]
+[ext_resource type="Texture2D" path="res://assets/characters/character_a/frames/character_a_02.png" id="2_f02"]
+[ext_resource type="Texture2D" path="res://assets/characters/character_a/frames/character_a_03.png" id="3_f03"]
+[ext_resource type="Texture2D" path="res://assets/characters/character_a/frames/character_a_04.png" id="4_f04"]
+[ext_resource type="Texture2D" path="res://assets/characters/character_a/frames/character_a_05.png" id="5_f05"]
+[ext_resource type="Texture2D" path="res://assets/characters/character_a/frames/character_a_06.png" id="6_f06"]
+[ext_resource type="Texture2D" path="res://assets/characters/character_a/frames/character_a_07.png" id="7_f07"]
+[ext_resource type="Texture2D" path="res://assets/characters/character_a/frames/character_a_08.png" id="8_f08"]
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_a"]
+animations = [{
+"frames": [
+{
+"duration": 1.4400,
+"texture": ExtResource("1_f01")
+}, {
+"duration": 1.2000,
+"texture": ExtResource("2_f02")
+}, {
+"duration": 1.2000,
+"texture": ExtResource("3_f03")
+}, {
+"duration": 0.9600,
+"texture": ExtResource("4_f04")
+}, {
+"duration": 0.7200,
+"texture": ExtResource("5_f05")
+}, {
+"duration": 2.1600,
+"texture": ExtResource("6_f06")
+}, {
+"duration": 1.4400,
+"texture": ExtResource("7_f07")
+}, {
+"duration": 2.4000,
+"texture": ExtResource("8_f08")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 12.0
+}]
+
+; CharacterA.position が人物Aの足元 (接地点)。標準サイズは scale = 1.0 で人物高さ約 256px。
+; 接地点はテクスチャ内の (90, 352) で、8 フレームすべてで動かない。offset でそれが原点に来る。
+[node name="CharacterA" type="Node2D"]
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+sprite_frames = SubResource("SpriteFrames_a")
+animation = &"idle"
+autoplay = "idle"
+centered = false
+offset = Vector2(-90, -352)
