@@ -1,0 +1,803 @@
+<title>厳島神社を歩く</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  /* レイアウト: 全画面の3D。左上に題、右上に歩くボタン、下端に名所と環境(時刻・潮)、名所を選ぶと右に解説カード */
+  :root{
+    --sumi:#13161a;
+    --glass:rgba(19,22,26,.66);
+    --kinu:#efeadd;
+    --kinu-dim:#bdbbb0;
+    --shu:#e2532f;
+    --line:rgba(239,234,221,.26);
+    --font-disp:'Shippori Mincho','Hiragino Mincho ProN','Yu Mincho',serif;
+    --font-ui:'Zen Kaku Gothic New','Hiragino Sans','Yu Gothic',sans-serif;
+    color-scheme:dark;
+  }
+  html,body{height:100%}
+  body{margin:0;background:var(--sumi);color:var(--kinu);font-family:var(--font-ui);font-size:14px;line-height:1.65;overflow:hidden}
+  #stage{position:relative;width:100%;height:100%;overflow:hidden;background:var(--sumi)}
+  #c{display:block;width:100%;height:100%;touch-action:none;cursor:grab;outline:none}
+  #c.drag{cursor:grabbing}
+  button{font:inherit;color:inherit}
+
+  #top{position:absolute;left:16px;right:16px;top:calc(14px + env(safe-area-inset-top,0px));display:flex;justify-content:space-between;align-items:flex-start;gap:12px;pointer-events:none}
+  #top > *{pointer-events:auto}
+  #top h1{margin:0;font-family:var(--font-disp);font-weight:700;font-size:26px;letter-spacing:.2em;line-height:1.2;text-shadow:0 0 3px rgba(10,12,14,.55),0 2px 18px rgba(10,12,14,.65)}
+  #top h1 small{display:block;margin-top:4px;font-family:var(--font-ui);font-weight:400;font-size:12px;letter-spacing:.16em;color:var(--kinu)}
+
+  .chip{font-size:13px;letter-spacing:.1em;background:var(--glass);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid var(--line);padding:8px 14px;border-radius:2px;cursor:pointer;white-space:nowrap}
+  .chip:hover{border-color:var(--kinu)}
+  .chip[aria-pressed="true"]{background:var(--kinu);color:var(--sumi);border-color:var(--kinu)}
+  .chip.go{background:var(--shu);border-color:var(--shu);color:#fff}
+  .chip.go[aria-pressed="true"]{background:var(--kinu);color:var(--sumi);border-color:var(--kinu)}
+  .chip:focus-visible,#tide:focus-visible,#wslide:focus-visible,#closeCard:focus-visible,.pin:focus-visible{outline:2px solid var(--shu);outline-offset:2px}
+
+  #bar{position:absolute;left:16px;right:16px;bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px 16px;pointer-events:none}
+  #bar > *{pointer-events:auto}
+  .row{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+  #spots{max-width:100%}
+  #env{display:flex;flex-direction:column;gap:8px;align-items:flex-end;padding:10px 12px;background:var(--glass);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:2px}
+  #env .chip{padding:5px 12px;border-color:transparent;background:transparent}
+  #env .chip[aria-pressed="true"]{background:var(--kinu)}
+  .tide span{white-space:nowrap}
+  .tide{display:flex;align-items:center;gap:8px;font-size:12px;letter-spacing:.1em}
+  #tide{width:130px;accent-color:var(--shu)}
+  #tideNote{font-size:12px;color:var(--kinu-dim);letter-spacing:.06em;min-height:1.2em}
+
+  #card{position:absolute;right:16px;top:calc(64px + env(safe-area-inset-top,0px));width:min(350px,calc(100% - 32px));box-sizing:border-box;max-height:calc(100% - 230px);overflow:auto;padding:18px 20px 20px;background:var(--glass);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:2px}
+  #card[hidden]{display:none}
+  #card .kana{margin:0;font-size:12px;letter-spacing:.2em;color:var(--kinu-dim)}
+  #card h2{margin:2px 0 10px;font-family:var(--font-disp);font-weight:700;font-size:24px;letter-spacing:.12em;text-wrap:balance}
+  #card .lead{margin:0 0 12px}
+  #card ul{margin:0;padding:0;list-style:none;display:grid;gap:8px}
+  #card li{padding-left:14px;position:relative;color:var(--kinu-dim);font-size:13px}
+  #card li::before{content:'';position:absolute;left:0;top:.7em;width:6px;height:1px;background:var(--shu)}
+  #closeCard{position:absolute;top:8px;right:10px;background:none;border:0;font-size:20px;line-height:1;cursor:pointer;color:var(--kinu-dim);padding:4px 8px}
+
+  #walkbar{position:absolute;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(620px,calc(100% - 32px));box-sizing:border-box;display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:center;padding:12px 14px;background:var(--glass);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:2px}
+  #walkbar[hidden]{display:none}
+  #wcap{grid-column:1 / -1;margin:0;font-size:13px}
+  #wcap b{font-family:var(--font-disp);font-size:16px;letter-spacing:.12em;margin-right:.6em}
+  #wslide{width:100%;accent-color:var(--shu)}
+
+  #pins{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+  .pin{position:absolute;left:0;top:0;pointer-events:auto;display:flex;align-items:center;gap:6px;background:none;border:0;cursor:pointer;padding:4px;transform:translate(-9999px,-9999px);text-shadow:0 1px 8px rgba(0,0,0,.75)}
+  .pin i{width:14px;height:14px;border-radius:50%;background:var(--shu);border:2px solid var(--kinu);box-shadow:0 0 0 4px rgba(226,83,47,.28);flex:none}
+  .pin span{font-size:12px;letter-spacing:.1em;color:var(--kinu);white-space:nowrap}
+  #note{position:absolute;left:16px;top:calc(76px + env(safe-area-inset-top,0px));margin:0;font-size:11px;color:var(--kinu);opacity:.75;letter-spacing:.06em;text-shadow:0 1px 8px rgba(0,0,0,.7);max-width:24em}
+  #nogl{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:24px;text-align:center;color:var(--kinu-dim)}
+
+  @media (max-width:640px){
+    #top h1{font-size:21px}
+    #card{top:auto;bottom:calc(178px + env(safe-area-inset-bottom,0px));max-height:34%}
+    #env{align-items:stretch;width:100%;box-sizing:border-box}
+    #env .row{justify-content:space-between}
+    #tide{width:100%}
+    .tide{justify-content:space-between}
+    #note{display:none}
+    .chip{padding:7px 11px}
+  }
+</style>
+
+<div id="stage">
+  <canvas id="c" tabindex="0" aria-label="厳島神社の3D表示。ドラッグで見回せます。"></canvas>
+  <div id="pins"></div>
+  <div id="top">
+    <h1>厳島神社<small>潮と時刻で変わる社殿を歩く</small></h1>
+    <button class="chip go" id="walk" type="button" aria-pressed="false">参道を歩く</button>
+  </div>
+  <p id="note">形と縮尺は簡略化した想像図です。</p>
+  <aside id="card" hidden aria-live="polite">
+    <button id="closeCard" type="button" aria-label="閉じる">×</button>
+    <p class="kana" id="cKana"></p>
+    <h2 id="cTitle"></h2>
+    <p class="lead" id="cLead"></p>
+    <ul id="cFacts"></ul>
+  </aside>
+  <div id="walkbar" hidden>
+    <button class="chip" id="wplay" type="button">一時停止</button>
+    <input id="wslide" type="range" min="0" max="1000" value="0" aria-label="参道の位置">
+    <p id="wcap"></p>
+  </div>
+  <div id="bar">
+    <div class="row" id="spots" role="group" aria-label="名所"></div>
+    <div id="env">
+      <div class="row" id="tods" role="group" aria-label="時刻">
+        <button class="chip" type="button" data-tod="morning" aria-pressed="false">朝</button>
+        <button class="chip" type="button" data-tod="noon" aria-pressed="false">昼</button>
+        <button class="chip" type="button" data-tod="evening" aria-pressed="true">夕</button>
+        <button class="chip" type="button" data-tod="night" aria-pressed="false">夜</button>
+      </div>
+      <div class="tide"><span>干潮</span><input id="tide" type="range" min="0" max="100" value="82" aria-label="潮位"><span>満潮</span><button class="chip" id="tideAuto" type="button" aria-pressed="false">自動</button></div>
+      <div id="tideNote"></div>
+    </div>
+  </div>
+  <div id="nogl">この環境では WebGL が使えないため、表示できません。</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+const T = THREE;
+const $ = s => document.querySelector(s);
+
+/* ================= ユーティリティ ================= */
+let seed = 1168;
+const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+const rr = (a, b) => a + (b - a) * rnd();
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const C = h => new T.Color(h).convertSRGBToLinear();
+const hash2 = (x, y) => { const h = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return h - Math.floor(h); };
+function vnoise(x, y){
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  return lerp(lerp(hash2(xi, yi), hash2(xi + 1, yi), u), lerp(hash2(xi, yi + 1), hash2(xi + 1, yi + 1), u), v);
+}
+const fbm = (x, y) => vnoise(x, y) * 0.5 + vnoise(x * 2.1, y * 2.1) * 0.25 + vnoise(x * 4.3, y * 4.3) * 0.125 + vnoise(x * 8.7, y * 8.7) * 0.0625;
+const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+const angLerp = (a, b, t) => { const d = ((b - a + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI; return a + d * t; };
+
+/* ================= レンダラー ================= */
+const canvas = $('#c');
+let renderer;
+try{
+  renderer = new T.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+}catch(e){
+  $('#nogl').style.display = 'flex'; return;
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+renderer.outputEncoding = T.sRGBEncoding;
+renderer.toneMapping = T.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = T.PCFSoftShadowMap;
+const scene = new T.Scene();
+scene.fog = new T.FogExp2(0xffffff, 0.001);
+const camera = new T.PerspectiveCamera(60, 1, 0.1, 3500);
+const timeU = { value: 0 };
+
+const hemi = new T.HemisphereLight(0xffffff, 0x888888, 0.8); scene.add(hemi);
+const sun = new T.DirectionalLight(0xffffff, 2); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -85, right: 85, top: 85, bottom: -85, near: 5, far: 500 });
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.05;
+sun.target.position.set(0, 0, -4); scene.add(sun, sun.target);
+
+/* ================= 時刻のプリセット ================= */
+const PRE = {
+  morning: { sun: [0.8, 0.26, -0.35], sunCol: '#ffd6a0', sunI: 2.1, hemiSky: '#a9c4e0', hemiGnd: '#7d7a66', hemiI: 0.8, skyTop: '#6d9ad0', skyMid: '#b9d0e2', skyHor: '#f4dcc2', fog: '#cfd9dc', fogD: 0.0009, expo: 1.0, lamp: 0.12, star: 0, light: 0.95, sunSize: 1 },
+  noon:    { sun: [0.2, 0.92, 0.3], sunCol: '#fff3dc', sunI: 2.7, hemiSky: '#b8d4ee', hemiGnd: '#8b8a70', hemiI: 0.95, skyTop: '#4a8ed8', skyMid: '#9cc6ea', skyHor: '#e0ebf1', fog: '#d6e3ea', fogD: 0.0007, expo: 0.95, lamp: 0, star: 0, light: 1.1, sunSize: 1 },
+  evening: { sun: [-0.3, 0.14, 1.0], sunCol: '#ff9c58', sunI: 2.3, hemiSky: '#c99f92', hemiGnd: '#6d5b55', hemiI: 0.7, skyTop: '#4d5d99', skyMid: '#e2926f', skyHor: '#ffc684', fog: '#dcaa8c', fogD: 0.0011, expo: 1.05, lamp: 0.75, star: 0, light: 0.7, sunSize: 1.6 },
+  night:   { sun: [-0.3, 0.5, 0.6], sunCol: '#a7bcff', sunI: 0.55, hemiSky: '#27386b', hemiGnd: '#10131f', hemiI: 0.5, skyTop: '#040816', skyMid: '#0c1838', skyHor: '#1b2b52', fog: '#0e1830', fogD: 0.0009, expo: 1.2, lamp: 1, star: 1, light: 0.22, sunSize: 0.5 }
+};
+function makePreset(p){
+  return { sun: new T.Vector3(...p.sun).normalize(), sunCol: C(p.sunCol), hemiSky: C(p.hemiSky), hemiGnd: C(p.hemiGnd), skyTop: C(p.skyTop), skyMid: C(p.skyMid), skyHor: C(p.skyHor), fog: C(p.fog),
+    sunI: p.sunI, hemiI: p.hemiI, fogD: p.fogD, expo: p.expo, lamp: p.lamp, star: p.star, light: p.light, sunSize: p.sunSize };
+}
+const PR = {}; Object.keys(PRE).forEach(k => PR[k] = makePreset(PRE[k]));
+const cur = makePreset(PRE.evening);
+const NUMS = ['sunI', 'hemiI', 'fogD', 'expo', 'lamp', 'star', 'light', 'sunSize'], COLS = ['sunCol', 'hemiSky', 'hemiGnd', 'skyTop', 'skyMid', 'skyHor', 'fog'];
+let todFrom = null, todTo = null, todT = 1;
+const lampMat = new T.MeshStandardMaterial({ color: C('#f4d8a0'), emissive: C('#ffb04a'), emissiveIntensity: 0.5, roughness: 0.8 });
+const glowMat = new T.PointsMaterial({ size: 2.6, transparent: true, opacity: 0, depthWrite: false, blending: T.AdditiveBlending, color: C('#ffb860') });
+const toriiGlow = { v: 0 };
+const shared = { mats: [] };
+function applyTod(){
+  sun.position.copy(cur.sun).multiplyScalar(260).add(sun.target.position);
+  sun.color.copy(cur.sunCol); sun.intensity = cur.sunI;
+  hemi.color.copy(cur.hemiSky); hemi.groundColor.copy(cur.hemiGnd); hemi.intensity = cur.hemiI;
+  scene.fog.color.copy(cur.fog); scene.fog.density = cur.fogD; renderer.toneMappingExposure = cur.expo;
+  lampMat.emissiveIntensity = 0.35 + cur.lamp * 2.4; glowMat.opacity = cur.lamp * 0.8; toriiGlow.v = cur.lamp;
+  shared.mats.forEach(m => { m.emissiveIntensity = cur.lamp * 0.3; });
+}
+function setTod(k){
+  todFrom = { ...Object.fromEntries(NUMS.map(n => [n, cur[n]])), ...Object.fromEntries(COLS.map(c => [c, cur[c].clone()])), sun: cur.sun.clone() };
+  todTo = PR[k]; todT = 0;
+  document.querySelectorAll('#tods .chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tod === k)));
+}
+function updateTod(dt){
+  if(todT >= 1) return;
+  todT = Math.min(1, todT + dt / 2.4); const k = ease(todT);
+  NUMS.forEach(n => cur[n] = lerp(todFrom[n], todTo[n], k));
+  COLS.forEach(c => cur[c].copy(todFrom[c]).lerp(todTo[c], k));
+  cur.sun.copy(todFrom.sun).lerp(todTo.sun, k).normalize();
+  applyTod();
+}
+
+/* ================= テクスチャ ================= */
+function tex(w, h, draw){
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'); draw(g, w, h);
+  const t = new T.CanvasTexture(c); t.encoding = T.sRGBEncoding; t.wrapS = t.wrapT = T.RepeatWrapping;
+  t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); return t;
+}
+function dots(g, w, h, n, cols, r0, r1, a){
+  for(let i = 0; i < n; i++){
+    g.globalAlpha = a * (0.5 + rnd() * 0.5); g.fillStyle = cols[(rnd() * cols.length) | 0];
+    g.beginPath(); g.arc(rnd() * w, rnd() * h, rr(r0, r1), 0, 6.2832); g.fill();
+  }
+  g.globalAlpha = 1;
+}
+const floorTex = tex(512, 512, (g, w, h) => {
+  g.fillStyle = '#b89062'; g.fillRect(0, 0, w, h);
+  const rows = 10, rh = h / rows;
+  for(let r = 0; r < rows; r++){
+    g.fillStyle = `rgba(${rnd() * 50},${rnd() * 30},0,${0.06 + rnd() * 0.12})`; g.fillRect(0, r * rh, w, rh);
+    for(let i = 0; i < 18; i++){
+      g.strokeStyle = `rgba(${80 + rnd() * 30},${52 + rnd() * 20},${26 + rnd() * 12},${0.1 + rnd() * 0.25})`; g.lineWidth = rr(0.6, 1.6);
+      const y = r * rh + rr(3, rh - 3); g.beginPath(); g.moveTo(0, y); g.lineTo(w, y + rr(-2, 2)); g.stroke();
+    }
+    g.fillStyle = '#3d2a1c'; g.fillRect(0, r * rh, w, 3);
+  }
+});
+const barkTex = tex(256, 256, (g, w, h) => {
+  g.fillStyle = '#62503f'; g.fillRect(0, 0, w, h);
+  for(let i = 0; i < 160; i++){
+    g.strokeStyle = `rgba(${30 + rnd() * 50},${25 + rnd() * 40},${18 + rnd() * 30},${0.2 + rnd() * 0.4})`; g.lineWidth = rr(0.8, 2.6);
+    const y = rnd() * h; g.beginPath(); g.moveTo(0, y); g.lineTo(w, y + rr(-3, 3)); g.stroke();
+  }
+  dots(g, w, h, 1500, ['#7d6a56', '#4a3c30'], 0.6, 1.6, 0.3);
+});
+const plasterTex = tex(256, 256, (g, w, h) => {
+  g.fillStyle = '#e8e1ce'; g.fillRect(0, 0, w, h); dots(g, w, h, 1800, ['#cfc7b0', '#f5f1e4'], 0.6, 2, 0.3);
+});
+const woodTex = tex(128, 256, (g, w, h) => {
+  g.fillStyle = '#7d5a3c'; g.fillRect(0, 0, w, h);
+  for(let i = 0; i < 50; i++){ g.strokeStyle = `rgba(40,25,12,${0.1 + rnd() * 0.25})`; g.lineWidth = rr(0.6, 2); const x = rnd() * w; g.beginPath(); g.moveTo(x, 0); g.lineTo(x + rr(-4, 4), h); g.stroke(); }
+});
+const detailTex = tex(256, 256, (g, w, h) => {
+  g.fillStyle = '#b8b8b8'; g.fillRect(0, 0, w, h);
+  dots(g, w, h, 5000, ['#8a8a8a', '#d8d8d8', '#a0a0a0'], 0.7, 2.6, 0.5);
+  for(let i = 0; i < 40; i++){ g.strokeStyle = 'rgba(90,90,90,0.15)'; g.lineWidth = 2; const y = rnd() * h; g.beginPath(); g.moveTo(0, y); g.bezierCurveTo(w * 0.3, y + rr(-8, 8), w * 0.6, y + rr(-8, 8), w, y); g.stroke(); }
+});
+const pineTex = tex(256, 256, (g, w, h) => {
+  g.fillStyle = '#2f3a2c'; g.fillRect(0, 0, w, h);
+  g.strokeStyle = '#d6c88a'; g.lineCap = 'round'; g.lineWidth = 7;
+  g.beginPath(); g.moveTo(128, 250); g.bezierCurveTo(100, 180, 160, 130, 118, 60); g.stroke();
+  g.lineWidth = 3;
+  for(let i = 0; i < 9; i++){ const y = 60 + i * 18, x = 120 + Math.sin(i) * 12; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + 30, y - 12, x + 52, y + 4); g.moveTo(x, y); g.quadraticCurveTo(x - 30, y - 10, x - 50, y + 6); g.stroke(); }
+});
+const plaqueTex = tex(128, 256, (g, w, h) => {
+  g.fillStyle = '#1d3a4a'; g.fillRect(0, 0, w, h);
+  g.strokeStyle = '#c9a14a'; g.lineWidth = 5; g.strokeRect(6, 6, w - 12, h - 12);
+  g.fillStyle = '#e4c265'; g.font = '700 46px "Shippori Mincho","Hiragino Mincho ProN","Yu Mincho",serif'; g.textAlign = 'center';
+  '厳島神社'.split('').forEach((ch, i) => g.fillText(ch, w / 2, 62 + i * 52));
+});
+const glowSprite = tex(64, 64, (g, w, h) => {
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,230,170,1)'); gr.addColorStop(0.3, 'rgba(255,190,110,0.45)'); gr.addColorStop(1, 'rgba(255,170,90,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+});
+glowMat.map = glowSprite;
+
+/* ================= マテリアル ================= */
+const std = o => new T.MeshStandardMaterial(o);
+const M = {
+  shu: std({ color: C('#d83f1f'), roughness: 0.55, emissive: C('#d83f1f'), emissiveIntensity: 0 }),
+  shuDark: std({ color: C('#a83018'), roughness: 0.7 }),
+  floor: std({ map: floorTex, roughness: 0.75 }),
+  floorHi: std({ map: floorTex, color: C('#d8c4a8'), roughness: 0.7 }),
+  bark: std({ map: barkTex, roughness: 1, side: T.DoubleSide }),
+  plaster: std({ map: plasterTex, roughness: 1 }),
+  wood: std({ map: woodTex, roughness: 0.85 }),
+  dwood: std({ map: woodTex, color: C('#6b5444'), roughness: 0.9 }),
+  soffit: std({ map: woodTex, color: C('#b58c66'), roughness: 0.9, emissive: C('#6a4a30'), emissiveIntensity: 0.35 }),
+  black: std({ color: C('#1d1a18'), roughness: 0.35 }),
+  barn: std({ color: C('#5b4a3c'), roughness: 1 }),
+  gold: std({ color: C('#d4af55'), roughness: 0.4, metalness: 0.5 }),
+  dark: std({ color: C('#241e1a'), roughness: 1 }),
+  pine: std({ map: pineTex, roughness: 0.9 }),
+  plaque: std({ map: plaqueTex, roughness: 0.6 }),
+  stone: std({ color: C('#9b9a94'), roughness: 0.95 })
+};
+shared.mats.push(M.shu);
+function fixBoxUV(g, w, h, d, s, swap){
+  const uv = g.attributes.uv;
+  for(let f = 0; f < 6; f++){
+    const top = f === 2 || f === 3; let a = f < 2 ? d : w, b = f < 2 ? h : (f < 4 ? d : h);
+    for(let k = 0; k < 4; k++){
+      const i = f * 4 + k, u = uv.getX(i), v = uv.getY(i);
+      if(swap && top) uv.setXY(i, v * b * s, u * a * s); else uv.setXY(i, u * a * s, v * b * s);
+    }
+  }
+}
+function box(w, h, d, mat, x, y, z, o = {}){
+  const g = new T.BoxGeometry(w, h, d); fixBoxUV(g, w, h, d, o.uv || 1, o.swap);
+  const m = new T.Mesh(g, mat); m.position.set(x, y, z); m.castShadow = o.cast !== false; m.receiveShadow = true;
+  if(o.ry) m.rotation.y = o.ry; (o.parent || scene).add(m); return m;
+}
+function cyl(r0, r1, h, mat, x, y, z, o = {}){
+  const m = new T.Mesh(new T.CylinderGeometry(r1, r0, h, o.seg || 14, 1), mat); m.position.set(x, y, z);
+  m.castShadow = o.cast !== false; m.receiveShadow = true; (o.parent || scene).add(m); return m;
+}
+
+/* ================= 地形 ================= */
+const FLOOR = 2.6;
+const seaBase = z => -1.4 - 0.008 * Math.max(0, z - 10);
+const landRise = z => Math.max(0, -48 - z) * 0.16;
+const HILL = [48, -64];
+function H(x, z){
+  let h = seaBase(z) + landRise(z);
+  h += smooth(-60, -400, z) * (30 + 150 * fbm(x * 0.005 + 1.3, z * 0.005 + 4.1));
+  h += 150 * Math.exp(-(Math.pow((x + 10) / 170, 2) + Math.pow((z + 430) / 140, 2)));
+  h += smooth(140, 320, Math.abs(x)) * smooth(120, -60, z) * (8 + 60 * fbm(x * 0.01, z * 0.01));
+  const d = Math.hypot(x - HILL[0], z - HILL[1]);
+  h += 10 * Math.exp(-d * d / (2 * 18 * 18));
+  if(d < 34) h = lerp(h, 13.2, smooth(34, 20, d));
+  if(z < -45) h += (fbm(x * 0.07, z * 0.07) - 0.35) * 0.8;
+  return h;
+}
+const TW = 1500, TD = 1300, TX = 300, TZ = 260;
+const terrainG = new T.PlaneGeometry(TW, TD, TX, TZ);
+terrainG.rotateX(-Math.PI / 2); terrainG.translate(0, 0, -280);
+const tp = terrainG.attributes.position, hs = new Float32Array(tp.count), tc = new Float32Array(tp.count * 3);
+(function(){
+  const cSand = C('#d9cc9f'), cWet = C('#a29476'), cBed = C('#8a7f68'), cRock = C('#7b7769'), col = new T.Color(), f1 = C('#2c4729'), f2 = C('#46653a'), f3 = C('#5d8141');
+  for(let i = 0; i < tp.count; i++){
+    const x = tp.getX(i), z = tp.getZ(i), h = H(x, z); tp.setY(i, h); hs[i] = h;
+    const n = fbm(x * 0.03, z * 0.03);
+    if(h < 0.8) col.copy(cBed).lerp(cSand, smooth(-1.5, 0.8, h));
+    else col.copy(cSand).lerp(f2, smooth(0.8, 3.5, h));
+    if(h > 3){ col.copy(f1).lerp(f2, n).lerp(f3, smooth(0.5, 0.9, fbm(x * 0.012, z * 0.012))); col.lerp(cRock, smooth(120, 260, h) * 0.3); }
+    tc[i * 3] = col.r; tc[i * 3 + 1] = col.g; tc[i * 3 + 2] = col.b;
+  }
+})();
+terrainG.setAttribute('color', new T.BufferAttribute(tc, 3));
+terrainG.computeVertexNormals();
+const terrainUV = terrainG.attributes.uv; for(let i = 0; i < terrainUV.count; i++) terrainUV.setXY(i, terrainUV.getX(i) * 375, terrainUV.getY(i) * 325);
+const tideU = { value: 0.4 };
+const terrainMat = std({ map: detailTex, vertexColors: true, roughness: 1 });
+terrainMat.onBeforeCompile = sh => {
+  sh.uniforms.uTide = tideU;
+  sh.vertexShader = 'varying float vWY;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvWY = (modelMatrix * vec4(transformed, 1.0)).y;');
+  sh.fragmentShader = 'uniform float uTide; varying float vWY;\n' + sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= mix(0.66, 1.0, smoothstep(uTide - 0.3, uTide + 1.0, vWY));');
+};
+const terrain = new T.Mesh(terrainG, terrainMat); terrain.receiveShadow = true; scene.add(terrain);
+
+// 水
+const waterG = new T.PlaneGeometry(TW, TD, TX, TZ); waterG.rotateX(-Math.PI / 2); waterG.translate(0, 0, -280);
+waterG.setAttribute('aH', new T.BufferAttribute(hs, 1));
+const waterMat = new T.ShaderMaterial({
+  transparent: true, depthWrite: false,
+  uniforms: { uTide: tideU, uTime: timeU, uSunDir: { value: cur.sun }, uSunCol: { value: cur.sunCol }, uTop: { value: cur.skyTop }, uMid: { value: cur.skyMid }, uHor: { value: cur.skyHor }, uFog: { value: cur.fog }, uFogD: { value: 0.001 }, uLight: { value: 1 } },
+  vertexShader: `
+    attribute float aH; uniform float uTide; varying vec3 vW; varying float vD;
+    void main(){ vec4 w = modelMatrix * vec4(position.x, uTide, position.z, 1.0); vW = w.xyz; vD = uTide - aH; gl_Position = projectionMatrix * viewMatrix * w; }`,
+  fragmentShader: `
+    uniform float uTime, uFogD, uLight; uniform vec3 uSunDir, uSunCol, uTop, uMid, uHor, uFog; varying vec3 vW; varying float vD;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+      return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y); }
+    float hg(vec2 p){ float t = uTime; return vn(p * 0.6 + vec2(t * 0.15, t * 0.05)) * 0.5 + vn(p * 1.7 - vec2(t * 0.2, -t * 0.1)) * 0.3 + vn(p * 5.0 + vec2(t * 0.4, t * 0.2)) * 0.12; }
+    void main(){
+      if(vD < 0.0) discard;
+      vec2 p = vW.xz; vec3 dv = cameraPosition - vW; float dist = length(dv); vec3 V = dv / dist;
+      float e = 0.1, k = 0.32 / (1.0 + dist * 0.012);
+      float hx = (hg(p + vec2(e, 0.0)) - hg(p - vec2(e, 0.0))) / (2.0 * e), hz = (hg(p + vec2(0.0, e)) - hg(p - vec2(0.0, e))) / (2.0 * e);
+      vec3 N = normalize(vec3(-hx * k, 1.0, -hz * k));
+      float fres = 0.02 + 0.98 * pow(1.0 - max(dot(N, V), 0.0), 5.0);
+      vec3 R = reflect(-V, N); R.y = abs(R.y);
+      vec3 sky = mix(uHor, mix(uMid, uTop, smoothstep(0.3, 0.9, R.y)), smoothstep(0.0, 0.35, R.y));
+      float sp = max(dot(R, normalize(uSunDir)), 0.0);
+      sky += uSunCol * (pow(sp, 500.0) * 8.0 + pow(sp, 40.0) * 0.5);
+      vec3 body = mix(vec3(0.03, 0.15, 0.17), vec3(0.22, 0.44, 0.40), exp(-vD * 0.8)) * uLight;
+      vec3 col = mix(body, sky, clamp(fres, 0.0, 1.0));
+      float fm = smoothstep(0.6, 0.0, vD) * (0.5 + 0.5 * sin(vD * 12.0 - uTime * 1.4 + hg(p) * 7.0));
+      col = mix(col, vec3(0.92, 0.95, 0.95) * max(uLight, 0.3), fm * 0.55);
+      float a = clamp(smoothstep(0.0, 0.6, vD) * 0.92 + fres * 0.08, 0.0, 1.0);
+      col = mix(col, uFog, 1.0 - exp(-pow(uFogD * dist, 2.0)));
+      gl_FragColor = vec4(col, a);
+      #include <tonemapping_fragment>
+      #include <encodings_fragment>
+    }`
+});
+const water = new T.Mesh(waterG, waterMat); water.renderOrder = 3; water.frustumCulled = false; scene.add(water);
+
+// 木々 (円錐で山の森を表現)
+(function forest(){
+  const list = []; let tries = 0;
+  while(list.length < 6500 && tries++ < 100000){
+    const x = rr(-650, 650), z = rr(-560, 150);
+    const h = H(x, z); if(h < 3.2) continue;
+    if(Math.hypot(x - HILL[0], z - HILL[1]) < 30) continue;
+    if(z > -52 && Math.abs(x) < 150) continue;
+    list.push([x, h, z]);
+  }
+  const im = new T.InstancedMesh(new T.ConeGeometry(1, 1, 7), std({ roughness: 1, flatShading: true }), list.length);
+  const m = new T.Matrix4(), q = new T.Quaternion(), col = new T.Color();
+  list.forEach(([x, h, z], i) => {
+    const s = rr(2, 3.8) * (1 + smooth(40, 200, h) * 0.4), hh = s * rr(2.2, 3.2);
+    q.setFromEuler(new T.Euler(0, rnd() * 6, 0)); m.compose(new T.Vector3(x, h + hh * 0.4, z), q, new T.Vector3(s, hh, s)); im.setMatrixAt(i, m);
+    col.setHSL(0.25 + rnd() * 0.08, 0.38 + rnd() * 0.15, 0.17 + rnd() * 0.12).convertSRGBToLinear(); im.setColorAt(i, col);
+  });
+  scene.add(im);
+})();
+
+/* ================= 空 ================= */
+(function sky(){
+  const m = new T.ShaderMaterial({
+    side: T.BackSide, depthWrite: false, fog: false,
+    uniforms: { uTime: timeU, uSunDir: { value: cur.sun }, uSunCol: { value: cur.sunCol }, uTop: { value: cur.skyTop }, uMid: { value: cur.skyMid }, uHor: { value: cur.skyHor }, uFog: { value: cur.fog }, uStar: { value: 0 }, uSize: { value: 1 }, uLight: { value: 1 } },
+    vertexShader: 'varying vec3 vD; void main(){ vD = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `uniform float uTime, uStar, uSize, uLight; uniform vec3 uSunDir, uSunCol, uTop, uMid, uHor, uFog; varying vec3 vD;
+      float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float hash3(vec3 p){ return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
+      float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y); }
+      float fbm(vec2 p){ return vn(p) * 0.5 + vn(p * 2.03) * 0.25 + vn(p * 4.1) * 0.125; }
+      void main(){
+        vec3 d = normalize(vD); float y = d.y;
+        vec3 col = mix(uHor, uMid, smoothstep(0.0, 0.3, y)); col = mix(col, uTop, smoothstep(0.25, 0.9, y));
+        if(y > 0.0){
+          vec2 cp = d.xz / (y + 0.25) * 0.8 + vec2(uTime * 0.004, uTime * 0.0015);
+          float c = smoothstep(0.52, 0.9, fbm(cp * 1.6)) * smoothstep(0.02, 0.25, y);
+          col = mix(col, mix(uHor, vec3(1.0), 0.6) * max(uLight, 0.25), c * 0.5);
+          vec3 g = floor(d * 520.0); float st = step(0.9982, hash3(g)) * smoothstep(0.05, 0.3, y);
+          col += vec3(0.9, 0.95, 1.0) * st * uStar;
+        }
+        // 対岸の山並み
+        float az = atan(d.x, d.z);
+        float ridge = 0.012 + 0.05 * fbm(vec2(az * 3.2, 1.7)) + 0.03 * fbm(vec2(az * 9.0, 5.0));
+        float sector = smoothstep(1.35, 0.9, abs(az));
+        float rm = smoothstep(ridge + 0.003, ridge - 0.002, y) * sector * step(-0.05, y);
+        vec3 ridgeCol = mix(uFog, uTop * 0.6 + uHor * 0.15, 0.45);
+        col = mix(col, ridgeCol, rm * 0.85);
+        float s = max(dot(d, normalize(uSunDir)), 0.0);
+        col += uSunCol * (pow(s, 1200.0 / uSize) * 6.0 + pow(s, 60.0 / uSize) * 0.35 + pow(s, 6.0) * 0.12);
+        gl_FragColor = vec4(col, 1.0);
+        #include <encodings_fragment>
+      }`
+  });
+  m.userData.tick = () => { m.uniforms.uStar.value = cur.star; m.uniforms.uSize.value = cur.sunSize; m.uniforms.uLight.value = cur.light; };
+  const mesh = new T.Mesh(new T.SphereGeometry(1600, 32, 16), m); mesh.userData.mat = m; mesh.frustumCulled = false; scene.add(mesh);
+  shared.sky = m;
+})();
+
+/* ================= 社殿 ================= */
+function hipGeo(w, d, h){
+  const ex = w / 2, ez = d / 2, r = Math.max(0, (w - d) / 2);
+  const b = [[-ex, 0, -ez], [ex, 0, -ez], [ex, 0, ez], [-ex, 0, ez]], rg = [[-r, h, 0], [r, h, 0]], pos = [], uv = [];
+  const tri = (a, b2, c) => [a, b2, c].forEach(p => { pos.push(p[0], p[1], p[2]); uv.push(p[0] * 0.3, (p[2] + p[1] * 1.6) * 0.3); });
+  tri(b[3], b[2], rg[1]); tri(b[3], rg[1], rg[0]); tri(b[1], b[0], rg[0]); tri(b[1], rg[0], rg[1]); tri(b[0], b[3], rg[0]); tri(b[2], b[1], rg[1]);
+  const g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new T.Float32BufferAttribute(uv, 2)); g.computeVertexNormals(); return g;
+}
+function roof(w, d, h, x, y, z, ry){
+  const g = new T.Group(); g.position.set(x, y, z); if(ry) g.rotation.y = ry; scene.add(g);
+  const m = new T.Mesh(hipGeo(w, d, h), M.bark); m.castShadow = m.receiveShadow = true; g.add(m);
+  const s = new T.Mesh(new T.BoxGeometry(w, 0.14, d), M.soffit); s.position.y = -0.07; s.castShadow = s.receiveShadow = true; g.add(s);
+  const e = new T.Mesh(new T.BoxGeometry(w + 0.1, 0.22, d + 0.1), M.barn); e.position.y = 0.08; g.add(e);
+  return g;
+}
+const postList = [], lampList = [], pileList = [];
+function post(x, y0, z, h, w){ postList.push([x, y0, z, h, w || 0.36]); }
+function piles(x0, x1, z0, z1, step){
+  step = step || 3.6;
+  for(let x = x0; x <= x1 + 0.01; x += step) for(let z = z0; z <= z1 + 0.01; z += step) pileList.push([x, z]);
+}
+function rail(x0, z0, x1, z1, y){
+  const len = Math.hypot(x1 - x0, z1 - z0), alongX = Math.abs(x1 - x0) > Math.abs(z1 - z0);
+  box(alongX ? len : 0.14, 0.14, alongX ? 0.14 : len, M.shu, (x0 + x1) / 2, y + 0.95, (z0 + z1) / 2, { cast: false });
+  box(alongX ? len : 0.1, 0.1, alongX ? 0.1 : len, M.shu, (x0 + x1) / 2, y + 0.45, (z0 + z1) / 2, { cast: false });
+  const n = Math.max(1, Math.round(len / 2.4));
+  for(let i = 0; i <= n; i++){ const t = i / n; post(lerp(x0, x1, t), y, lerp(z0, z1, t), 1.05, 0.17); }
+}
+function corridor(x0, z0, x1, z1){
+  const len = Math.hypot(x1 - x0, z1 - z0), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, az = Math.abs(z1 - z0) > Math.abs(x1 - x0);
+  box(az ? 3 : len, 0.3, az ? len : 3, M.floor, cx, FLOOR - 0.15, cz, { uv: 0.7, swap: az });
+  const n = Math.round(len / 3.6);
+  for(let i = 0; i <= n; i++){
+    const t = i / n, px = lerp(x0, x1, t), pz = lerp(z0, z1, t);
+    [-1, 1].forEach(s => { const ox = az ? s * 1.4 : 0, oz = az ? 0 : s * 1.4; post(px + ox, FLOOR, pz + oz, 3.6, 0.36); });
+    if(i < n){ const tm = (i + 0.5) / n; lampList.push([lerp(x0, x1, tm), FLOOR + 3.0, lerp(z0, z1, tm)]); }
+  }
+  [-1, 1].forEach(s => {
+    const ox = az ? s * 1.4 : 0, oz = az ? 0 : s * 1.4;
+    box(az ? 0.3 : len, 0.36, az ? len : 0.3, M.shu, cx + ox, FLOOR + 3.7, cz + oz, { cast: false });
+    box(az ? 0.12 : len, 0.12, az ? len : 0.12, M.shu, cx + ox, FLOOR + 0.9, cz + oz, { cast: false });
+    box(az ? 0.1 : len, 0.1, az ? len : 0.1, M.shu, cx + ox, FLOOR + 0.4, cz + oz, { cast: false });
+  });
+  roof(len + 1.6, 5.4, 1.9, cx, FLOOR + 3.9, cz, az ? Math.PI / 2 : 0);
+  piles(Math.min(x0, x1) - (az ? 1.4 : 0), Math.max(x0, x1) + (az ? 1.4 : 0), Math.min(z0, z1) - (az ? 0 : 1.4), Math.max(z0, z1) + (az ? 0 : 1.4), 3.6);
+}
+// 床
+box(32, 0.3, 55, M.floor, 0, FLOOR - 0.15, -5.5, { uv: 0.7, swap: true });
+box(10, 0.3, 7, M.floor, 0, FLOOR - 0.15, 25.5, { uv: 0.7, swap: true });
+box(11, 0.6, 8, M.floorHi, 0, FLOOR + 0.3, 12, { uv: 0.6, swap: true });
+piles(-16, 16, -32, 22, 3.6); piles(-5, 5, 24, 28, 3.6);
+for(let x = -16; x <= 16.1; x += 3.6) box(0.26, 0.3, 54, M.shuDark, x, 0.5, -5.5, { cast: false });
+for(let z = -32; z <= 22.1; z += 3.6) box(33, 0.28, 0.26, M.shuDark, 0, 0.9, z, { cast: false });
+// 回廊
+corridor(17.5, 22, 17.5, -34); corridor(-17.5, 22, -17.5, -34); corridor(-17.5, -34, 17.5, -34);
+// 平舞台・火焼前・高舞台の欄干
+rail(-16, 22, -5, 22, FLOOR); rail(5, 22, 16, 22, FLOOR); rail(-5, 22, -5, 29, FLOOR); rail(5, 22, 5, 29, FLOOR); rail(-5, 29, 5, 29, FLOOR);
+rail(-5.5, 8, 5.5, 8, FLOOR + 0.6); rail(-5.5, 16, 5.5, 16, FLOOR + 0.6); rail(-5.5, 8, -5.5, 16, FLOOR + 0.6); rail(5.5, 8, 5.5, 16, FLOOR + 0.6);
+// 本殿・幣殿
+function hall(w, d, h, z, rh, rw, rd, baseY){
+  box(w, h, d, M.plaster, 0, baseY + h / 2, z);
+  box(w + 0.3, 0.5, d + 0.3, M.shu, 0, baseY + h - 0.25, z); box(w + 0.3, 0.4, d + 0.3, M.shu, 0, baseY + 0.2, z);
+  for(let x = -w / 2; x <= w / 2 + 0.01; x += w / 4){ post(x, baseY, z - d / 2 - 0.05, h, 0.4); post(x, baseY, z + d / 2 + 0.05, h, 0.4); }
+  roof(rw, rd, rh, 0, baseY + h, z);
+}
+hall(12, 9, 4.6, -25.5, 4.2, 17, 14, FLOOR);
+hall(9, 6, 3.6, -18, 3.0, 12.5, 10.5, FLOOR);
+// 拝殿・祓殿 (柱と屋根の開放的な建物)
+function pavilion(w, d, z, h, rh, rw, rd, nx){
+  const nn = nx || 4;
+  for(let i = 0; i <= nn; i++){ const x = -w / 2 + i * w / nn; post(x, FLOOR, z - d / 2, h, 0.4); post(x, FLOOR, z + d / 2, h, 0.4); }
+  post(-w / 2, FLOOR, z, h, 0.4); post(w / 2, FLOOR, z, h, 0.4);
+  [-1, 1].forEach(s => box(w + 0.3, 0.45, 0.4, M.shu, 0, FLOOR + h - 0.2, z + s * d / 2));
+  box(0.4, 0.45, d, M.shu, -w / 2, FLOOR + h - 0.2, z); box(0.4, 0.45, d, M.shu, w / 2, FLOOR + h - 0.2, z);
+  roof(rw, rd, rh, 0, FLOOR + h, z);
+}
+pavilion(14, 8, -11, 3.8, 3.6, 18, 12.5, 4);
+pavilion(16, 8, -3, 3.4, 3.2, 20, 12, 4);
+box(14, 3.6, 0.3, M.dark, 0, FLOOR + 1.8, -14.85);
+// 高舞台の大灯籠
+[-1, 1].forEach(s => { cyl(0.13, 0.13, 2.2, M.black, s * 4.6, FLOOR + 1.7, 9, { seg: 8 }); box(0.8, 0.9, 0.8, lampMat, s * 4.6, FLOOR + 3.2, 9, { cast: false }); lampList.push([s * 4.6, FLOOR + 3.2, 9]); });
+// 能舞台
+(function noh(){
+  box(12, 0.3, 12, M.floor, -36, FLOOR - 0.15, 3, { uv: 0.7 });
+  box(11, 0.3, 3, M.floor, -24.5, FLOOR - 0.15, 3.5, { uv: 0.7, swap: false });
+  piles(-42, -30, -3, 9, 3.6); piles(-30, -19, 2, 5, 3.6);
+  [[-40, -1], [-32, -1], [-40, 7], [-32, 7]].forEach(([x, z]) => post(x, FLOOR, z, 4.8, 0.4));
+  [-1, 7].forEach(z => box(8.6, 0.4, 0.4, M.shu, -36, FLOOR + 4.6, z)); [-40, -32].forEach(x => box(0.4, 0.4, 8.6, M.shu, x, FLOOR + 4.6, 3));
+  roof(13, 11, 4.2, -36, FLOOR + 4.8, 3);
+  const pn = new T.Mesh(new T.PlaneGeometry(8, 4.4), M.pine); pn.rotation.y = Math.PI / 2; pn.position.set(-40.6, FLOOR + 2.4, 3); pn.receiveShadow = true; scene.add(pn);
+  [-1, 1].forEach(s => { rail(-30, 3.5 + s * 1.5, -19, 3.5 + s * 1.5, FLOOR); });
+  lampList.push([-31.5, FLOOR + 3.2, -0.6], [-31.5, FLOOR + 3.2, 6.6]);
+})();
+// 吊り灯籠と釣り灯
+(function lamps(){
+  const g = new T.CylinderGeometry(0.26, 0.26, 0.6, 8), im = new T.InstancedMesh(g, lampMat, lampList.length), m = new T.Matrix4(), pp = [];
+  lampList.forEach((p, i) => { m.makeTranslation(p[0], p[1], p[2]); im.setMatrixAt(i, m); pp.push(p[0], p[1], p[2]); });
+  scene.add(im);
+  const gg = new T.BufferGeometry(); gg.setAttribute('position', new T.Float32BufferAttribute(pp, 3));
+  const pts = new T.Points(gg, glowMat); pts.frustumCulled = false; scene.add(pts);
+})();
+// 柱と杭のインスタンス
+(function inst(){
+  const g = new T.BoxGeometry(1, 1, 1); g.translate(0, 0.5, 0);
+  const im = new T.InstancedMesh(g, M.shu, postList.length), m = new T.Matrix4();
+  postList.forEach((p, i) => { m.compose(new T.Vector3(p[0], p[1], p[2]), new T.Quaternion(), new T.Vector3(p[4], p[3], p[4])); im.setMatrixAt(i, m); });
+  im.castShadow = im.receiveShadow = true; scene.add(im);
+  const pg = new T.CylinderGeometry(0.32, 0.36, 7.4, 10), pm = new T.InstancedMesh(pg, M.shuDark, pileList.length);
+  pileList.forEach((p, i) => { m.makeTranslation(p[0], FLOOR - 3.7 - 0.2, p[1]); pm.setMatrixAt(i, m); });
+  pm.castShadow = true; scene.add(pm);
+})();
+
+// 大鳥居
+function curvedBeam(len, h, d, amp, mat, capMat, y, parent){
+  const n = 28, f = x => amp * Math.pow(Math.abs(x) / (len / 2), 2.6);
+  for(let i = 0; i < n; i++){
+    const x0 = -len / 2 + i * len / n, x1 = x0 + len / n, y0 = f(x0), y1 = f(x1);
+    const seg = new T.Mesh(new T.BoxGeometry(len / n * 1.04, h, d), mat);
+    seg.position.set((x0 + x1) / 2, y + (y0 + y1) / 2, 0); seg.rotation.z = Math.atan2(y1 - y0, x1 - x0); parent.add(seg);
+    if(capMat){ const cap = new T.Mesh(new T.BoxGeometry(len / n * 1.04, 0.22, d * 1.04), capMat); cap.position.y = h / 2 + 0.11; seg.add(cap); }
+  }
+}
+const toriiG = new T.Group();
+(function torii(){
+  const gy = seaBase(140), g = toriiG; g.position.set(0, 0, 140); scene.add(g);
+  [-5.5, 5.5].forEach(sx => {
+    cyl(0.66, 0.78, 15, M.shu, sx, gy + 7.5, 0, { parent: g, seg: 18 });
+    cyl(0.86, 0.9, 2.6, M.barn, sx, gy + 1.3, 0, { parent: g, seg: 18 });
+    [-2.6, 2.6].forEach(sz => {
+      cyl(0.36, 0.44, 9.6, M.shu, sx, gy + 4.8, sz, { parent: g, seg: 12 });
+      cyl(0.4, 0.44, 1.3, M.barn, sx, gy + 0.65, sz, { parent: g, seg: 12 });
+      box(0.46, 0.4, 2.6, M.shu, sx, gy + 8.3, sz / 2, { parent: g });
+      box(0.6, 0.3, 0.6, M.black, sx, gy + 9.75, sz, { parent: g });
+    });
+  });
+  box(17.5, 0.62, 0.7, M.shu, 0, gy + 11.4, 0, { parent: g });
+  box(11, 0.4, 0.5, M.shu, 0, gy + 13.6, 0, { parent: g });
+  curvedBeam(24, 0.9, 1.5, 0.55, M.shu, null, gy + 14.6, g);
+  curvedBeam(27, 1.3, 2.3, 0.95, M.shu, M.black, gy + 15.9, g);
+  [-1, 1].forEach(s => { const p = new T.Mesh(new T.PlaneGeometry(2.3, 4.0), M.plaque); p.position.set(0, gy + 12.5, s * 0.38); if(s < 0) p.rotation.y = Math.PI; g.add(p); });
+  g.traverse(o => { if(o.isMesh){ o.castShadow = false; } });
+})();
+
+// 千畳閣と五重塔
+(function hill(){
+  const y0 = 13.2;
+  // 千畳閣
+  const hx = 34, hz = -66;
+  box(36, 0.8, 16, M.dwood, hx, y0 + 0.4, hz, { uv: 0.5 });
+  for(let x = -17; x <= 17.1; x += 3.4) for(const s of [-1, 1]) post(hx + x, y0 + 0.8, hz + s * 7, 5.4, 0.55);
+  box(34, 4.4, 0.4, M.plaster, hx, y0 + 3.4, hz - 6.8); box(36.6, 0.6, 15.2, M.shu, hx, y0 + 6.1, hz, { cast: false });
+  roof(42, 22, 5.6, hx, y0 + 6.4, hz);
+  // 五重塔
+  const px = 62, pz = -58;
+  box(10, 1, 10, M.stone, px, y0 + 0.5, pz);
+  let y = y0 + 1, s = 6.6;
+  for(let i = 0; i < 5; i++){
+    const bh = i === 0 ? 4.2 : 3.4; box(s, bh, s, M.plaster, px, y + bh / 2, pz);
+    [-1, 1].forEach(a => [-1, 1].forEach(b => post(px + a * s / 2, y, pz + b * s / 2, bh, 0.4)));
+    box(s + 0.3, 0.4, s + 0.3, M.shu, px, y + bh - 0.2, pz);
+    y += bh; const rw = s * 2.0 + 1; roof(rw, rw, 1.7 + (4 - i) * 0.05, px, y, pz); y += 0.2;
+    s *= 0.85;
+  }
+  cyl(0.15, 0.25, 7.5, M.gold, px, y + 3.5, pz, { seg: 8 });
+  for(let i = 0; i < 6; i++) cyl(0.7 - i * 0.08, 0.7 - i * 0.08, 0.12, M.gold, px, y + 2 + i * 0.85, pz, { seg: 12 });
+})();
+
+/* ================= 名所・視点 ================= */
+const SPOTS = [
+  { id: 'overview', label: '全景', pin: null, view: { p: [84, 20, 158], yaw: 0.66, pitch: -0.08, fov: 56 },
+    kana: 'いつくしまじんじゃ', title: '厳島神社', lead: '広島県・宮島の北岸に、海へせり出して建つ神社です。1996年に世界遺産に登録されました。',
+    facts: ['祭神は宗像三女神(市杵島姫命・田心姫命・湍津姫命)です。', '創建は6世紀末と伝わります。海上の社殿は、平安時代末に平清盛が整えたとされます。', '満潮には社殿が海に浮かんで見え、干潮には砂地が現れて大鳥居まで歩けます。'] },
+  { id: 'torii', label: '大鳥居', pin: [0, 18, 140], view: { p: [26, 6.5, 186], yaw: 0.5, pitch: 0.1, fov: 55 },
+    kana: 'おおとりい', title: '大鳥居', lead: '社殿の沖に立つ朱塗りの鳥居です。海の中に立つ神社の入口を示します。',
+    facts: ['高さは約16メートル。主柱の前後に袖柱を備えた両部鳥居の形です。', '主柱は海底に据えられ、自らの重みで立っているとされます。笠木の箱には石が詰められています。', '現在の鳥居は8代目で、1875年(明治8年)に再建されました。'] },
+  { id: 'stage', label: '平舞台', pin: [0, 7.5, 14], view: { p: [6, 4.4, 25], yaw: 3.06, pitch: 0.04, fov: 54 },
+    kana: 'ひらぶたい・たかぶたい', title: '平舞台と高舞台', lead: '海に向かって開いた舞台です。舞楽などの神事が行われる場で、正面に大鳥居が見えます。',
+    facts: ['中央の一段高い部分が高舞台、その先に張り出した部分が火焼前(ひたさき)です。', '大潮の満潮には、床の下まで海水が来ます。', '夕方には夕日が大鳥居の向こうに沈みます。'] },
+  { id: 'honden', label: '本殿・拝殿', pin: [0, 12.5, -25], view: { p: [0, 4.4, 14], yaw: 0, pitch: 0.12, fov: 62 },
+    kana: 'ほんでん・はいでん', title: '本殿・拝殿', lead: '中心の軸線上に、祓殿・拝殿・幣殿・本殿が一列に並びます。',
+    facts: ['本殿・幣殿・拝殿・祓殿は国宝に指定されています。', '屋根は檜皮(ひわだ)葺きで、柱や梁は朱色に塗られています。', '祀られているのは宗像三女神です。'] },
+  { id: 'corridor', label: '回廊', pin: [17.5, 8, -4], view: { p: [17.5, 4.25, 20], yaw: 0, pitch: -0.02, fov: 62 },
+    kana: 'かいろう', title: '回廊', lead: '朱塗りの柱が連なる長い廊下で、社殿どうしを結びます。',
+    facts: ['床板の間には隙間があり、高潮のときに床下の水圧を逃がすといわれます。', '柱の間に吊り灯籠が並び、夕方から灯りがともります。', '東西の回廊は国宝に指定されています。'] },
+  { id: 'noh', label: '能舞台', pin: [-36, 9, 3], view: { p: [-19, 4.3, 3.5], yaw: 1.57, pitch: 0.02, fov: 58 },
+    kana: 'のうぶたい', title: '能舞台', lead: '西回廊の外側、海の上に建つ能舞台です。橋掛かりと呼ばれる渡り廊下で回廊とつながります。',
+    facts: ['海上に建つ能舞台は、全国でも珍しい存在です。', '現在の舞台は江戸時代の造営で、重要文化財に指定されています。'] },
+  { id: 'pagoda', label: '五重塔', pin: [62, 38, -58], view: { p: [58, 13, 70], yaw: 0.05, pitch: 0.2, fov: 50 },
+    kana: 'ごじゅうのとう・せんじょうかく', title: '五重塔と千畳閣', lead: '社殿の背後、小高い丘に並ぶ二つの建物です。',
+    facts: ['五重塔は1407年の建立とされ、高さは約27メートルです。', '千畳閣(豊国神社)は、1587年に豊臣秀吉が建立を命じた大経堂で、未完成のまま残りました。', 'どちらも重要文化財に指定されています。'] }
+];
+
+/* ================= カメラ・操作 ================= */
+const cam = { p: new T.Vector3(7, 4.3, 12), yaw: 3.06, pitch: 0.06, fov: 62 };
+let tween = null, walk = { on: false, u: 0, playing: true, len: 1, off: { yaw: 0, pitch: 0 }, blend: 1, from: null };
+const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function snapshot(){ return { p: cam.p.clone(), yaw: cam.yaw, pitch: cam.pitch, fov: cam.fov }; }
+
+const spotsEl = $('#spots'), pinsEl = $('#pins'), pinEls = {};
+SPOTS.forEach(s => {
+  const b = document.createElement('button'); b.className = 'chip'; b.type = 'button'; b.textContent = s.label; b.dataset.id = s.id; b.setAttribute('aria-pressed', 'false');
+  b.addEventListener('click', () => selectSpot(s.id)); spotsEl.appendChild(b);
+  if(s.pin){
+    const p = document.createElement('button'); p.className = 'pin'; p.type = 'button'; p.innerHTML = '<i></i><span></span>'; p.lastChild.textContent = s.label; p.setAttribute('aria-label', s.label + 'へ移動');
+    p.addEventListener('click', () => selectSpot(s.id)); pinsEl.appendChild(p); pinEls[s.id] = { el: p, v: new T.Vector3(...s.pin) };
+  }
+});
+function showCard(s){
+  $('#cKana').textContent = s.kana; $('#cTitle').textContent = s.title; $('#cLead').textContent = s.lead;
+  const ul = $('#cFacts'); ul.innerHTML = ''; s.facts.forEach(f => { const li = document.createElement('li'); li.textContent = f; ul.appendChild(li); });
+  $('#card').hidden = false;
+}
+function selectSpot(id){
+  const s = SPOTS.find(x => x.id === id); if(!s) return;
+  if(walk.on) stopWalk();
+  tween = { t: 0, dur: reduce ? 0.01 : 2.6, from: snapshot(), to: s.view };
+  document.querySelectorAll('#spots .chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === id)));
+  showCard(s);
+}
+$('#closeCard').addEventListener('click', () => { $('#card').hidden = true; });
+
+// 参道ルート
+const PATH = new T.CatmullRomCurve3([[17.5, 26], [17.5, 12], [17.5, -8], [17.5, -28], [14, -34], [0, -34], [-14, -34], [-17.5, -28], [-17.5, -8], [-17.5, 3], [-24, 3.5], [-33, 3.5]].map(p => new T.Vector3(p[0], FLOOR + 1.65, p[1])), false, 'centripetal');
+walk.len = PATH.getLength();
+const CAPS = [
+  { u: 0, t: '東回廊', d: '朱塗りの柱が続く回廊を北へ進みます。床板の隙間は、高潮の水圧を逃がすためといわれます。' },
+  { u: 0.3, t: '本殿の裏', d: '回廊の内側に、本殿・幣殿・拝殿・祓殿が一列に並びます。干潮には床下の砂地が見えます。' },
+  { u: 0.56, t: '西回廊', d: '釣り灯籠が等間隔に並び、夕方から順に灯ります。床下の柱は海中に立っています。' },
+  { u: 0.86, t: '能舞台へ', d: '橋掛かりを渡ると、海の上の能舞台に出ます。舞台の向こうに大鳥居が見えます。' }
+];
+const SEA_YAW = Math.PI;
+function startWalk(){
+  walk.on = true; walk.u = 0; walk.playing = true; walk.blend = 0; walk.from = snapshot(); walk.off.yaw = 0; walk.off.pitch = 0; tween = null;
+  $('#walk').setAttribute('aria-pressed', 'true'); $('#walk').textContent = '歩くのをやめる';
+  $('#walkbar').hidden = false; $('#spots').style.display = 'none'; $('#card').hidden = true; $('#wplay').textContent = '一時停止';
+  document.querySelectorAll('#spots .chip').forEach(b => b.setAttribute('aria-pressed', 'false'));
+  Object.values(pinEls).forEach(p => p.el.style.visibility = 'hidden');
+}
+function stopWalk(){
+  walk.on = false; $('#walk').setAttribute('aria-pressed', 'false'); $('#walk').textContent = '参道を歩く';
+  $('#walkbar').hidden = true; $('#spots').style.display = ''; Object.values(pinEls).forEach(p => p.el.style.visibility = '');
+}
+$('#walk').addEventListener('click', () => walk.on ? stopWalk() : startWalk());
+$('#wplay').addEventListener('click', () => { walk.playing = !walk.playing; $('#wplay').textContent = walk.playing ? '一時停止' : '再生'; });
+$('#wslide').addEventListener('input', e => { walk.u = +e.target.value / 1000; walk.playing = false; $('#wplay').textContent = '再生'; });
+
+const ptrs = new Map(); let pinch0 = 0, fov0 = 0;
+canvas.addEventListener('pointerdown', e => {
+  canvas.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); canvas.classList.add('drag'); tween = null;
+  if(ptrs.size === 2){ const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); fov0 = cam.fov; }
+});
+canvas.addEventListener('pointermove', e => {
+  const p = ptrs.get(e.pointerId); if(!p) return;
+  const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
+  if(ptrs.size === 1){
+    const k = 0.0036 * (cam.fov / 60);
+    if(walk.on){ walk.off.yaw = clamp(walk.off.yaw + dx * k, -1.6, 1.6); walk.off.pitch = clamp(walk.off.pitch + dy * k, -0.6, 0.9); }
+    else { cam.yaw += dx * k; cam.pitch = clamp(cam.pitch + dy * k, -0.7, 1.35); document.querySelectorAll('#spots .chip').forEach(b => b.setAttribute('aria-pressed', 'false')); }
+  } else if(ptrs.size === 2){
+    const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y); if(pinch0 > 0) cam.fov = clamp(fov0 * pinch0 / d, 28, 85);
+  }
+});
+const endPtr = e => { ptrs.delete(e.pointerId); if(!ptrs.size) canvas.classList.remove('drag'); };
+canvas.addEventListener('pointerup', endPtr); canvas.addEventListener('pointercancel', endPtr);
+canvas.addEventListener('wheel', e => { e.preventDefault(); cam.fov = clamp(cam.fov + e.deltaY * 0.03, 28, 85); }, { passive: false });
+const keys = {};
+window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; const n = +e.key; if(n >= 1 && n <= SPOTS.length) selectSpot(SPOTS[n - 1].id); });
+window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+// 時刻と潮
+document.querySelectorAll('#tods .chip').forEach(b => b.addEventListener('click', () => setTod(b.dataset.tod)));
+const LOW = -3.2, HIGH = 1.0; let tideAuto = false, tideV = 0.82;
+function setTide(v){
+  tideV = clamp(v, 0, 1); tideU.value = lerp(LOW, HIGH, tideV); waterMat.uniforms.uTide.value = tideU.value;
+  $('#tide').value = Math.round(tideV * 100);
+  $('#tideNote').textContent = tideV > 0.72 ? '満潮に近く、社殿が海に浮かんで見えます。' : tideV > 0.35 ? '潮が引き、柱の足元が見えてきました。' : '干潮。砂地を歩いて大鳥居まで行けます。';
+}
+$('#tide').addEventListener('input', e => { tideAuto = false; $('#tideAuto').setAttribute('aria-pressed', 'false'); setTide(+e.target.value / 100); });
+$('#tideAuto').addEventListener('click', e => { tideAuto = !tideAuto; e.currentTarget.setAttribute('aria-pressed', String(tideAuto)); });
+
+function resize(){
+  const w = canvas.clientWidth || innerWidth, h = canvas.clientHeight || innerHeight;
+  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize); resize();
+
+/* ================= ループ ================= */
+const clock = new T.Clock(), dir = new T.Vector3(), tmp = new T.Vector3(), tmp2 = new T.Vector3();
+applyTod(); setTide(0.82);
+cam.p.set(...SPOTS[2].view.p); cam.yaw = SPOTS[2].view.yaw; cam.pitch = SPOTS[2].view.pitch; cam.fov = SPOTS[2].view.fov;
+function updateCaption(){
+  let c = CAPS[0]; CAPS.forEach(x => { if(walk.u >= x.u) c = x; });
+  const el = $('#wcap'); if(el.dataset.t !== c.t){ el.dataset.t = c.t; el.innerHTML = ''; const b = document.createElement('b'); b.textContent = c.t; el.appendChild(b); el.appendChild(document.createTextNode(c.d)); }
+}
+function frame(){
+  requestAnimationFrame(frame);
+  const dt = Math.min(clock.getDelta(), 0.05); timeU.value += dt; const t = timeU.value;
+  updateTod(dt);
+  if(tideAuto){ tideV = 0.5 + 0.5 * Math.sin(t * 0.12); setTide(tideV); }
+  waterMat.uniforms.uFogD.value = cur.fogD; waterMat.uniforms.uLight.value = cur.light; shared.sky.userData.tick();
+  if(walk.on){
+    if(walk.playing && walk.blend >= 1){ walk.u = Math.min(1, walk.u + dt * 2.6 / walk.len); if(walk.u >= 1){ walk.playing = false; $('#wplay').textContent = '再生'; } }
+    $('#wslide').value = Math.round(walk.u * 1000);
+    const p = PATH.getPointAt(walk.u), tg = PATH.getTangentAt(Math.min(walk.u, 0.999));
+    let yaw = Math.atan2(-tg.x, -tg.z); yaw = angLerp(yaw, SEA_YAW, smooth(0.86, 0.97, walk.u));
+    const tgt = { p, yaw: yaw + walk.off.yaw, pitch: 0.02 + walk.off.pitch };
+    if(walk.blend < 1){ walk.blend = Math.min(1, walk.blend + dt / 1.8); const k = ease(walk.blend);
+      cam.p.lerpVectors(walk.from.p, tgt.p, k); cam.yaw = angLerp(walk.from.yaw, tgt.yaw, k); cam.pitch = lerp(walk.from.pitch, tgt.pitch, k); cam.fov = lerp(walk.from.fov, 62, k); }
+    else { cam.p.copy(p); cam.yaw = tgt.yaw; cam.pitch = tgt.pitch; cam.fov = lerp(cam.fov, 62, 0.05); }
+    updateCaption();
+  } else if(tween){
+    tween.t += dt / tween.dur; const k = ease(clamp(tween.t, 0, 1)), a = tween.from, b = tween.to;
+    cam.p.set(lerp(a.p.x, b.p[0], k), lerp(a.p.y, b.p[1], k), lerp(a.p.z, b.p[2], k));
+    cam.yaw = angLerp(a.yaw, b.yaw, k); cam.pitch = lerp(a.pitch, b.pitch, k); cam.fov = lerp(a.fov, b.fov, k);
+    if(tween.t >= 1) tween = null;
+  } else {
+    const f = (keys['w'] || keys['arrowup'] ? 1 : 0) - (keys['s'] || keys['arrowdown'] ? 1 : 0), r = (keys['d'] ? 1 : 0) - (keys['a'] ? 1 : 0);
+    if(f || r){
+      const sp = (keys['shift'] ? 30 : 9) * dt, fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw);
+      cam.p.x = clamp(cam.p.x + (fx * f + -fz * r) * sp, -70, 90); cam.p.z = clamp(cam.p.z + (fz * f + fx * r) * sp, -60, 260);
+    }
+  }
+  const sw = reduce ? 0 : 1, yaw = cam.yaw + Math.sin(t * 0.3) * 0.002 * sw, pitch = cam.pitch + Math.sin(t * 0.23) * 0.0015 * sw;
+  camera.position.set(cam.p.x, cam.p.y + Math.sin(t * 0.45) * 0.01 * sw, cam.p.z);
+  dir.set(-Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
+  camera.lookAt(camera.position.x + dir.x, camera.position.y + dir.y, camera.position.z + dir.z);
+  const fovNow = cam.fov * (camera.aspect < 1 ? Math.min(1.5, 1 / Math.pow(camera.aspect, 0.45)) : 1);
+  if(Math.abs(camera.fov - fovNow) > 0.01){ camera.fov = fovNow; camera.updateProjectionMatrix(); }
+  // 夜は鳥居と灯籠を少し光らせる
+  M.shu.emissiveIntensity = toriiGlow.v * 0.45;
+  // ピン
+  if(!walk.on){
+    const w = canvas.clientWidth, h = canvas.clientHeight; camera.updateMatrixWorld();
+    Object.values(pinEls).forEach(p => {
+      tmp.copy(p.v).project(camera);
+      const vis = tmp.z < 1 && Math.abs(tmp.x) < 1.05 && Math.abs(tmp.y) < 1.05;
+      p.el.style.transform = vis ? `translate(${(tmp.x * 0.5 + 0.5) * w - 14}px,${(-tmp.y * 0.5 + 0.5) * h - 14}px)` : 'translate(-9999px,-9999px)';
+    });
+  }
+  renderer.render(scene, camera);
+}
+frame();
+window.__it = { cam, SPOTS, selectSpot, setTod, setTide, startWalk, walk, snap: id => { const s = SPOTS.find(x => x.id === id).view; cam.p.set(...s.p); cam.yaw = s.yaw; cam.pitch = s.pitch; cam.fov = s.fov; tween = null; } };
+})();
+</script>
