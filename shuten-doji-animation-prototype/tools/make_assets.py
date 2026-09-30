@@ -49,6 +49,7 @@ SCABBARD = [(85, 436), (97, 432), (112, 442), (135, 458), (158, 470), (168, 482)
 HAND_SLEEVE = [(133, 402), (150, 398), (172, 398), (195, 396), (212, 392), (215, 440), (200, 455), (175, 445),
                (165, 438), (150, 436), (138, 428)]
 TANTO = [(385, 538), (410, 540), (440, 544), (453, 548), (450, 556), (436, 554), (425, 553), (405, 548), (388, 548)]
+BLADE_ZONE_Y1 = 392   # これより上が刀身 (y<392) の範囲
 # 足元で武者の背後にある梁 (背景) を除外する
 BEAM_EXCLUDE = [(0, 520), (120, 552), (137, 556), (132, 566), (126, 580), (120, 596), (113, 608), (100, 612),
                 (85, 612), (70, 607), (57, 602), (45, 601), (30, 606), (0, 625)]
@@ -78,19 +79,20 @@ def build_mask(rgb):
     bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
     H = rgb.shape[0]
     # 刀身は 黄土色の地 との色差 (青灰/暗色) で抜く。GrabCut より輪郭が正確。
-    corridor = cv2.dilate(poly_mask(rgb.shape, SWORD), K(4))
+    corridor = cv2.dilate(poly_mask(rgb.shape, SWORD), K(8))
     r, g, b = [rgb[..., i].astype(int) for i in range(3)]
     lum = (r + g + b) / 3
     cls = ((b >= r - 12) | (lum < 105)).astype(np.uint8)
     blade = corridor * cls
     # 赤茶の刃縁など: 回廊を周囲から補間した「刀が無い場合の地」との差で拾う
-    tight = cv2.dilate(poly_mask(rgb.shape, SWORD), K(3))
-    wide = cv2.dilate(poly_mask(rgb.shape, SWORD), K(7))
+    tight = corridor                                   # 刀身の赤茶の帯 (鎬) まで拾うため広めに取る
+    wide = cv2.dilate(poly_mask(rgb.shape, SWORD), K(12))
     expect = cv2.inpaint(bgr, wide * 255, 5, cv2.INPAINT_TELEA)
     far = np.abs(bgr.astype(int) - expect.astype(int)).max(axis=2) > 28
-    green = (g > r) & (g >= b) & (lum > 90)                  # 草の緑
-    ochre = (r > g + 10) & (g > b + 10) & (lum > 120)        # 黄土色の地
-    blade = np.maximum(blade, (tight * far * ~green * ~ochre).astype(np.uint8))
+    green = (g > r + 20) & (g >= b + 8)                      # 草の緑 (刀身の青灰は b > g なので入らない)
+    ochre = (r > g + 10) & (g > b + 25) & (lum > 100)        # 黄土色の地 (赤茶の帯は g-b が小さいので入らない)
+    blade = np.maximum(blade, (tight * far).astype(np.uint8)) * (~green) * (~ochre)
+    blade = blade.astype(np.uint8)
     blade[390:] = 0
     blade = cv2.morphologyEx(blade, cv2.MORPH_OPEN, K(1))
     blade = cv2.morphologyEx(blade, cv2.MORPH_CLOSE, K(2))
@@ -99,6 +101,12 @@ def build_mask(rgb):
         blade = (lab == 1 + np.argmax(st[1:, 4])).astype(np.uint8)
     blade = cv2.dilate(blade, K(1))
     blade[390:] = 0
+    # 草の筆線などが刀身から飛び出した突起を落とす: 本体 (半径3で開いたもの) の 2px 外までに限る。
+    # 輪郭線は本体の 1〜2px 外にあるので残る。切先 (y<185) は細いのでそのまま残す。
+    core = cv2.morphologyEx(blade, cv2.MORPH_OPEN, K(3))
+    keep = cv2.dilate(core, K(2))
+    keep[:185] = 1
+    blade = blade * keep
     sword_low = grabcut(bgr, SWORD, 2, 5) * (np.arange(H)[:, None] >= 380)
     m = (grabcut(bgr, BODY, 7, 9) | grabcut(bgr, HAND_SLEEVE, 3, 5) | blade | sword_low
          | grabcut(bgr, SCABBARD, 2, 4) | poly_mask(rgb.shape, TANTO))
@@ -122,9 +130,11 @@ def peel_background(rgb, mask, thresh=22, max_iter=16):
     diff = np.abs(rgb.astype(np.int16) - est).max(axis=2)
     cross = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
     m = mask.copy()
+    blade_zone = cv2.dilate(poly_mask(rgb.shape, SWORD), K(8)) > 0
+    blade_zone[BLADE_ZONE_Y1:] = False
     for _ in range(max_iter):
         edge = (m > 0) & (cv2.erode(m, cross) == 0)
-        rem = edge & (diff <= thresh)
+        rem = edge & (diff <= thresh) & ~blade_zone
         if not rem.any():
             break
         m[rem] = 0
@@ -141,10 +151,26 @@ def build_clean_plate(rgb, mask, add_noise=True):
     """人物を除去した背景。周囲の色を Telea 法で回して埋める。
     パッチコピー系の手法は鬼の顔などを複製してしまうため使わない。"""
     hole = cv2.dilate(mask, K(1))
+    # 刀身のまわりは穴を広げ、元の刀の縁や影が背景に残らないようにする
+    blade = mask.copy()
+    blade[BLADE_ZONE_Y1:] = 0
+    blade[:, 175:] = 0
+    hole = np.maximum(hole, cv2.dilate(blade, K(4)))
     bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
     x0, y0, x1, y1 = 0, 100, 640, 740
     crop = bgr[y0:y1, x0:x1].copy()
     filled = cv2.inpaint(crop, hole[y0:y1, x0:x1], 5, cv2.INPAINT_TELEA)
+    # 刀身のあとは、周囲の地の模様をたどる周波数選択的な補間 (FSR) で埋める。
+    # Telea だと、近くの雲の縁 (灰色の線) の色を引っ張って灰色のにじみが出るため。
+    wx0, wy0, wx1, wy1 = 0, 150, 190, 400
+    win = bgr[wy0:wy1, wx0:wx1]
+    wh = hole[wy0:wy1, wx0:wx1]
+    zone = np.zeros_like(wh)
+    zone[:BLADE_ZONE_Y1 - wy0, :175] = 1
+    blade_hole = (wh * zone) > 0
+    filled_w = np.zeros_like(win)
+    cv2.xphoto.inpaint(win, ((1 - wh) * 255).astype(np.uint8), filled_w, cv2.xphoto.INPAINT_FSR_FAST)
+    filled[wy0 - y0:wy1 - y0, wx0 - x0:wx1 - x0][blade_hole] = filled_w[blade_hole]
     # 紙の粒状感をあわせる (穴の周囲の高周波成分から標準偏差を推定)
     ring = (cv2.dilate(hole, K(12)) - cv2.dilate(hole, K(4)))[y0:y1, x0:x1] > 0
     gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY).astype(np.float32)
@@ -306,7 +332,11 @@ def main():
     Image.fromarray(mask * 255).save(OUT_MASK)
 
     # スプライトは輪郭の AA 画素を含めるため 2px 太らせる
-    mask = cv2.dilate(mask, K(2))
+    # ただし刀身のまわりは太らせない (元絵の明るい地の画素が付いて、動かすと淡い縁取りに見えるため)
+    grown = cv2.dilate(mask, K(2))
+    blade_zone = np.zeros_like(mask, bool)
+    blade_zone[:BLADE_ZONE_Y1, :175] = True
+    mask = np.where(blade_zone, mask, grown).astype(np.uint8)
     plate = build_clean_plate(rgb, mask)
     Image.fromarray(plate).save(OUT_BG)
 
