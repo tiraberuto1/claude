@@ -49,7 +49,16 @@ SCABBARD = [(85, 436), (97, 432), (112, 442), (135, 458), (158, 470), (168, 482)
 HAND_SLEEVE = [(133, 402), (150, 398), (172, 398), (195, 396), (212, 392), (215, 440), (200, 455), (175, 445),
                (165, 438), (150, 436), (138, 428)]
 TANTO = [(385, 538), (410, 540), (440, 544), (453, 548), (450, 556), (436, 554), (425, 553), (405, 548), (388, 548)]
+WEDGE_OCHRE = [(156, 390), (218, 390), (218, 398), (190, 399), (176, 405), (168, 404), (160, 399)]   # 鍔と袖の間の地
+ARMOR_TIP = [(434, 527), (457, 527), (460, 541), (457, 548), (440, 547), (433, 540)]   # 鎧の裾の右端
 BLADE_ZONE_Y1 = 392   # これより上が刀身 (y<392) の範囲
+# 縁の背景を剥がす処理から外す部位 (橙・肌色・暗色が、補間した地と近く見えて削られるため)
+PEEL_PROTECT = [
+    [(385, 536), (412, 538), (441, 540), (456, 546), (454, 557), (436, 556), (425, 554), (405, 550), (388, 549)],  # 短刀
+    [(415, 515), (482, 515), (482, 545), (455, 546), (425, 546), (415, 540)],                                   # 鎧の裾の右端
+    [(516, 536), (520, 516), (548, 512), (560, 522), (560, 540), (557, 574), (526, 578), (486, 572), (486, 540)],  # 右の手 (籠手の脇の地は含めない)
+    [(116, 376), (160, 374), (176, 396), (176, 440), (150, 442), (124, 434), (118, 406)],                       # 鍔と握る手
+]
 # 足元で武者の背後にある梁 (背景) を除外する
 BEAM_EXCLUDE = [(0, 520), (120, 552), (137, 556), (132, 566), (126, 580), (120, 596), (113, 608), (100, 612),
                 (85, 612), (70, 607), (57, 602), (45, 601), (30, 606), (0, 625)]
@@ -99,23 +108,27 @@ def build_mask(rgb):
     n, lab, st, _ = cv2.connectedComponentsWithStats(blade)
     if n > 1:
         blade = (lab == 1 + np.argmax(st[1:, 4])).astype(np.uint8)
-    blade = cv2.dilate(blade, K(1))
     blade[390:] = 0
     # 草の筆線などが刀身から飛び出した突起を落とす: 本体 (半径3で開いたもの) の 2px 外までに限る。
     # 輪郭線は本体の 1〜2px 外にあるので残る。切先 (y<185) は細いのでそのまま残す。
     core = cv2.morphologyEx(blade, cv2.MORPH_OPEN, K(3))
     keep = cv2.dilate(core, K(2))
-    keep[:185] = 1
+    keep[:176] = 1
     blade = blade * keep
     sword_low = grabcut(bgr, SWORD, 2, 5) * (np.arange(H)[:, None] >= 380)
     m = (grabcut(bgr, BODY, 7, 9) | grabcut(bgr, HAND_SLEEVE, 3, 5) | blade | sword_low
          | grabcut(bgr, SCABBARD, 2, 4) | poly_mask(rgb.shape, TANTO))
+    # 鎧の裾の右端と短刀の柄の上: GrabCut が取りこぼして背景に残り、動かすと取り残されていた
+    tatami = (g >= b + 15) & (np.abs(r - g) < 45) & (g > 110)
+    m |= (poly_mask(rgb.shape, ARMOR_TIP) > 0) & ~tatami
     m[:, 554:] = 0
     m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, K(2))
     m[poly_mask(rgb.shape, BEAM_EXCLUDE) > 0] = 0
     m[poly_mask(rgb.shape, STRIP_EXCLUDE) > 0] = 0
     # 手の下にかかる畳縁の白い欠片 (彩度が低く明るい画素) を除く。手の肌は彩度があるので残る
     whitish = (rgb.max(axis=2).astype(int) - rgb.min(axis=2).astype(int) < 28) & (rgb.astype(int).sum(axis=2) / 3 > 185)
+    wedge = poly_mask(rgb.shape, WEDGE_OCHRE) > 0
+    m[wedge & (r > g + 5) & (g > b + 20) & (lum > 120) & (lum < 172)] = 0    # 肌 (lum 190 前後) は残す
     hand_box = np.zeros(m.shape, bool)
     hand_box[534:580, 503:558] = True
     m[hand_box & whitish] = 0
@@ -138,6 +151,9 @@ def peel_background(rgb, mask, thresh=22, max_iter=16):
     m = mask.copy()
     blade_zone = cv2.dilate(poly_mask(rgb.shape, SWORD), K(8)) > 0
     blade_zone[BLADE_ZONE_Y1:] = False
+    # 刀身のほか、背景と色が近い細い部位 (短刀の柄、手、鍔と握り、鎧の裾) は剥がさない
+    for poly in PEEL_PROTECT:
+        blade_zone |= cv2.dilate(poly_mask(rgb.shape, poly), K(3)) > 0
     for _ in range(max_iter):
         edge = (m > 0) & (cv2.erode(m, cross) == 0)
         rem = edge & (diff <= thresh) & ~blade_zone
@@ -203,7 +219,7 @@ FOREARM_POLY = [(468, 504), (484, 501), (498, 509), (507, 519), (514, 528), (524
                 (556, 532), (554, 548), (548, 567), (526, 574), (504, 572), (488, 570), (484, 556), (492, 547),
                 (484, 538), (474, 522)]
 # 刀 = 刀身+鍔 (y<400, x<175) + 握っている手 + 手の下に出ている柄。握りを中心に一体で回す
-SWORD_TOP_REGION = (400, 175)   # y<400 かつ x<175
+SWORD_TOP_REGION = (410, 172)   # y<410 かつ x<172 (鍔の下端まで含める)
 HAND_POLY = [(128, 402), (150, 399), (165, 400), (172, 412), (172, 425), (166, 433), (150, 438), (138, 436),
              (130, 428), (126, 412)]
 SWORD_TAIL_POLY = [(159, 428), (170, 428), (174, 436), (181, 445), (194, 458), (198, 466), (182, 466), (175, 456),
@@ -270,10 +286,14 @@ class Rig:
         yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
         self.xx, self.yy = xx, yy
         # 切り離す部位 (ハードマスク)
-        sword_top = (yy < 400 - CY0) & (xx < SWORD_TOP_REGION[1] - CX0) & m
+        sword_top = (yy < SWORD_TOP_REGION[0] - CY0) & (xx < SWORD_TOP_REGION[1] - CX0) & m
         sword_tail = (poly_mask(shp, to_canvas(SWORD_TAIL_POLY)) > 0) & m
         sword_hand = (poly_mask(shp, to_canvas(HAND_POLY)) > 0) & m
         forearm = (poly_mask(shp, to_canvas(FOREARM_POLY)) > 0) & m
+        col = self.P[..., :3] / np.maximum(self.P[..., 3:4], 1e-4)
+        cr, cg, cb = col[..., 0], col[..., 1], col[..., 2]
+        pale_green = (cg > cr + 12) & (cg >= cb - 5) & ((cr + cg + cb) / 3 > 140)
+        forearm &= ~pale_green                      # 袖の薄緑は回さず土台に残す
         self.parts = {
             "sword": sword_top | sword_tail | sword_hand,
             "fore": forearm,
