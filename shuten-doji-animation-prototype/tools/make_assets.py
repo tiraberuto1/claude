@@ -129,6 +129,10 @@ def build_mask(rgb):
     whitish = (rgb.max(axis=2).astype(int) - rgb.min(axis=2).astype(int) < 28) & (rgb.astype(int).sum(axis=2) / 3 > 185)
     wedge = poly_mask(rgb.shape, WEDGE_OCHRE) > 0
     m[wedge & (r > g + 5) & (g > b + 20) & (lum > 120) & (lum < 172)] = 0    # 肌 (lum 190 前後) は残す
+    # 肩の板の上に付いた鬼の牙 (白) と唇 (黄土) の欠片: 板の赤・暗色以外を除く
+    lip = np.zeros(m.shape, bool)
+    lip[346:366, 240:282] = True
+    m[lip & ~((r > g + 45) | (lum < 90))] = 0
     hand_box = np.zeros(m.shape, bool)
     hand_box[534:580, 503:558] = True
     m[hand_box & whitish] = 0
@@ -138,6 +142,18 @@ def build_mask(rgb):
     cs, _ = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     filled = np.zeros_like(m)
     cv2.drawContours(filled, cs, -1, 1, -1)
+    # 袖の下と裾の上のあいだは背景 (黄土色に草の筆線)。各列で、袖の青が終わる位置から
+    # 裾の赤が始まる位置までを外す (袖と裾の輪郭線は残す)。柄がある x<203 は対象外
+    blue = (b >= g - 10) & (b > r + 20)
+    red = r > g + 55
+    for x in range(203, 242):
+        col_blue = np.where(blue[440:462, x])[0]
+        col_red = np.where(red[456:486, x])[0]
+        if len(col_blue) and len(col_red):
+            y_top = 440 + col_blue.max() + 3
+            y_bot = 456 + col_red.min() - 1
+            if y_bot > y_top:
+                filled[y_top:y_bot, x] = 0
     return peel_background(rgb, filled)
 
 
@@ -222,13 +238,13 @@ FOREARM_POLY = [(468, 504), (484, 501), (498, 509), (507, 519), (514, 528), (524
 SWORD_TOP_REGION = (410, 172)   # y<410 かつ x<172 (鍔の下端まで含める)
 HAND_POLY = [(128, 402), (150, 399), (165, 400), (172, 412), (172, 425), (166, 433), (150, 438), (138, 436),
              (130, 428), (126, 412)]
-SWORD_TAIL_POLY = [(159, 428), (170, 428), (174, 436), (181, 445), (194, 458), (198, 466), (182, 466), (175, 456),
+SWORD_TAIL_POLY = [(159, 428), (170, 428), (174, 436), (181, 445), (194, 458), (200, 472), (184, 472), (175, 456),
                    (165, 439), (159, 432)]
 CLOTH_SKIRT = [(190, 520), (430, 520), (430, 640), (190, 640)]
 CLOTH_SLEEVE = [(168, 395), (236, 395), (236, 458), (168, 458)]
 
 # 関節付近 (中心, 半径) は土台に元の画素を残し、回した部位の下で継ぎ目が透けないようにする
-KEEP_JOINTS = [(478, 500, 22), (172, 420, 14)]
+KEEP_JOINTS = [(478, 500, 22), (172, 420, 14)]   # 肘 / 握りと袖
 
 FOOT = (95.0, 655.0)     # 足元の基準点 (胴体の傾きの回転中心 = 全フレーム固定)
 ELBOW = (478.0, 500.0)   # 右前腕の回転中心
@@ -303,6 +319,7 @@ class Rig:
         for cx, cy, r in keep_joints:
             cut &= ((xx - (cx - CX0)) ** 2 + (yy - (cy - CY0)) ** 2) > r * r
         self.base = self.P * (~cut)[..., None]
+        self._fill_under_pommel(cut)
         # 布の揺れ・頭の補正用の重み
         def soft(pts, s):
             return cv2.GaussianBlur(poly_mask(shp, to_canvas(pts)).astype(np.float32), (0, 0), s)
@@ -310,6 +327,25 @@ class Rig:
         self.w_skirt = soft(CLOTH_SKIRT, 5) * ramp
         self.w_sleeve = soft(CLOTH_SLEEVE, 4) * 0.6
         self.w_head = soft(HEAD_POLY, 8)
+
+    def _fill_under_pommel(self, cut):
+        """柄の端 (石突き) は裾の赤の上にあった。柄を動かすと、そこが抜けて透けるので、周りの赤で埋める。
+        埋めるのは、補間の結果が赤い画素だけ (裾の上より上の背景まで赤くしない)。"""
+        x0, x1 = 170 - CX0, 216 - CX0
+        y0, y1 = 452 - CY0, 490 - CY0
+        yy = np.arange(y0, y1)[:, None] + CY0
+        vac = self.parts["sword"][y0:y1, x0:x1] & (yy >= 467)
+        if not vac.any():
+            return
+        a = self.base[y0:y1, x0:x1, 3]
+        col = (self.base[y0:y1, x0:x1, :3] / np.maximum(a[..., None], 1e-4)).clip(0, 255).astype(np.uint8)
+        unknown = (vac | (a < 0.5)).astype(np.uint8)
+        filled = cv2.inpaint(cv2.cvtColor(col, cv2.COLOR_RGB2BGR), unknown, 3, cv2.INPAINT_TELEA)
+        rgb = cv2.cvtColor(filled, cv2.COLOR_BGR2RGB).astype(np.float32)
+        reddish = (rgb[..., 0] > rgb[..., 1] + 45) & (rgb[..., 0] > 120)
+        sel = vac & reddish
+        self.base[y0:y1, x0:x1, :3][sel] = rgb[sel]
+        self.base[y0:y1, x0:x1, 3][sel] = 1.0
 
     def render(self, lean, sway, fore, sword, interp=cv2.INTER_LANCZOS4):
         h, w = self.h, self.w
@@ -341,7 +377,7 @@ class Rig:
                                    borderMode=cv2.BORDER_CONSTANT, borderValue=0)
             layer = fix_premult(layer)
             out = layer + out * (1.0 - layer[..., 3:4])
-        return out
+        return finish_frame(out)
 
 
 def fix_premult(p):
@@ -350,10 +386,34 @@ def fix_premult(p):
     return np.concatenate([np.clip(p[..., :3], 0.0, 255.0 * a), a], axis=-1)
 
 
+def finish_frame(p, min_area=25, sigma=0.6):
+    """全フレームの縁を同じ作りにそろえる。
+    - アルファを 2 値にして (動かしたフレームだけ半透明になるのを防ぐ)、孤立した小片を除く
+    - 縁の色は内側の色を外へ延ばして使い、同じ幅 (sigma) だけぼかして柔らかくする
+    これで、静止 (1・8) と動いたフレーム (2〜7) の縁が同じ見え方になる。"""
+    a = p[..., 3]
+    hard = (a > 0.5).astype(np.uint8)
+    n, lab, st, _ = cv2.connectedComponentsWithStats(hard)
+    for i in range(1, n):
+        if st[i, 4] < min_area:
+            hard[lab == i] = 0
+    hf = hard.astype(np.float32)
+    col = np.where(a[..., None] > 1e-4, p[..., :3] / np.maximum(a[..., None], 1e-4), 0.0) * hf[..., None]
+    num = cv2.GaussianBlur(col * hf[..., None], (0, 0), 1.2)
+    den = cv2.GaussianBlur(hf, (0, 0), 1.2)[..., None]
+    ext = np.where(den > 1e-3, num / np.maximum(den, 1e-3), 0.0)
+    col = np.where(hf[..., None] > 0, col, ext)
+    alpha = cv2.GaussianBlur(hf, (0, 0), sigma)
+    alpha[alpha < 0.04] = 0.0
+    return np.concatenate([col * alpha[..., None], alpha[..., None]], axis=-1).astype(np.float32)
+
+
 def premul_to_rgba8(p):
     a = p[..., 3:4]
     rgb = np.where(a > 1e-4, p[..., :3] / np.maximum(a, 1e-4), 0)
-    return np.clip(np.concatenate([rgb, a * 255.0], axis=-1) + 0.5, 0, 255).astype(np.uint8)
+    out = np.clip(np.concatenate([rgb, a * 255.0], axis=-1) + 0.5, 0, 255).astype(np.uint8)
+    out[out[..., 3] == 0, :3] = 0
+    return out
 
 
 def composite_on(plate_rgb, sprite_rgba8):

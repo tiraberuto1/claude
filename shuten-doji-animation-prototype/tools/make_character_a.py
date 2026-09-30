@@ -20,6 +20,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import game_canvas as GC  # noqa: E402
+import make_assets as MA  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCROLL = os.path.join(ROOT, "assets/scroll/scroll_original.png")
@@ -50,7 +51,7 @@ def main():
     sub = np.dstack([rgb, mask.astype(np.uint8) * 255])[GC.SPRITE_Y0:GC.SPRITE_Y0 + CH_H, GC.SPRITE_X0:GC.SPRITE_X0 + CH_W]
     al = sub[..., 3:4].astype(np.float32) / 255.0
     a[...] = np.concatenate([sub[..., :3].astype(np.float32) * al, al], axis=-1)
-    canvas = GC.to_game_rgba8(a)
+    canvas = GC.to_game_rgba8(MA.finish_frame(a))   # 8 フレームと同じ縁の仕上げを通す
     Image.fromarray(canvas, "RGBA").save(os.path.join(OUT, "character_a.png"))
     gx, gy = GC.GROUND
     cys, cxs = np.where(canvas[..., 3] > 0)
