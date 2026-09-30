@@ -20,11 +20,7 @@ import make_assets as MA  # noqa: E402
 ROOT = MA.ROOT
 OUT = os.path.join(ROOT, "assets/characters/character_a/frames")
 
-# 関節付近 (中心, 半径) は土台に元の画素を残し、回した部位の下で継ぎ目が透けないようにする
-KEEP_JOINTS = [
-    (478, 500, 22),   # 右前腕の付け根 (肘)
-    (172, 420, 14),   # 刀を握る手と袖のつなぎ目
-]
+KEEP_JOINTS = MA.KEEP_JOINTS   # 関節付近は土台に元の画素を残す (絵巻版と共通)
 
 
 def main():

@@ -52,13 +52,13 @@ animations = [{
 texture = ExtResource("1_bg")
 centered = false
 
-; Samurai.position が武者の足元 (接地点)。元絵巻上の座標 (97, 661)。
-; スプライトの左上は元絵の (0, 120)、足元はスプライト内の (97, 541) なので、offset でそれが原点に来る。
+; Samurai.position が武者の足元 (接地点)。元絵巻上の座標 (97, 659)。
+; スプライトの左上は元絵の (0, 120)、足元はスプライト内の (97, 539) なので、offset でそれが原点に来る。
 [node name="Samurai" type="Node2D" parent="."]
-position = Vector2(97, 661)
+position = Vector2(97, 659)
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="Samurai"]
-offset = Vector2(-97, -541)
+offset = Vector2(-97, -539)
 sprite_frames = SubResource("SpriteFrames_samurai")
 animation = &"default"
 autoplay = "default"

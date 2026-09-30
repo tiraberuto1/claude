@@ -114,6 +114,12 @@ def build_mask(rgb):
     m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, K(2))
     m[poly_mask(rgb.shape, BEAM_EXCLUDE) > 0] = 0
     m[poly_mask(rgb.shape, STRIP_EXCLUDE) > 0] = 0
+    # 手の下にかかる畳縁の白い欠片 (彩度が低く明るい画素) を除く。手の肌は彩度があるので残る
+    whitish = (rgb.max(axis=2).astype(int) - rgb.min(axis=2).astype(int) < 28) & (rgb.astype(int).sum(axis=2) / 3 > 185)
+    hand_box = np.zeros(m.shape, bool)
+    hand_box[534:580, 503:558] = True
+    m[hand_box & whitish] = 0
+    m = cv2.morphologyEx(m, cv2.MORPH_OPEN, K(1))
     m = cv2.morphologyEx(m, cv2.MORPH_OPEN, K(1))
     # 内部の穴を埋める
     cs, _ = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
@@ -126,7 +132,7 @@ def peel_background(rgb, mask, thresh=22, max_iter=16):
     """マスクの縁に混ざった背景 (畳の緑・黄土色) を外側から 1px ずつ剥がす。
     周囲から補間した「人物が無い場合の地」との色差が小さい縁の画素だけを外す。
     人物の線・彩色は地との色差が大きいので残る。"""
-    est = build_clean_plate(rgb, mask, add_noise=False).astype(np.int16)
+    est = build_clean_plate(rgb, mask, add_noise=False, grow=1).astype(np.int16)
     diff = np.abs(rgb.astype(np.int16) - est).max(axis=2)
     cross = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
     m = mask.copy()
@@ -147,10 +153,10 @@ def peel_background(rgb, mask, thresh=22, max_iter=16):
 
 
 # ---------------------------------------------------------------- 背景復元
-def build_clean_plate(rgb, mask, add_noise=True):
+def build_clean_plate(rgb, mask, add_noise=True, grow=2):
     """人物を除去した背景。周囲の色を Telea 法で回して埋める。
     パッチコピー系の手法は鬼の顔などを複製してしまうため使わない。"""
-    hole = cv2.dilate(mask, K(1))
+    hole = cv2.dilate(mask, K(grow))
     # 刀身のまわりは穴を広げ、元の刀の縁や影が背景に残らないようにする
     blade = mask.copy()
     blade[BLADE_ZONE_Y1:] = 0
@@ -193,7 +199,7 @@ def build_clean_plate(rgb, mask, add_noise=True):
 # 部位ポリゴン (元画像座標)
 HEAD_POLY = [(345, 372), (440, 372), (472, 415), (470, 440), (440, 452), (395, 455), (355, 440), (345, 410)]
 # 右腕の前腕 (籠手) と手
-FOREARM_POLY = [(467, 503), (480, 498), (495, 505), (506, 520), (514, 528), (524, 518), (538, 517), (552, 524),
+FOREARM_POLY = [(468, 504), (484, 501), (498, 509), (507, 519), (514, 528), (524, 518), (538, 517), (552, 524),
                 (556, 532), (554, 548), (548, 567), (526, 574), (504, 572), (488, 570), (484, 556), (492, 547),
                 (484, 538), (474, 522)]
 # 刀 = 刀身+鍔 (y<400, x<175) + 握っている手 + 手の下に出ている柄。握りを中心に一体で回す
@@ -205,6 +211,9 @@ SWORD_TAIL_POLY = [(159, 428), (170, 428), (174, 436), (181, 445), (194, 458), (
 CLOTH_SKIRT = [(190, 520), (430, 520), (430, 640), (190, 640)]
 CLOTH_SLEEVE = [(168, 395), (236, 395), (236, 458), (168, 458)]
 
+# 関節付近 (中心, 半径) は土台に元の画素を残し、回した部位の下で継ぎ目が透けないようにする
+KEEP_JOINTS = [(478, 500, 22), (172, 420, 14)]
+
 FOOT = (95.0, 655.0)     # 足元の基準点 (胴体の傾きの回転中心 = 全フレーム固定)
 ELBOW = (478.0, 500.0)   # 右前腕の回転中心
 GRIP = (152.0, 418.0)    # 刀の回転中心 (握り)
@@ -212,13 +221,13 @@ HEAD_C = (410.0, 410.0)
 
 # フレームごとのパラメータ: 傾き(度,時計回り+) / 裾の揺れ(px) / 右前腕(度) / 刀(度) / 表示時間(ms)
 FRAMES = [
-    dict(lean=0.0, sway=0.0, fore=0.0, sword=0.0, ms=120),    # 01 元の構え
-    dict(lean=0.35, sway=0.5, fore=-1.0, sword=-1.0, ms=100),  # 02 わずかに前傾
-    dict(lean=0.5, sway=1.0, fore=-3.0, sword=-2.0, ms=100),   # 03 上半身・腕を少し動かす
-    dict(lean=0.3, sway=1.5, fore=-2.0, sword=-6.0, ms=80),    # 04 刀を少し上げる
-    dict(lean=0.8, sway=2.0, fore=2.0, sword=7.0, ms=60),      # 05 刀を振る
-    dict(lean=1.0, sway=-1.5, fore=4.0, sword=15.0, ms=180),   # 06 振り切る
-    dict(lean=0.4, sway=-0.5, fore=1.5, sword=5.0, ms=120),    # 07 元の姿勢へ戻る
+    dict(lean=0.0, sway=0.0, fore=0.0, sword=0.0, ms=120),     # 01 元の構え
+    dict(lean=0.5, sway=0.6, fore=-1.2, sword=-1.0, ms=100),   # 02 ごくわずかに重心が動く
+    dict(lean=0.8, sway=1.2, fore=-3.5, sword=-2.5, ms=100),   # 03 上半身・腕の微細な変化
+    dict(lean=0.4, sway=1.6, fore=-2.5, sword=-4.5, ms=80),    # 04 刀が少し動く (振りかぶり)
+    dict(lean=1.1, sway=2.4, fore=2.5, sword=10.0, ms=60),     # 05 刀の動きが最も大きい
+    dict(lean=1.3, sway=-1.5, fore=4.5, sword=15.0, ms=180),   # 06 振り切った状態を少し保持
+    dict(lean=0.6, sway=-0.8, fore=1.5, sword=5.0, ms=120),    # 07 元へ戻る
     dict(lean=0.0, sway=0.0, fore=0.0, sword=0.0, ms=200),     # 08 元の構え
 ]
 
@@ -282,14 +291,19 @@ class Rig:
         self.w_sleeve = soft(CLOTH_SLEEVE, 4) * 0.6
         self.w_head = soft(HEAD_POLY, 8)
 
-    def render(self, lean, sway, fore, sword):
+    def render(self, lean, sway, fore, sword, interp=cv2.INTER_LANCZOS4):
         h, w = self.h, self.w
         F = canvas_pt(FOOT)
         M_lean = rot_about(lean, F)
         # --- 胴体・頭・衣服: 連続的な変形 (dst→src の逆写像)
-        inv = cv2.invertAffineTransform(M_lean)
-        qx = inv[0, 0] * self.xx + inv[0, 1] * self.yy + inv[0, 2]
-        qy = inv[1, 0] * self.xx + inv[1, 1] * self.yy + inv[1, 2]
+        # 足元 (草鞋・足首) は動かさない: 足元から 45px までは 0、160px 以上で全量になるよう重みをかける
+        dist = np.hypot(self.xx - F[0], self.yy - F[1])
+        t = np.clip((dist - 45.0) / 115.0, 0.0, 1.0)
+        w_lean = t * t * (3.0 - 2.0 * t)
+        disp_x = M_lean[0, 0] * self.xx + M_lean[0, 1] * self.yy + M_lean[0, 2] - self.xx
+        disp_y = M_lean[1, 0] * self.xx + M_lean[1, 1] * self.yy + M_lean[1, 2] - self.yy
+        qx = self.xx - w_lean * disp_x
+        qy = self.yy - w_lean * disp_y
         # 頭は胴体の動きの 70% を打ち消して「ほぼ固定」にする
         hc = np.array([*canvas_pt(HEAD_C), 1.0])
         d_head = -0.7 * (M_lean @ hc - hc[:2])
@@ -297,15 +311,23 @@ class Rig:
         dy = d_head[1] * self.w_head + 0.4 * sway * self.w_sleeve
         sx = (qx - dx).astype(np.float32)
         sy = (qy - dy).astype(np.float32)
-        base = cv2.remap(self.base, sx, sy, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+        base = cv2.remap(self.base, sx, sy, interp, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+        base = fix_premult(base)
         out = base
         # --- 切り離した部位 (剛体として回転)。胴体の傾きも重ねる
         for name, angle, pivot in (("fore", fore, ELBOW), ("sword", sword, GRIP)):
             M = compose(rot_about(angle, canvas_pt(pivot)), M_lean)
-            layer = cv2.warpAffine(self.P * self.parts[name][..., None], M, (w, h), flags=cv2.INTER_LINEAR,
+            layer = cv2.warpAffine(self.P * self.parts[name][..., None], M, (w, h), flags=interp,
                                    borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+            layer = fix_premult(layer)
             out = layer + out * (1.0 - layer[..., 3:4])
         return out
+
+
+def fix_premult(p):
+    """Lanczos/bicubic の行き過ぎ (アルファが範囲外、色がアルファを超える) を抑える。"""
+    a = np.clip(p[..., 3:4], 0.0, 1.0)
+    return np.concatenate([np.clip(p[..., :3], 0.0, 255.0 * a), a], axis=-1)
 
 
 def premul_to_rgba8(p):
@@ -331,12 +353,7 @@ def main():
     mask = build_mask(rgb)
     Image.fromarray(mask * 255).save(OUT_MASK)
 
-    # スプライトは輪郭の AA 画素を含めるため 2px 太らせる
-    # ただし刀身のまわりは太らせない (元絵の明るい地の画素が付いて、動かすと淡い縁取りに見えるため)
-    grown = cv2.dilate(mask, K(2))
-    blade_zone = np.zeros_like(mask, bool)
-    blade_zone[:BLADE_ZONE_Y1, :175] = True
-    mask = np.where(blade_zone, mask, grown).astype(np.uint8)
+    # スプライトのマスクは太らせない (人物A と同じ)。縁の明るい画素は背景プレート側で埋める
     plate = build_clean_plate(rgb, mask)
     Image.fromarray(plate).save(OUT_BG)
 
@@ -347,7 +364,7 @@ def main():
     sprite_full = rgba[CY0:CY1, CX0:CX1]
     P = np.dstack([sprite_full[..., :3] * (sprite_full[..., 3:4] / 255.0), sprite_full[..., 3:4] / 255.0]).astype(np.float32)
     # samurai_01 用に元の切り抜きも保持
-    rig = Rig(P, mask[CY0:CY1, CX0:CX1])
+    rig = Rig(P, mask[CY0:CY1, CX0:CX1], keep_joints=KEEP_JOINTS)
 
     frames = []
     for i, prm in enumerate(FRAMES, 1):
