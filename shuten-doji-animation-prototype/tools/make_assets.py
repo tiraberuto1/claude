@@ -256,8 +256,8 @@ FRAMES = [
     dict(lean=0.0, sway=0.0, fore=0.0, sword=0.0, ms=120),     # 01 元の構え
     dict(lean=0.5, sway=0.6, fore=-1.2, sword=-1.0, ms=100),   # 02 ごくわずかに重心が動く
     dict(lean=0.8, sway=1.2, fore=-3.5, sword=-2.5, ms=100),   # 03 上半身・腕の微細な変化
-    dict(lean=0.4, sway=1.6, fore=-2.5, sword=-4.5, ms=80),    # 04 刀が少し動く (振りかぶり)
-    dict(lean=1.1, sway=2.4, fore=2.5, sword=10.0, ms=60),     # 05 刀の動きが最も大きい
+    dict(lean=0.85, sway=1.6, fore=-2.5, sword=-4.5, ms=80),   # 04 刀が少し動く (振りかぶり)。身体は 03 から戻さず沈み込みを続ける
+    dict(lean=1.1, sway=2.4, fore=2.5, sword=7.0, ms=60),      # 05 刀の動きが最も大きい (1 コマで跳びすぎないよう 7°)
     dict(lean=1.3, sway=-1.5, fore=4.5, sword=15.0, ms=180),   # 06 振り切った状態を少し保持
     dict(lean=0.6, sway=-0.8, fore=1.5, sword=5.0, ms=120),    # 07 元へ戻る
     dict(lean=0.0, sway=0.0, fore=0.0, sword=0.0, ms=200),     # 08 元の構え
