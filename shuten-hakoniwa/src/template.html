@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>酒呑童子の邸宅 — 箱庭</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@400;700&display=swap">
+<style>
+:root{
+  color-scheme:light;
+  --ink:#1f1b18;
+  --sumi:#5b534b;
+  --shu:#b83a24;
+  --paper:rgba(255,255,255,.9);
+  --mincho:"Zen Old Mincho","Hiragino Mincho ProN","Yu Mincho","Noto Serif JP","WenQuanYi Zen Hei",serif;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:#fff;color:var(--ink);font-family:var(--mincho);overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#stage{position:fixed;inset:0}
+#stage canvas{display:block;width:100%!important;height:100%!important;touch-action:none;cursor:grab}
+#stage canvas:active{cursor:grabbing}
+.title{position:fixed;top:calc(env(safe-area-inset-top,0px) + 22px);left:max(22px,env(safe-area-inset-left,0px));pointer-events:none;display:flex;gap:10px;align-items:flex-start}
+.title h1{margin:0;writing-mode:vertical-rl;font-weight:700;font-size:26px;letter-spacing:.34em;line-height:1}
+.title p{margin:3px 0 0;writing-mode:vertical-rl;font-size:12px;letter-spacing:.3em;color:var(--sumi)}
+.title i{display:block;width:1px;height:64px;background:var(--shu);margin-top:3px}
+.bar{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);transform:translateX(-50%);display:flex;flex-wrap:wrap;justify-content:center;gap:8px 18px;width:max-content;max-width:calc(100vw - 24px)}
+.grp{display:flex;gap:0;border:1px solid var(--ink);background:var(--paper)}
+.grp+.grp{}
+button{font:700 14px/1 var(--mincho);letter-spacing:.14em;color:var(--ink);background:transparent;border:0;border-right:1px solid rgba(31,27,24,.25);padding:11px 15px;cursor:pointer;transition:background .15s,color .15s}
+.grp button:last-child{border-right:0}
+button:hover{background:rgba(31,27,24,.08)}
+button.on,button[aria-pressed="true"]{background:var(--ink);color:#fff}
+button:focus-visible{outline:2px solid var(--shu);outline-offset:-3px}
+.hint{position:fixed;right:max(22px,env(safe-area-inset-right,0px));top:calc(env(safe-area-inset-top,0px) + 24px);font-size:12px;letter-spacing:.14em;color:var(--sumi);text-align:right;line-height:1.9;pointer-events:none}
+#toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 26px);transform:translate(-50%,-8px);opacity:0;transition:opacity .5s,transform .5s;background:var(--paper);border:1px solid var(--ink);padding:10px 20px;font-size:14px;letter-spacing:.16em;pointer-events:none;max-width:calc(100vw - 150px);text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#toast::before{content:"";display:inline-block;width:7px;height:7px;background:var(--shu);margin-right:10px;vertical-align:middle;transform:rotate(45deg)}
+#tags{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+.tag{position:absolute;left:0;top:0;font-size:12px;letter-spacing:.22em;padding:3px 9px 3px 11px;background:var(--paper);border:1px solid var(--ink);white-space:nowrap;transition:opacity .3s;will-change:transform}
+.tag::after{content:"";position:absolute;left:50%;top:100%;width:1px;height:9px;background:var(--ink)}
+.tag.shuten{border-color:var(--shu);color:var(--shu);font-weight:700}
+.tag.shuten::after{background:var(--shu)}
+@media (max-width:760px){
+  .hint{display:none}
+  .title h1{font-size:21px}
+  button{padding:10px 11px;font-size:13px;letter-spacing:.08em}
+  #toast{max-width:calc(100vw - 90px);font-size:13px}
+}
+@media (prefers-reduced-motion:reduce){#toast{transition:none}}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="tags"></div>
+<header class="title">
+  <h1>酒呑童子の邸宅</h1>
+  <p>大江山 鉄の御殿 — 箱庭</p>
+  <i></i>
+</header>
+<div class="hint">ドラッグで回す ・ ホイールで寄る<br>右ドラッグ／二本指で動かす</div>
+<div id="toast" role="status" aria-live="polite"></div>
+<nav class="bar" aria-label="操作">
+  <div class="grp" role="group" aria-label="視点">
+    <button data-view="zen" class="on">全景</button>
+    <button data-view="top">真上</button>
+    <button data-view="hall">広間</button>
+    <button data-view="garden">池と灯り</button>
+    <button data-view="gate">門</button>
+    <button data-view="under">島の下</button>
+  </div>
+  <div class="grp">
+    <button id="roof" aria-pressed="false"><b style="font:inherit">屋根をかける</b></button>
+    <button id="rot" aria-pressed="false">自動で回す</button>
+  </div>
+</nav>
+<script>/*__BUNDLE__*/</script>
+</body>
+</html>

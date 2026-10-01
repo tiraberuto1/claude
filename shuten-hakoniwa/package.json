@@ -1,0 +1,14 @@
+{
+  "name": "shuten-hakoniwa",
+  "version": "1.0.0",
+  "private": true,
+  "description": "酒呑童子の邸宅 — Three.js 箱庭（全部コード生成）",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "three": "^0.180.0"
+  }
+}
