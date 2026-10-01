@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>絵巻の武者 合成テスト</title>
+<style>
+  /* 配置: 画面いっぱいに絵巻だけ。デバッグ表示は #debug か D キーで重ねる */
+  :root { --page: #14120f; --ink: #f3efe6; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--page); color: var(--ink); font-family: "Hiragino Sans", "Yu Gothic", system-ui, sans-serif; display: flex; align-items: center; justify-content: center; }
+  .view { line-height: 0; width: 100%; display: flex; justify-content: center; }
+  canvas { display: block; width: 100%; height: auto; cursor: pointer; }
+  #err { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; color: var(--ink); }
+</style>
+</head>
+<body>
+
+
+<div class="view"><canvas id="cv" role="img" aria-label="酒伝童子絵巻の左下の武者が動くアニメーション。背景と人物以外は動かない"></canvas></div>
+<div id="err">画像を読み込めませんでした。ページを再読み込みしてください。</div>
+
+<script>
+(function () {
+  var DUR = [120, 100, 100, 80, 60, 180, 120, 200];       // 各フレームの表示時間 (ms)
+  var SPR = { x: 0, y: 120, w: 580, h: 580 };             // 人物スプライトの置き場所 (元絵巻の座標のまま)
+  var FOOT = { x: 97, y: 659 };                           // 足元の接地点 (元絵巻の座標)
+  var hash = (location.hash || "").toLowerCase();
+  var V = hash.indexOf("zoom") >= 0 ? { x: 0, y: 110, w: 700, h: 610 } : { x: 0, y: 0, w: 2048, h: 914 };
+  var st = { idx: 0, playing: true, t0: 0, debug: hash.indexOf("debug") >= 0, orig: false, still: false };
+  window.__st = st;
+
+  var cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+  cv.width = V.w; cv.height = V.h;
+  cv.style.maxWidth = "calc((100vh) * " + (V.w / V.h) + ")";
+
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce) st.still = true;
+
+  var bg, orig, frames = [];
+
+  function overlay() {
+    var f = function (x, y) { return [x - V.x, y - V.y]; };
+    ctx.save();
+    // 人物スプライトのキャンバス境界
+    var r = f(SPR.x, SPR.y);
+    ctx.setLineDash([8, 6]); ctx.lineWidth = 2; ctx.strokeStyle = "#00b4d8";
+    ctx.strokeRect(r[0] + 1, r[1] + 1, SPR.w - 2, SPR.h - 2);
+    // 接地点ガイド
+    var g = f(FOOT.x, FOOT.y);
+    ctx.setLineDash([]); ctx.strokeStyle = "#ff3b30"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(g[0] - 140, g[1] + 0.5); ctx.lineTo(g[0] + 140, g[1] + 0.5); ctx.stroke();
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(g[0] - 12, g[1]); ctx.lineTo(g[0] + 12, g[1]); ctx.moveTo(g[0], g[1] - 12); ctx.lineTo(g[0], g[1] + 12); ctx.stroke();
+    // 文字
+    var fs = Math.round(V.w / 2048 * 26 + 10);
+    ctx.font = "700 " + fs + "px sans-serif"; ctx.textBaseline = "top";
+    var label = st.orig ? "元絵巻 (scroll_original.png)" : "フレーム " + String(st.idx + 1).padStart(2, "0") + " / 08  ・  " + DUR[st.idx] + "ms" + (st.still ? "  (静止)" : "");
+    var tw = ctx.measureText(label).width;
+    ctx.fillStyle = "rgba(0,0,0,.65)"; ctx.fillRect(8, 8, tw + 20, fs + 14);
+    ctx.fillStyle = "#fff"; ctx.fillText(label, 18, 15);
+    ctx.font = "500 " + Math.round(fs * 0.72) + "px sans-serif";
+    var hint = "D: デバッグ表示 ON/OFF   O(押している間): 元絵   Space / クリック: 静止 ⇄ 再生   接地点 (" + FOOT.x + ", " + FOOT.y + ")";
+    var hw = ctx.measureText(hint).width, hy = V.h - fs - 14;
+    ctx.fillStyle = "rgba(0,0,0,.65)"; ctx.fillRect(8, hy - 6, hw + 20, fs);
+    ctx.fillStyle = "#fff"; ctx.fillText(hint, 18, hy - 2);
+    ctx.restore();
+  }
+
+  function draw() {
+    var showOrig = st.debug && st.orig;
+    ctx.drawImage(showOrig ? orig : bg, V.x, V.y, V.w, V.h, 0, 0, V.w, V.h);
+    if (!showOrig) ctx.drawImage(frames[st.still ? 0 : st.idx], SPR.x - V.x, SPR.y - V.y);
+    if (st.debug) overlay();
+  }
+
+  function tick(now) {
+    if (st.playing && !st.still && !document.hidden) {
+      if (!st.t0) st.t0 = now;
+      var g = 0, moved = false;
+      while (now - st.t0 >= DUR[st.idx] && g++ < 16) { st.t0 += DUR[st.idx]; st.idx = (st.idx + 1) % 8; moved = true; }
+      if (moved || st.debug) draw();
+      if (moved) cv.setAttribute("data-frame", String(st.idx + 1));
+    } else { st.t0 = 0; }
+    requestAnimationFrame(tick);
+  }
+
+  function setStill(s) { st.still = s; st.t0 = 0; draw(); }
+  cv.addEventListener("click", function () { setStill(!st.still); });
+  window.addEventListener("keydown", function (e) {
+    var k = e.key.toLowerCase();
+    if (k === "d") { st.debug = !st.debug; draw(); }
+    else if (k === "o" && st.debug && !st.orig) { st.orig = true; draw(); }
+    else if (k === " ") { e.preventDefault(); setStill(!st.still); }
+  });
+  window.addEventListener("keyup", function (e) { if (e.key.toLowerCase() === "o" && st.orig) { st.orig = false; draw(); } });
+
+  function load(src) { return new Promise(function (res, rej) { var i = new Image(); i.onload = function () { res(i); }; i.onerror = rej; i.src = src; }); }
+  var files = ["../assets/scroll/scroll_background_clean.png", "../assets/scroll/scroll_original.png"];
+  for (var n = 1; n <= 8; n++) files.push("../assets/characters/samurai_left_bottom/samurai_0" + n + ".png");
+  Promise.all(files.map(load)).then(function (imgs) {
+    bg = imgs[0]; orig = imgs[1]; frames = imgs.slice(2);
+    window.__draw = draw;
+    draw(); requestAnimationFrame(tick); window.__ready = true;
+  }).catch(function () { document.getElementById("err").style.display = "flex"; });
+})();
+</script>
+
+</body>
+</html>
