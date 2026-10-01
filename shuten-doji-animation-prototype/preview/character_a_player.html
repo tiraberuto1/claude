@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>人物A 連続再生</title>
+<style>
+  /* 配置: 中央に 384×384 の透明キャンバス (市松) 、その下に再生ボタンと現在フレームだけ */
+  :root {
+    --bg: #eceeed;
+    --fg: #1d2423;
+    --muted: #5a6764;
+    --line: #c9d0ce;
+    --chk1: #e4e3dc;
+    --chk2: #cfcec5;
+    --btn: #2c4a72;
+    --btn-fg: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121617; --fg: #e5e8e5; --muted: #98a5a0; --line: #2c3437;
+      --chk1: #2b3033; --chk2: #23282a; --btn: #8fb0d8; --btn-fg: #0f1a28;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121617; --fg: #e5e8e5; --muted: #98a5a0; --line: #2c3437;
+    --chk1: #2b3033; --chk2: #23282a; --btn: #8fb0d8; --btn-fg: #0f1a28;
+    color-scheme: dark;
+  }
+  body { background: var(--bg); color: var(--fg); font-family: "Hiragino Sans", "Yu Gothic", system-ui, sans-serif; font-size: 15px; line-height: 1.6; }
+  main { max-width: 480px; margin-inline: auto; padding-inline: 16px; padding-block: 24px 40px; display: flex; flex-direction: column; gap: 16px; align-items: center; }
+  .stage { width: 384px; max-width: 100%; line-height: 0; border: 1px solid var(--line);
+    background-color: var(--chk1);
+    background-image: conic-gradient(var(--chk2) 25%, transparent 0 50%, var(--chk2) 0 75%, transparent 0);
+    background-size: 32px 32px; }
+  canvas { display: block; width: 100%; height: auto; }
+  .bar { width: 384px; max-width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  button { font: inherit; font-weight: 700; min-height: 40px; min-width: 88px; padding: 0 20px; border-radius: 4px; border: 1px solid var(--btn); background: var(--btn); color: var(--btn-fg); cursor: pointer; }
+  button:focus-visible { outline: 3px solid var(--btn); outline-offset: 2px; }
+  .read { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+  .read b { color: var(--fg); font-weight: 700; }
+  #err { color: #b3261e; display: none; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #err { color: #ff8a80; } }
+  :root[data-theme="dark"] #err { color: #ff8a80; }
+</style>
+</head>
+<body>
+
+
+<main>
+  <div class="stage"><canvas id="cv" width="384" height="384" role="img" aria-label="人物Aの8フレームのループ再生"></canvas></div>
+  <div class="bar">
+    <button id="toggle" type="button">停止</button>
+    <div class="read" id="read" aria-live="off"></div>
+  </div>
+  <p id="err">画像を読み込めませんでした。ページを再読み込みしてください。</p>
+</main>
+
+<script>
+(function () {
+  var DUR = [120, 100, 100, 80, 60, 180, 120, 200];   // 各フレームの表示時間 (ms)
+  var SRC = [];
+  for (var i = 1; i <= 8; i++) SRC.push("../assets/characters/character_a/frames/character_a_0" + i + ".png");
+
+  var cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+  var btn = document.getElementById("toggle"), read = document.getElementById("read"), err = document.getElementById("err");
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var st = { idx: 0, playing: !reduce, t0: 0 }, frames = [];
+  window.__player = st;
+
+  function show() {
+    ctx.clearRect(0, 0, 384, 384);
+    ctx.drawImage(frames[st.idx], 0, 0);
+    cv.setAttribute("data-frame", String(st.idx + 1));
+    read.innerHTML = "フレーム <b>" + String(st.idx + 1).padStart(2, "0") + "</b> / 08 ・ <b>" + DUR[st.idx] + "</b>ms";
+  }
+  function tick(now) {
+    if (st.playing && !document.hidden) {
+      if (!st.t0) st.t0 = now;
+      var g = 0, moved = false;
+      while (now - st.t0 >= DUR[st.idx] && g++ < 16) { st.t0 += DUR[st.idx]; st.idx = (st.idx + 1) % 8; moved = true; }
+      if (moved) show();
+    } else { st.t0 = 0; }
+    requestAnimationFrame(tick);
+  }
+  function setPlaying(p) { st.playing = p; st.t0 = 0; btn.textContent = p ? "停止" : "再生"; }
+  btn.addEventListener("click", function () { setPlaying(!st.playing); });
+  if (reduce) btn.textContent = "再生";
+
+  Promise.all(SRC.map(function (s) {
+    return new Promise(function (res, rej) { var im = new Image(); im.onload = function () { res(im); }; im.onerror = rej; im.src = s; });
+  })).then(function (imgs) { frames = imgs; show(); requestAnimationFrame(tick); window.__ready = true; })
+    .catch(function () { err.style.display = "block"; });
+})();
+</script>
+
+</body>
+</html>
