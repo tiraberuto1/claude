@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>人物B 歩行テスト</title>
+<style>
+  /* 配置: 絵巻の中央下だけを拡大して表示。UI は切り替えの 3 ボタンのみ */
+  :root { --page: #14120f; --ink: #f3efe6; --btn: #f3efe6; --btn-fg: #14120f; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--page); color: var(--ink); font-family: "Hiragino Sans", "Yu Gothic", system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+  canvas { display: block; width: min(100vw, 1100px); height: auto; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; padding-inline: 16px; }
+  button { font: inherit; min-height: 40px; padding: 0 16px; border-radius: 4px; border: 1px solid var(--btn); background: transparent; color: var(--ink); cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--btn); color: var(--btn-fg); font-weight: 700; }
+  button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+  #err { display: none; }
+</style>
+</head>
+<body>
+
+<canvas id="cv" width="760" height="520" role="img" aria-label="絵巻の中央下の武者が走る姿勢のまま、足元を固定して、後ろ足を小さく振る"></canvas>
+<div class="bar">
+  <button type="button" data-mode="walk" aria-pressed="true">歩行</button>
+  <button type="button" data-mode="idle" aria-pressed="false">待機</button>
+  <button type="button" data-flip="1" aria-pressed="false">左右反転 (進行方向: 左)</button>
+</div>
+<p id="err">画像を読み込めませんでした。ページを再読み込みしてください。</p>
+<script>
+(function () {
+  var WALK_MS = 110, IDLE = [500, 350, 350, 350, 350, 350, 350];
+  var V = { x: 640, y: 394, w: 760, h: 520 };                  // 見える範囲 (元絵巻の座標)
+  var SPR = { x: 640, y: 440 }, FOOT = { x: 947, y: 821 };
+  var cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+  var st = { mode: "walk", idx: 0, t0: 0, flip: false };
+  window.__st = st;
+  var bg, walk = [], idle = [], a0;
+  function dur() { return st.mode === "walk" ? WALK_MS : IDLE[st.idx]; }
+  function draw() {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(bg, V.x, V.y, V.w, V.h, 0, 0, V.w, V.h);
+    var f = (st.mode === "walk" ? walk : idle)[st.idx];
+    if (st.flip) { ctx.translate(2 * (FOOT.x - V.x), 0); ctx.scale(-1, 1); }
+    ctx.drawImage(f, SPR.x - V.x, SPR.y - V.y);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  function tick(now) {
+    if (!document.hidden) {
+      if (!st.t0) st.t0 = now;
+      var g = 0, moved = false, n = st.mode === "walk" ? 8 : 7;
+      while (now - st.t0 >= dur() && g++ < 16) { st.t0 += dur(); st.idx = (st.idx + 1) % n; moved = true; }
+      if (moved) { draw(); cv.setAttribute("data-key", st.mode + ":" + (st.idx + 1)); }
+    } else st.t0 = 0;
+    requestAnimationFrame(tick);
+  }
+  document.querySelectorAll("button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (b.dataset.mode) { st.mode = b.dataset.mode; st.idx = 0; st.t0 = 0; document.querySelectorAll("[data-mode]").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); }); }
+      else { st.flip = !st.flip; b.setAttribute("aria-pressed", String(st.flip)); }
+      draw();
+    });
+  });
+  function load(s) { return new Promise(function (res, rej) { var i = new Image(); i.onload = function () { res(i); }; i.onerror = rej; i.src = s; }); }
+  var files = ["../assets/scroll/scroll_background_clean_ab.png"], n;
+  for (n = 1; n <= 8; n++) files.push("../assets/characters/samurai_center_bottom/walk/walk_0" + n + ".png");
+  for (n = 1; n <= 7; n++) files.push("../assets/characters/samurai_center_bottom/idle/idle_0" + n + ".png");
+  Promise.all(files.map(load)).then(function (im) { bg = im[0]; walk = im.slice(1, 9); idle = im.slice(9, 16); window.__draw = draw; draw(); requestAnimationFrame(tick); window.__ready = true; })
+    .catch(function () { document.getElementById("err").style.display = "block"; });
+})();
+</script>
+
+</body>
+</html>

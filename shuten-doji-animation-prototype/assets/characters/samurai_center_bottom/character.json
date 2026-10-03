@@ -1,0 +1,64 @@
+{
+  "id": "samurai_center_bottom",
+  "source": "scroll_original.png の中央下の武者 (右向きで走る。元ピクセルを切り抜き。再生成・再彩色なし)",
+  "units": "元絵巻のピクセル座標 (scroll_original.png 2048x914)",
+  "facing": "right (元絵のまま。ゲームの進行は右から左なので、使うときは左右反転を掛ける)",
+  "sprite_canvas": {
+    "x": 640,
+    "y": 440,
+    "w": 440,
+    "h": 400
+  },
+  "game_height": 334,
+  "foot_position": [
+    947.0,
+    821.0
+  ],
+  "center_x": 850.0,
+  "pivot": [
+    947.0,
+    821.0
+  ],
+  "collision_box": {
+    "x": 685,
+    "y": 487,
+    "w": 339,
+    "h": 334,
+    "note": "鞘を除く身体の外接矩形。仮の値"
+  },
+  "parts": {
+    "head": {
+      "pivot": [
+        985.0,
+        540.0
+      ],
+      "motion_px": "±1〜3"
+    },
+    "body": {
+      "pivot": [
+        947.0,
+        821.0
+      ],
+      "motion_px": "±1〜2 (足元ほど小さく、足元は 0)"
+    },
+    "leg_rear": {
+      "pivot": [
+        782.0,
+        733.0
+      ],
+      "motion_px": "歩行で ±5.5° (足先は約 ±10px)"
+    },
+    "leg_front": {
+      "note": "接地したまま動かさない (足元の基準)"
+    },
+    "cloth": {
+      "regions": [
+        "鎧の裾"
+      ],
+      "motion_px": "±1〜4"
+    },
+    "hair": {
+      "note": "髷は頭と一緒に動かす。分離しない"
+    }
+  }
+}
