@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>絵巻 MASTER SCENE</title>
+<style>
+  /* 配置: 画面いっぱいに絵巻だけ。UI なし。デバッグは #debug か D キー */
+  :root { --page: #14120f; --ink: #f3efe6; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--page); color: var(--ink); font-family: "Hiragino Sans", "Yu Gothic", system-ui, sans-serif; display: flex; align-items: center; justify-content: center; }
+  .view { line-height: 0; width: 100%; display: flex; justify-content: center; }
+  canvas { display: block; width: 100%; height: auto; cursor: pointer; }
+  #err { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; color: var(--ink); }
+</style>
+</head>
+<body>
+
+
+<div class="view"><canvas id="cv" role="img" aria-label="酒伝童子絵巻を右から左へ読み進めると、左下の武者が待機し、刀を振る。刀の軌跡は墨と朱の筆線で描かれる"></canvas></div>
+<div id="err">画像を読み込めませんでした。ページを再読み込みしてください。</div>
+
+<script>
+(function () {
+  var IDLE = [500, 350, 350, 350, 350, 350, 350];          // 待機 7 コマの表示時間 (ms)
+  var ATK = [120, 100, 100, 80, 60, 180, 120, 200];        // 攻撃 8 コマ (これまでの 8 フレーム)
+  var IDLE_CYCLES = 2;                                      // 待機を何回見せてから攻撃するか
+  var PAN_MS = 7000;                                        // 右端から左端までの読み進め
+  var SPR = { x: 0, y: 120, w: 580, h: 580 };               // 人物スプライトの置き場所 (元絵巻の座標のまま)
+  var FX = { x: 0, y: 100 };                                // 筆線エフェクトの置き場所
+  var FOOT = { x: 97, y: 659 };                             // 足元の接地点
+  var SCROLL_W = 2048, SCROLL_H = 914;
+  var hash = (location.hash || "").toLowerCase();
+  var full = hash.indexOf("full") >= 0;
+  var V = full ? { w: 2048, h: 914 } : { w: 1100, h: 914 };  // 画面に見える範囲 (元絵巻の座標)
+  var st = { anim: "idle", idx: 0, cycles: 0, t0: 0, camX: full ? 0 : SCROLL_W - V.w, panT0: 0, panning: !full, debug: hash.indexOf("debug") >= 0, orig: false, still: false };
+  window.__st = st;
+
+  var cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+  cv.width = V.w; cv.height = V.h;
+  cv.style.maxWidth = "calc(100vh * " + (V.w / V.h) + ")";
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) { st.still = true; st.panning = false; st.camX = 0; }
+
+  var bg, orig, idle = [], atk = [], fx = [];
+
+  function dur() { return (st.anim === "idle" ? IDLE : ATK)[st.idx]; }
+  function advance(now) {
+    if (!st.t0) st.t0 = now;
+    var g = 0, moved = false;
+    while (now - st.t0 >= dur() && g++ < 32) {
+      st.t0 += dur(); st.idx++; moved = true;
+      if (st.anim === "idle" && st.idx >= IDLE.length) { st.idx = 0; st.cycles++; if (st.cycles >= IDLE_CYCLES) { st.anim = "attack"; st.cycles = 0; } }
+      else if (st.anim === "attack" && st.idx >= ATK.length) { st.anim = "idle"; st.idx = 0; st.cycles = 0; }
+    }
+    return moved;
+  }
+  function ease(p) { return p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2; }
+
+  function overlay() {
+    var ox = -st.camX, s = V.w / 1100;
+    ctx.save();
+    ctx.setLineDash([8, 6]); ctx.lineWidth = 2; ctx.strokeStyle = "#00b4d8";
+    ctx.strokeRect(ox + SPR.x + 1, SPR.y + 1, SPR.w - 2, SPR.h - 2);
+    ctx.setLineDash([]); ctx.strokeStyle = "#ff3b30";
+    ctx.beginPath(); ctx.moveTo(ox + FOOT.x - 140, FOOT.y + 0.5); ctx.lineTo(ox + FOOT.x + 140, FOOT.y + 0.5); ctx.stroke();
+    ctx.lineWidth = 4; ctx.beginPath();
+    ctx.moveTo(ox + FOOT.x - 12, FOOT.y); ctx.lineTo(ox + FOOT.x + 12, FOOT.y); ctx.moveTo(ox + FOOT.x, FOOT.y - 12); ctx.lineTo(ox + FOOT.x, FOOT.y + 12); ctx.stroke();
+    var fs = Math.round(26 * s + 6);
+    ctx.font = "700 " + fs + "px sans-serif"; ctx.textBaseline = "top";
+    var label = st.orig ? "元絵巻 (scroll_original.png)" : (st.anim === "idle" ? "待機" : "攻撃") + "  フレーム " + (st.idx + 1) + " / " + (st.anim === "idle" ? IDLE.length : ATK.length) + "  ・  " + dur() + "ms  ・  カメラ x=" + Math.round(st.camX) + (st.still ? "  (静止)" : "");
+    var tw = ctx.measureText(label).width;
+    ctx.fillStyle = "rgba(0,0,0,.65)"; ctx.fillRect(8, 8, tw + 20, fs + 14);
+    ctx.fillStyle = "#fff"; ctx.fillText(label, 18, 15);
+    ctx.font = "500 " + Math.round(fs * 0.72) + "px sans-serif";
+    var hint = "D: デバッグ ON/OFF   O(押している間): 元絵   Space / クリック: 静止 ⇄ 再生   R: 読み進めをやり直す";
+    var hw = ctx.measureText(hint).width, hy = V.h - fs - 14;
+    ctx.fillStyle = "rgba(0,0,0,.65)"; ctx.fillRect(8, hy - 6, hw + 20, fs);
+    ctx.fillStyle = "#fff"; ctx.fillText(hint, 18, hy - 2);
+    ctx.restore();
+  }
+
+  function draw() {
+    var showOrig = st.debug && st.orig;
+    ctx.drawImage(showOrig ? orig : bg, st.camX, 0, V.w, V.h, 0, 0, V.w, V.h);
+    if (!showOrig) {
+      var f = st.still ? atk[0] : (st.anim === "idle" ? idle[st.idx] : atk[st.idx]);
+      ctx.drawImage(f, SPR.x - st.camX, SPR.y);
+      if (!st.still && st.anim === "attack" && st.idx >= 4 && st.idx <= 6) {   // 筆線: 紙に染みた墨に見えるよう乗算
+        ctx.globalCompositeOperation = "multiply";
+        ctx.drawImage(fx[st.idx - 4], FX.x - st.camX, FX.y);
+        ctx.globalCompositeOperation = "source-over";
+      }
+    }
+    if (st.debug) overlay();
+  }
+
+  function tick(now) {
+    if (!st.still && !document.hidden) {
+      var changed = advance(now);
+      if (st.panning) {
+        if (!st.panT0) st.panT0 = now;
+        var p = Math.min(1, (now - st.panT0) / PAN_MS);
+        st.camX = (SCROLL_W - V.w) * (1 - ease(p));
+        if (p >= 1) { st.panning = false; st.camX = 0; }
+        changed = true;
+      }
+      if (changed || st.debug) draw();
+      if (changed) cv.setAttribute("data-key", st.anim + ":" + (st.idx + 1));
+    } else { st.t0 = 0; }
+    requestAnimationFrame(tick);
+  }
+
+  function setStill(s) { st.still = s; st.t0 = 0; if (s) { st.camX = full ? 0 : st.camX; } draw(); }
+  cv.addEventListener("click", function () { setStill(!st.still); });
+  window.addEventListener("keydown", function (e) {
+    var k = e.key.toLowerCase();
+    if (k === "d") { st.debug = !st.debug; draw(); }
+    else if (k === "o" && st.debug && !st.orig) { st.orig = true; draw(); }
+    else if (k === "r" && !full) { st.camX = SCROLL_W - V.w; st.panning = true; st.panT0 = 0; st.still = false; }
+    else if (k === " ") { e.preventDefault(); setStill(!st.still); }
+  });
+  window.addEventListener("keyup", function (e) { if (e.key.toLowerCase() === "o" && st.orig) { st.orig = false; draw(); } });
+
+  function load(src) { return new Promise(function (res, rej) { var i = new Image(); i.onload = function () { res(i); }; i.onerror = rej; i.src = src; }); }
+  var files = ["../assets/scroll/scroll_background_clean.png", "../assets/scroll/scroll_original.png"], n;
+  for (n = 1; n <= 7; n++) files.push("../assets/characters/samurai_left_bottom/idle/idle_0" + n + ".png");
+  for (n = 1; n <= 8; n++) files.push("../assets/characters/samurai_left_bottom/samurai_0" + n + ".png");
+  ["a", "b", "c"].forEach(function (c) { files.push("../assets/effects/brush_slash/slash_" + c + ".png"); });
+  Promise.all(files.map(load)).then(function (imgs) {
+    bg = imgs[0]; orig = imgs[1]; idle = imgs.slice(2, 9); atk = imgs.slice(9, 17); fx = imgs.slice(17, 20);
+    window.__draw = draw; draw(); requestAnimationFrame(tick); window.__ready = true;
+  }).catch(function () { document.getElementById("err").style.display = "flex"; });
+})();
+</script>
+
+</body>
+</html>

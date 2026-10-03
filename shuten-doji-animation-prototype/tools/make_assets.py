@@ -347,7 +347,7 @@ class Rig:
         self.base[y0:y1, x0:x1, :3][sel] = rgb[sel]
         self.base[y0:y1, x0:x1, 3][sel] = 1.0
 
-    def render(self, lean, sway, fore, sword, interp=cv2.INTER_LANCZOS4):
+    def render(self, lean, sway, fore, sword, interp=cv2.INTER_LANCZOS4, head=(0.0, 0.0)):
         h, w = self.h, self.w
         F = canvas_pt(FOOT)
         M_lean = rot_about(lean, F)
@@ -363,6 +363,7 @@ class Rig:
         # 頭は胴体の動きの 70% を打ち消して「ほぼ固定」にする
         hc = np.array([*canvas_pt(HEAD_C), 1.0])
         d_head = -0.7 * (M_lean @ hc - hc[:2])
+        d_head = d_head + np.asarray(head, np.float64)     # 頭だけの小さな動き (待機などで使う, px)
         dx = sway * (self.w_skirt + self.w_sleeve) + d_head[0] * self.w_head
         dy = d_head[1] * self.w_head + 0.4 * sway * self.w_sleeve
         sx = (qx - dx).astype(np.float32)

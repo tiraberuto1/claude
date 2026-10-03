@@ -1,0 +1,26 @@
+{
+  "origin": [
+    0,
+    100
+  ],
+  "size": [
+    300,
+    230
+  ],
+  "blend": "multiply",
+  "note": "紙に墨が染みた見た目にするため、光らせず乗算で重ねる",
+  "timeline": [
+    {
+      "frame": 5,
+      "image": "slash_a.png"
+    },
+    {
+      "frame": 6,
+      "image": "slash_b.png"
+    },
+    {
+      "frame": 7,
+      "image": "slash_c.png"
+    }
+  ]
+}
