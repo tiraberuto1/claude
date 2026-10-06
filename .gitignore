@@ -1,0 +1,12 @@
+# AI 作業環境のバックアップ（機密を含みうるので共有しない）
+.ai-setup-backup/
+
+# 個人用の指示・設定
+CLAUDE.local.md
+AGENTS.override.md
+.claude/settings.local.json
+
+# 一時ファイル・ログ
+__pycache__/
+tasks/logs/
+*.log
