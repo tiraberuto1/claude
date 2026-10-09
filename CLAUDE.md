@@ -15,3 +15,7 @@
 
 ## ブランチ戦略
 - 主な作業ブランチ: `claude/superpowers-plugin-07i1pb`
+
+## ゲーム制作とアセット（godogen）
+- ゲーム制作は `docs/godogen/runtime.md` と `docs/godogen/godot.md` に従う
+- API キーは使わない。`/asset-gen` は呼ばず、絵が必要なときは `docs/asset-requests/` に発注書（プロンプト付き）を書き、仮素材で進める

@@ -1,7 +1,7 @@
 # Build Godot game from a description
 
 - Keep durable project status in `README.md`: what is built, what is left, and an asset table.
-- Generate visual assets with `/asset-gen`. Confirm the spend with the user before the first paid generation.
+- This repo runs without API keys: do not use `/asset-gen`. When art is needed, write a request in `docs/asset-requests/` (see its README), place a code-generated placeholder at the target path, and keep building. The user generates the real image and overwrites the placeholder.
 - Read `godot.md` for engine guidance: stack, project layout, how to run, and how to capture.
 
 ## Delivery
