@@ -8,7 +8,7 @@
 ## プロジェクト概要
 実在する「酒呑童子絵巻」を題材にした 2D アクションゲーム。絵巻そのものが動き出し、絵巻の世界を操作しているような体験を目指す。
 
-- ゲーム本体: `shuten-emaki/index.html`（Phaser 4.2.1 内蔵・単一 HTML。ブラウザで開くだけで起動）
+- ゲーム本体: `godot/`（Godot 4.4.1・GL Compatibility。`godot/project.godot` を Godot で開いて実行）
 - 制作の基準: `CLAUDE_CODE_RESTART_SPEC.md`（**最優先で従う**）
 - 現状と計画: `PROJECT_AUDIT.md`、`ASSET_INVENTORY.md`、`REBUILD_PLAN.md`
 - 決定事項: `docs/DECISIONS.md`

@@ -1,0 +1,22 @@
+; Engine configuration file.
+; It's best edited using the editor UNLESS you know what you're doing.
+
+config_version=5
+
+[application]
+
+config/name="酒呑童子絵巻"
+config/description="実在する酒呑童子絵巻を題材にした 2D アクション（Godot 4 版）"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.4", "GL Compatibility")
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
