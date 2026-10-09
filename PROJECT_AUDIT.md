@@ -1,5 +1,9 @@
 # PROJECT_AUDIT.md — 既存プロジェクト監査
 
+> **注記（R0 後）**: この文書は 2026-10-09 時点の監査スナップショット。パスは当時のもの。
+> R0 で §7 の項目を整理済み: `shuten-emaki/` は直下へ戻した（旧 `archive/shuten-emaki/`）、
+> godogen（`docs/godogen/`）と `.claude/skills/asset-gen/` は削除、`STYLE.md`・`CLAUDE.md` は指示書に合わせて更新。詳細は `docs/DECISIONS.md`。
+
 作成: 2026-10-09 / 対象: `CLAUDE_CODE_RESTART_SPEC.md` 第9章（最初のタスク）
 方針: 調査のみ。ゲームのコード・素材は一切変更していない（追加したのは監査文書と、証拠画像 `docs/audit/` のみ）。
 

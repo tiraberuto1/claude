@@ -1,8 +1,0 @@
-xai-sdk>=1.19
-google-genai
-requests
-numpy
-pillow
-rembg
-pymatting
-onnxruntime-gpu[cuda,cudnn]

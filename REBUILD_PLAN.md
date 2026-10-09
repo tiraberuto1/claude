@@ -27,6 +27,21 @@
 
 ---
 
+## R0 実施記録（2026-10-09）
+
+**完了（コード変更なし）**
+- D1: Phaser 継続（ユーザー承認）。
+- `docs/asset-requests/STYLE.md` を指示書 §1・§4・§6 に基づく内容へ置換（仮置きの水墨画調を廃止）。`TEMPLATE.md`・`README.md` も §3 の発注フローに合わせて更新。
+- `docs/godogen/`、`.claude/skills/asset-gen/` を削除（Godot / API 画像生成は不使用のため）。
+- `CLAUDE.md` の概要を現プロジェクトに更新（制作ルールの要点を追加）。
+- `shuten-emaki/` をリポジトリ直下へ戻した（`git mv`・内容無変更）。
+- 決定事項と未決事項を `docs/DECISIONS.md` に固定。
+
+**未了（R0 の完了条件を満たすにはユーザー回答が必要）**: `docs/DECISIONS.md` の Q1〜Q6。
+Q1（基準画面）は R1、Q2〜Q6 は R2（発注 #001）の前提。
+
+---
+
 ## R0. 合意と整理（コード変更なし）
 
 **やること**
@@ -120,7 +135,7 @@
 | 頼光のベクター版 | 造形不一致のため**退役候補**（承認後に削除） |
 | 鬼のベクター描画 | R9 で方針決定 |
 | `sekigahara/` | 対象外。`archive/` に保持 |
-| `docs/godogen/`、`.claude/skills/asset-gen/` | Phaser 継続・API 不使用なら**不要**（承認後に整理） |
+| `docs/godogen/`、`.claude/skills/asset-gen/` | **削除済み**（R0） |
 
 ## ユーザー判断が必要な事項
 

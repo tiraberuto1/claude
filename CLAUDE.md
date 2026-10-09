@@ -6,7 +6,21 @@
 - コード内のコメントは日本語またはコードの文脈に応じて英語を使用
 
 ## プロジェクト概要
-このリポジトリは Claude Code 用の superpowers プラグインです。
+実在する「酒呑童子絵巻」を題材にした 2D アクションゲーム。絵巻そのものが動き出し、絵巻の世界を操作しているような体験を目指す。
+
+- ゲーム本体: `shuten-emaki/index.html`（Phaser 4.2.1 内蔵・単一 HTML。ブラウザで開くだけで起動）
+- 制作の基準: `CLAUDE_CODE_RESTART_SPEC.md`（**最優先で従う**）
+- 現状と計画: `PROJECT_AUDIT.md`、`ASSET_INVENTORY.md`、`REBUILD_PLAN.md`
+- 決定事項: `docs/DECISIONS.md`
+- `archive/sekigahara/`: 別題材の試作。再構築の対象外
+
+## 制作ルール（要点。詳細は指示書）
+- 画像（キャラクター・背景・モーション・スプライトシート）は **Claude Code が独断で作らない**。Claude Code は発注者、ChatGPT が制作担当。必要なときは `docs/asset-requests/` に発注プロンプトを作って提示する
+- API キー・画像生成 API は使わない
+- 不明な仕様は勝手に決めず「要確認」と書く
+- 既存ゲームの削除・全面的な上書き・依存関係の大幅な変更は、影響を説明して承認を得てから行う
+- 実装した機能は実際に動作確認する。完了・未完了・既知の問題を区別し、未確認を「完成」と報告しない
+- 区切りごとに結果を報告し、一度に大量の工程を進めない
 
 ## コミット規約
 - コミットメッセージは日本語で記載
@@ -14,8 +28,4 @@
 - 例: `feat: ログイン機能を追加`
 
 ## ブランチ戦略
-- 主な作業ブランチ: `claude/superpowers-plugin-07i1pb`
-
-## ゲーム制作とアセット（godogen）
-- ゲーム制作は `docs/godogen/runtime.md` と `docs/godogen/godot.md` に従う
-- API キーは使わない。`/asset-gen` は呼ばず、絵が必要なときは `docs/asset-requests/` に発注書（プロンプト付き）を書き、仮素材で進める
+- 作業ブランチ: セッションで指定されたブランチ（現在は `claude/keen-heisenberg-75uaj6`）
