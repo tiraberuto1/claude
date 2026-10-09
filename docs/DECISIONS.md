@@ -9,7 +9,7 @@
 | D1 | ゲームエンジン | **Phaser 4.2.1 を継続**（現行基盤を再利用） | ユーザー承認（2026-10-09） |
 | D2 | Godot（godogen）関連 | 削除。`docs/godogen/` と `.claude/skills/asset-gen/` を削除済み | D1 の帰結。git 履歴（`a79b1e9`）で復元可 |
 | D3 | 画像生成 API | 使わない。画像は ChatGPT へ発注 | 指示書 §3 |
-| D4 | ゲームの置き場所 | `shuten-emaki/` をリポジトリ直下に戻した。`sekigahara/` は `archive/` に残す | R0 で実施（ユーザー未回答のため仮決定。異論があれば戻せる） |
+| D4 | ゲームの置き場所 | `shuten-emaki/` をリポジトリ直下に戻した。`archive/`（`sekigahara/`）は削除 | R0 で `shuten-emaki/` を戻した（仮決定）。`archive/` の削除はユーザー指示 |
 | D5 | 制作の基準 | `CLAUDE_CODE_RESTART_SPEC.md` を最優先 | ユーザー指示 |
 
 ## 未決（ユーザー判断待ち）
