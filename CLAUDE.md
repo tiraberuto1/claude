@@ -12,6 +12,7 @@
 - 制作の基準: `CLAUDE_CODE_RESTART_SPEC.md`（**最優先で従う**）
 - 現状と計画: `PROJECT_AUDIT.md`、`ASSET_INVENTORY.md`、`REBUILD_PLAN.md`
 - 決定事項: `docs/DECISIONS.md`
+- 制作体制（部署と役割）: `docs/STUDIO.md`、`.claude/agents/`
 - 進捗・次の作業・引き継ぎ: `docs/PROGRESS.md`（**新しいセッションは最初に読む**）
 
 ## 制作ルール（要点。詳細は指示書）
