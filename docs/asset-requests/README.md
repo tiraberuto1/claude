@@ -28,3 +28,4 @@ API キー・画像生成 API は使わない。
 - `001_raiko_master_character.md` … 発注 #001（源頼光 MASTER CHARACTER）
 - `002_raiko_idle.md` … 発注 #002（源頼光 IDLE・待機 3 コマ）
 - `003_raiko_master_emaki.md` … 発注 #003（源頼光 基準立ち絵の作り直し・絵巻寄せ・斜め左向き）
+- `004_raiko_walk.md` … 発注 #004（源頼光 WALK・歩行 6 コマ・3×2 格子）
