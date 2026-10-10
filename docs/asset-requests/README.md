@@ -26,3 +26,4 @@ API キー・画像生成 API は使わない。
 - `STYLE.md` … 共通スタイルガイド（指示書の要約）
 - `TEMPLATE.md` … 発注書のひな形
 - `001_raiko_master_character.md` … 発注 #001（源頼光 MASTER CHARACTER）
+- `002_raiko_idle.md` … 発注 #002（源頼光 IDLE・待機 3 コマ）
