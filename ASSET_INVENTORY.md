@@ -55,7 +55,7 @@
 
 | 工程 | 目安 | 現在のツリー | 履歴上の対応 | 区分 | 必要な作業 |
 |---|---|---|---|---|---|
-| MASTER CHARACTER | 全身 1 枚 | `godot/assets/characters/raiko/master/master.png`（920×1712・RGBA） | — | **完成（ユーザー承認 2026-10-10）** | なし。後続モーションの基準 |
+| MASTER CHARACTER | 全身 1 枚 | `godot/assets/characters/raiko/master/master.png`（681×1598・RGBA。発注 #003 v2） | — | **完成（ユーザー採用 2026-10-10）** | なし。後続モーションの基準 |
 | IDLE | 2〜4 | なし | idle 4 コマ | **未作成** | MASTER 承認後に発注 |
 | WALK | 4〜6 | なし | run 8 / walk 7 コマ（目安超過） | **未作成** | 同上 |
 | ATTACK | 3〜6 | なし | atk 6 コマ（エフェクト描き込み・順序未検証） | **未作成** | 同上（3↔4 の順序と刃の向きの指示を含める） |
