@@ -1,6 +1,6 @@
 # 発注 #001 — 源頼光 MASTER CHARACTER
 
-- 状態: **納品 v2・検収一部不合格（余白・向き）**。透過は合格、質感は改善。向きの扱いをユーザー判断待ち
+- 状態: **完了（MASTER として承認済み・2026-10-10）**。採用は納品 v2。正式ファイルは `godot/assets/characters/raiko/master/master.png`
 - 発注者: Claude Code / 制作担当: ChatGPT
 - 配置先（予定）: `godot/assets/characters/raiko/master/`
 - 発注プロンプト原文: リポジトリに無い。【要確認】原文があれば貼り付けてもらい、ここに記録する
@@ -10,7 +10,7 @@
 | ファイル | 内容 |
 |---|---|
 | `deliveries/001/raiko_master_v1_original.webp` | 納品原本（無加工。sha256 `f2f9ef06…4797e`） |
-| `../../godot/assets/characters/raiko/master/master_v1_provisional.png` | Claude Code が作った**仮の透過版**（承認済み素材ではない） |
+| `godot/assets/characters/raiko/master/master_v1_provisional.png`（削除済み・git 履歴 `026c11a` にあり） | Claude Code が作った仮の透過版。v2 採用により不要 |
 | `deliveries/001/check_v1_provisional_3bg.png` | 仮透過版を紙色・緑・暗色の背景に置いた確認画像 |
 
 ### 検収結果
@@ -53,7 +53,7 @@
 | ファイル | 内容 |
 |---|---|
 | `deliveries/001/raiko_master_v2_original.webp` | 納品原本（無加工。sha256 `df98c456…1268d`） |
-| `../../godot/assets/characters/raiko/master/master_v2_provisional.png` | Claude Code が整えた**仮版**（薄い画素の除去と余白の追加のみ。920×1712・RGBA） |
+| `../../godot/assets/characters/raiko/master/master.png`（旧名 `master_v2_provisional.png`） | **正式採用**。Claude Code が整えた版（薄い画素の除去と余白の追加のみ。920×1712・RGBA） |
 | `deliveries/001/check_v2_provisional_3bg.png` | 仮版 v2 を紙色・緑・暗色の背景に置いた確認画像 |
 
 ### 検収結果（修正依頼 v2 の検収条件に対して）
@@ -71,8 +71,8 @@
 - 確認結果: 四辺の余白 6.0%／アルファ 1〜16 の画素 0／3 背景で問題なし（目視）。
 
 ### ユーザー判断が必要なこと
-- **向き**: ChatGPT は 2 回とも「胴は正面・顔は左」で描いた。①さらに強い指示で v3 を発注する ②この立ち姿（正面向きの胴）を MASTER として認める、のどちらにするか。【要確認】
-- **造形**: 仮版 v2 を見て、基本造形として認めるか。【要確認】
+- **向き**: ユーザー判断「立ち姿はこれでよい」（2026-10-10）。胴は正面・顔は左の立ち姿を MASTER として認め、v3 は発注しない。
+- **造形**: 同上の判断により、v2 の造形を基本造形として承認したものとして扱う。
 
 ---
 
@@ -146,3 +146,4 @@ PNG画像を1枚提出してください。
 - 2026-10-10: 納品 v1 を受領・検収（透過・余白で不合格）。仮透過版を作成。修正依頼 v2 を作成（未発注）。
 - 2026-10-10: 修正依頼 v2 を確定版にした（向き=そろえる・質感=抑える）。単独ファイル `deliveries/001/prompt_v2_repair.md` を作成。
 - 2026-10-10: 納品 v2 を受領・検収（透過・質感は合格、余白・向きは不合格）。仮版 v2 を作成。向きの扱いをユーザー判断待ち。
+- 2026-10-10: ユーザーが v2 の立ち姿を承認。v2 を MASTER として採用し `master.png` に改名。v1 の仮版は削除。R3 完了。
