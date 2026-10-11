@@ -1,6 +1,8 @@
 # 画像制作の発注（Claude Code → ChatGPT）
 
-**Claude Code は画像制作の発注者、ChatGPT は画像制作の担当者。**
+> **【無効】この発注ルールは 2026-10-11 に無効化された（`docs/DECISIONS.md` D15）。** 以下は、ChatGPT に頼む場合の手引き・履歴として残す。
+
+**（旧）Claude Code は画像制作の発注者、ChatGPT は画像制作の担当者。**
 Claude Code は画像を新規作成・修正して完成品として出さない（`CLAUDE_CODE_RESTART_SPEC.md` §3）。
 API キー・画像生成 API は使わない。
 
