@@ -346,3 +346,4 @@ PNG画像を1枚提出してください。
 - 2026-10-10: 姿勢 3「斬り下ろし」v1 を受領・検収（1254×1254 RGBA、透明 76.0%、余白 左4.5/右3.6/上11.5/下8.9%、薄い画素 25,204 点）。姿勢・腕 2 本・鞘・装備は合格。**問題: 顔が劇画寄り（構えの丸い顔と別人）、袴の文様が構えと違う（水色の唐草風）、縅の縞が太い**。方針: 顔だけ直す修正を依頼する（袴の文様は様子見）。原本: `deliveries/005/raiko_attack_3_kirioroshi_v1_original.webp`。
 - 2026-10-11: 方針変更。斬り下ろしの顔は「直す」のでなく出し直す（`deliveries/005/prompt_3_kirioroshi_v2_new.md`・顔の念押しを追加）。PROMPT_GUIDE §10 に「直す／出し直す」の線を追記（同じ絵の修正は 2 回まで）。
 - 2026-10-11: D15 により Claude Code が斬り下ろしの顔を差し替え。構えの頭（髻・簪・顔）を斬り下ろしの首に合わせて載せた（`tools/swap_head_kirioroshi.py`、倍率 0.95・回転 -6°）。成果: `deliveries/005/raiko_attack_3_kirioroshi_v1_headswap.png`。目視で穴・継ぎ目なし。ユーザー確認待ち。
+- 2026-10-11: 振りかぶりを Claude Code が作成（D15）。v1 原本の余分な手を、鞘・袖・鎧の絵を近くから写して消した（`tools/fix_furikaburi_hand.py`）。顔は v1 のまま（絵巻の顔で良好）。背景透過・余白 6%（894×1353）。成果: `deliveries/005/raiko_attack_2_furikaburi_v1_fixed_alpha.png`。目視で腕 2 本・鞘は帯に差したまま。ユーザー確認待ち。
