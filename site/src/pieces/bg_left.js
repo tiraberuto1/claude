@@ -21,7 +21,7 @@ export function draw(ctx,W,H){
   ctx.fillStyle=g;ctx.fillRect(0,0,340,H);
 
   // 黄緑の床
-  ctx.fillStyle='rgb(150,151,92)';
+  ctx.fillStyle='rgb(153,155,95)';
   ctx.fillRect(0,44,340,150);
   ctx.fillRect(165,28,175,20);
   // 床のムラ(褐色・黄・濃緑)
@@ -48,14 +48,14 @@ export function draw(ctx,W,H){
     ctx.fillRect(R()*340,44+R()*150,0.6,3+R()*10);
   }
   // 縦の継ぎ目(紙の折れ)
-  ctx.fillStyle='rgba(215,200,160,0.35)';ctx.fillRect(173,0,1,H);
+  ctx.fillStyle='rgba(215,200,160,0.18)';ctx.fillRect(173,0,1,H);
   ctx.fillStyle='rgba(110,100,70,0.2)';ctx.fillRect(174,0,1,H);
 
   // 金屏風(左)
   ctx.save();
   ctx.beginPath();ctx.moveTo(0,44);ctx.lineTo(148,44);ctx.lineTo(148,72);ctx.lineTo(125,128);ctx.lineTo(90,160);ctx.lineTo(40,174);ctx.lineTo(0,178);ctx.closePath();ctx.clip();
   const gg=ctx.createLinearGradient(0,44,0,180);
-  gg.addColorStop(0,'rgb(178,150,104)');gg.addColorStop(0.5,'rgb(180,152,108)');gg.addColorStop(1,'rgb(168,146,100)');
+  gg.addColorStop(0,'rgb(186,157,110)');gg.addColorStop(0.5,'rgb(188,160,114)');gg.addColorStop(1,'rgb(168,146,100)');
   ctx.fillStyle=gg;ctx.fillRect(0,44,160,140);
   // 金のムラ
   for(let i=0;i<70;i++){
@@ -117,6 +117,6 @@ export function draw(ctx,W,H){
   // 上部の青灰
   ctx.fillStyle='#8d9a90';ctx.fillRect(0,0,340,44);
   ctx.fillStyle='rgb(150,150,100)';ctx.fillRect(176,28,164,17);
-  ctx.fillStyle='rgba(215,200,160,0.35)';ctx.fillRect(173,0,1,H);
+  ctx.fillStyle='rgba(215,200,160,0.18)';ctx.fillRect(173,0,1,H);
   ctx.restore();
 }

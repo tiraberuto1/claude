@@ -26,6 +26,11 @@ function hair(ctx){
     ctx.bezierCurveTo(x+L*0.3,y-4+rnd()*3,x+L*0.7,y+dy*0.5,x+L,y+dy);ctx.stroke();
   }
   ctx.restore();
+  for(let k=0;k<70;k++){
+    const a=rnd()*6.283,cx=104,cy=70,x=cx+Math.cos(a)*(44+rnd()*6),y=cy+Math.sin(a)*(26+rnd()*4);
+    if(Math.cos(a)<-0.2&&rnd()<0.5)continue;
+    ctx.strokeStyle=rnd()<0.5?'rgba(80,66,50,0.8)':'rgba(120,102,84,0.7)';ctx.lineWidth=0.8;
+    ctx.beginPath();ctx.moveTo(x-Math.cos(a)*5,y-Math.sin(a)*5);ctx.lineTo(x+Math.cos(a)*(2+rnd()*5)+3,y+Math.sin(a)*(2+rnd()*4));ctx.stroke();}
   // 右下へ垂れる毛房
   for(let k=0;k<26;k++){
     const x=126+rnd()*30,y=60+rnd()*40;
@@ -87,8 +92,9 @@ function mask(ctx){
   ctx.fillStyle='#2a1a10';ctx.beginPath();ctx.arc(293,6.5,1.5,0,7);ctx.fill();ctx.beginPath();ctx.arc(303,7.5,1.6,0,7);ctx.fill();
   ctx.fillStyle='#4a2a14';ctx.beginPath();ctx.ellipse(299,16.5,2,1.3,0,0,7);ctx.fill();
   // 口: 赤い口中と牙
-  pg(ctx,[[296,22],[306,19],[318,18],[322,24],[316,31],[310,38],[300,38],[294,32]],'#B8281E',ink,0.6);
-  pg(ctx,[[294,28],[304,25],[310,28],[300,33]],'#C84030');
+  pg(ctx,[[292,24],[304,21],[316,21],[322,28],[314,36],[304,39],[296,34]],'#D8602A');
+  pg(ctx,[[298,24],[306,22],[316,23],[318,29],[310,34],[302,32]],'#A82820',ink,0.5);
+  pg(ctx,[[294,26],[302,26],[304,29],[296,30]],'#C84030');
   pg(ctx,[[306,19],[312,20],[314,26],[308,24]],'#EFE2C8');
   [[298,32],[303,34],[308,35],[313,32],[318,28]].forEach(t=>pg(ctx,[[t[0],t[1]],[t[0]+2,t[1]],[t[0]+1,t[1]+3]],'#F4ECD6'));
   ln(ctx,[[292,34],[300,37],[308,38]],'#E8A040',1);
