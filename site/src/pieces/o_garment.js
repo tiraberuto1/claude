@@ -7,7 +7,7 @@ function sm(ctx,P,fill,stroke,lw){const n=P.length;ctx.beginPath();
   ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}
   if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw;ctx.stroke();}}
 function line(ctx,pts,col,lw){ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();}
-export const DEF={bx:0,by:0,sx:1,sy:1,tipx:0,tipy:0,dl:0,dark:0.1,motif:1,mstep:10,mph:0,wrink:1,hl:1,fx:0,fy:0,fs:1,fdl:0,toes:1,blood:1};
+export const DEF={bx:-17,by:-2,sx:1,sy:1.1,tipx:-1,tipy:2,dl:-6,dark:0.15,motif:0,mstep:10,mph:0,wrink:0,hl:0,fx:6,fy:-6,fs:1.45,fdl:24,toes:0,blood:1};
 const cl=(c,d)=>Math.max(0,Math.min(255,c+d));
 export function draw(ctx,W,H,over){
   const P=Object.assign({},DEF,over||{});

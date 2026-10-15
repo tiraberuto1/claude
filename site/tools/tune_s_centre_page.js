@@ -20,16 +20,16 @@ export async function run(){
   const train=[200,58,335,210];           // 目的関数: 両武者を含む領域
   const valid={ vA:[255,100,285,125], vB:[225,160,255,185] };
   const f=P=>ssim(render(P),train,true);
-  const steps={lx:1,ly:1,ux:1,uy:1,cp:.1,cdy:.5,clw:.4,sp:.1,sdx:1,sdy:1,sa0:.05,sa1:.05,slw:.4,bp:.1,bdx:1,bdy:1,ba0:.04,ba1:.04,blw:.4};
+  const steps={ux:1,uy:1,lx:1,ly:1,cp:.05,cdy:.5,clw:.4,sp:.05,sdx:1,sdy:1,sa0:.05,sa1:.05,slw:.4,bp:.1,bdx:1,bdy:1,ba0:.04,ba1:.04,blw:.4};
   let P={},cur=f(P);const rep=P0=>{const S=render(P0);return Object.fromEntries([...Object.entries(regs),...Object.entries(valid)].map(([k,r])=>[k,+ssim(S,r).toFixed(4)]));};
   const before=rep({});
   const DEFV=null;
   // DEFをP経由で取得するため draw を一度走らせ値を知る必要はない: 加算探索はdefault基準の差分
   const base0={};const keys=Object.keys(steps);
-  const D={lx:0,ly:0,ux:0,uy:0,cp:3.4,cdy:0,clw:3.5,sp:3.4,sdx:0,sdy:0,sa0:-0.35,sa1:0.2,slw:3.5,bp:3.7,bdx:0,bdy:0,ba0:0.52,ba1:0.40,blw:2.6};
+  const D=(globalThis.__START)||{lx:-3,ly:0,ux:-1,uy:-2,cp:4.9,cdy:-0.5,clw:1.5,sp:4,sdx:-1,sdy:0,sa0:-0.35,sa1:0.2,slw:4.7,bp:3.9,bdx:0,bdy:0,ba0:0.52,ba1:0.44,blw:1.8};
   P={...D};cur=f(P);const start=cur;
-  for(let it=0;it<4;it++){let imp=false;
-    for(const k of keys){for(const sg of [1,-1]){for(let m=1;m<=6;m++){const Q={...P,[k]:P[k]+sg*steps[k]*m};const v=f(Q);if(v>cur+1e-5){cur=v;P=Q;imp=true;}else if(m>2)break;}}}
+  for(let it=0;it<10;it++){let imp=false;
+    for(const k of keys){for(const sg of [1,-1]){for(let m=1;m<=8;m++){const Q={...P,[k]:P[k]+sg*steps[k]*m};const v=f(Q);if(v>cur+1e-5){cur=v;P=Q;imp=true;}else if(m>2)break;}}}
     if(!imp)break;}
   return {start,cur,P,before,after:rep(P)};
 }

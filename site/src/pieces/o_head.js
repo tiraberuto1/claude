@@ -1,9 +1,9 @@
 export const name='o_head';
 // 探索パラメータ(tools/tune_o_head.mjs が書き換える)
-export const P={hx:0,hy:0,hsx:1,hsy:1,hb:1,hs:1,tn:16,
-  fx:0,fy:0,fsx:1,fsy:1,fr:1,fg:1,fb:1,sa:0.55,
-  ex:0,ey:0,mx:0,my:0,msx:1,
-  kx:0,ky:0,ksx:1,ksy:1,kb:1};
+export const P={hx:-0.2,hy:0,hsx:0.928,hsy:0.947,hb:1.15,hs:0.7,tn:8,
+  fx:3.15,fy:0,fsx:1.0006,fsy:0.9887,fr:0.877,fg:1.0166,fb:0.9927,sa:0.95,
+  ex:-0.88,ey:-0.33,mx:4.0,my:1.67,msx:0.9974,
+  kx:0.36,ky:0.27,ksx:1.064,ksy:0.994,kb:1.041};
 const sc=(hex,r,g,b)=>{const n=parseInt(hex.slice(1),16);const q=v=>Math.max(0,Math.min(255,Math.round(v)));
   return `rgb(${q((n>>16&255)*r)},${q((n>>8&255)*g)},${q((n&255)*b)})`;};
 const xf=(ctx,cx,cy,dx,dy,sx,sy)=>{ctx.translate(cx+dx,cy+dy);ctx.scale(sx,sy);ctx.translate(-cx,-cy);};

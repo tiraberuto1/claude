@@ -15,10 +15,10 @@ function stripes(c,pts,ox,oy,ang0,ang1,pitch,n,cols,wid){
   c.restore();
 }
 // 調整済み定数(tools/tune_s_centre.mjs の探索結果)。draw の第3引数で上書き可能
-const DEF={lx:0,ly:0,ux:0,uy:0,
- cp:3.4,cdy:0,clw:3.5,
- sp:3.4,sdx:0,sdy:0,sa0:-0.35,sa1:0.2,slw:3.5,
- bp:3.7,bdx:0,bdy:0,ba0:0.52,ba1:0.40,blw:2.6};
+const DEF={lx:-3,ly:0,ux:-1,uy:-2,
+ cp:4.9,cdy:-0.5,clw:1.5,
+ sp:4,sdx:-1,sdy:0,sa0:-0.35,sa1:0.2,slw:4.7,
+ bp:3.9,bdx:0,bdy:0,ba0:0.52,ba1:0.44,blw:1.8};
 export function draw(ctx,W,H,P){
   const K=Object.assign({},DEF,P||{});
   const c=ctx;
