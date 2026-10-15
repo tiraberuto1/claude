@@ -3,12 +3,12 @@ function rng(s){return()=>((s=(s*1664525+1013904223)>>>0)/4294967296);}
 // 黒白の点線縁(白帯+黒点、周期7px)
 // 探索対象の数値パラメータ(tools/tune_bg_left.mjs で最適化)
 export const DEFAULTS={
-  dyTop:67.5,dwTop:2.6,dpTop:7.8,dphTop:2,ddTop:3.4,dxTop:163,
+  dyTop:66.5,dwTop:2.2,dpTop:7.8,dphTop:2,ddTop:4.2,dxTop:163,
   dy2:74,dw2:2.2,
-  dyMid:132,dyBot:189,dwMid:3,dpMid:7,
-  diagX0:92,diagY0:190,diagX1:256,diagY1:76,
-  beamY:68,beamH:7,
-  st0x:83,st0y:181.5,st1x:75,st1y:191,st2x:208,st2y:218,stA:0.75,stW:9,
+  dyMid:134,dyBot:189.5,dwMid:2.6,dpMid:7,
+  diagX0:98,diagY0:190,diagX1:254,diagY1:76,
+  beamY:69.5,beamH:7.7,
+  st0x:83,st0y:181.5,st1x:72,st1y:192,st2x:208,st2y:218,stA:0.85,stW:11,
   floorG:148,
 };
 function dashed(ctx,x0,y0,x1,y1,w=3,per=7,ph=2,dot=3.4){

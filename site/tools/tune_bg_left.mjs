@@ -16,8 +16,9 @@ function ssim(g,[x0,y0,x1,y1]){const w=x1-x0,h=y1-y0,A=new Float64Array(w*h),B=n
   const ma=box(A,w,h),mb=box(B,w,h),maa=box(AA,w,h),mbb=box(BB,w,h),mab=box(AB,w,h);
   const C1=6.5025,C2=58.5225;let t=0;for(let i=0;i<ma.length;i++){const va=maa[i]-ma[i]**2,vb=mbb[i]-mb[i]**2,cv=mab[i]-ma[i]*mb[i];
     t+=((2*ma[i]*mb[i]+C1)*(2*cv+C2))/((ma[i]**2+mb[i]**2+C1)*(va+vb+C2));}return t/ma.length;}
-const TUNE=[[168,62,290,80],[150,184,250,196],[60,172,100,196],[195,208,225,228],[176,78,245,125],[176,126,290,138]];
-const VAL=[[176,30,300,62],[240,40,340,62],[0,184,30,196]];
+const TUNE=[[168,62,230,80],[150,184,200,196],[60,172,100,196],[195,208,225,228],[176,78,245,125],[176,126,230,138]];
+const VAL=[[230,62,290,80],[200,184,250,196],[230,126,290,138],[176,30,300,62]];
+const BND={dyTop:[66.5,68.5],dwTop:[2,3.2],dpTop:[7,8.5],ddTop:[2.5,4.5],dyMid:[131,134],dyBot:[187.5,191],dwMid:[2.4,3.6],dpMid:[6,8],beamY:[67,70],beamH:[5,8],stA:[0.3,0.85],stW:[5,11],diagX0:[88,100],diagY0:[188,192],diagX1:[250,262],diagY1:[72,80]};
 const mean=(g,R)=>R.reduce((a,r)=>a+ssim(g,r),0)/R.length;
 const {DEFAULTS}=await p.evaluate(async()=>{const m=await import('/src/pieces/bg_left.js?t=0');return {DEFAULTS:m.DEFAULTS};});
 let P={...DEFAULTS};
@@ -25,7 +26,7 @@ const step={dyTop:.5,dwTop:.4,dpTop:.2,dphTop:1,ddTop:.4,dxTop:2,dy2:.5,dw2:.4,d
 const ev=async Q=>{const g=await render(Q);return mean(g,TUNE);};
 let best=await ev(P);const v0=mean(await render(P),VAL);console.log('start tune',best.toFixed(4),'val',v0.toFixed(4));
 for(let it=0;it<4;it++){let imp=false;
-  for(const k of Object.keys(step)){for(const d of [1,-1,2,-2]){const Q={...P,[k]:P[k]+d*step[k]};const v=await ev(Q);if(v>best+1e-5){best=v;P=Q;imp=true;}}}
+  for(const k of Object.keys(step)){for(const d of [1,-1,2,-2]){const Q={...P,[k]:P[k]+d*step[k]};if(BND[k]&&(Q[k]<BND[k][0]||Q[k]>BND[k][1]))continue;const v=await ev(Q);if(v>best+1e-5){best=v;P=Q;imp=true;}}}
   console.log('iter',it,best.toFixed(4));if(!imp)break;}
 const v1=mean(await render(P),VAL);console.log('end tune',best.toFixed(4),'val',v1.toFixed(4));
 for(const r of [...TUNE,...VAL])console.log(r.join(','),ssim(await render(DEFAULTS),r).toFixed(3),'->',ssim(await render(P),r).toFixed(3));
