@@ -15,10 +15,25 @@ function stripes(c,pts,ox,oy,ang0,ang1,pitch,n,cols,wid){
   c.restore();
 }
 // 調整済み定数(tools/tune_s_centre.mjs の探索結果)。draw の第3引数で上書き可能
-const DEF={lx:-3,ly:0,ux:-1,uy:-2,
- cp:4.9,cdy:-0.5,clw:1.5,
- sp:4,sdx:-1,sdy:0,sa0:-0.35,sa1:0.2,slw:4.7,
- bp:3.9,bdx:0,bdy:0,ba0:0.52,ba1:0.44,blw:1.8,gl:0,gd:0,sr:0,sg:0,sb:0};
+const DEF={lx:-3,ly:-3,ux:-1,uy:-2,cp:4.9,cdy:-0.5,clw:1.5,sp:4,
+ sdx:-1,sdy:0,sa0:-0.35,sa1:0.2,slw:4.7,bp:3.9,bdx:1,bdy:2,
+ ba0:0.56,ba1:0.52,blw:3.4,gl:18,gd:-12,sr:-42,sg:-30,sb:-30,
+ d_body_0x:3,d_body_0y:3,d_body_1x:3,d_body_1y:2,d_body_2x:3,d_body_2y:3,d_body_3x:3,d_body_3y:1,
+ d_body_4x:5,d_body_4y:-4,d_body_5x:5,d_body_5y:-1,d_body_6x:3,d_body_6y:1,d_body_7x:5,d_body_7y:1,
+ d_body_8x:-1,d_body_9x:5,d_body_9y:-4,d_body_10x:-3,d_body_10y:-1,d_body_11x:-4,d_chest_0x:4,d_chest_0y:2,
+ d_chest_1x:-4,d_chest_1y:3,d_chest_2x:-5,d_chest_3x:5,d_skirt_0x:5,d_skirt_0y:-3,d_skirt_1y:-2,d_skirt_3x:-5,
+ d_skirt_3y:5,d_skirt_4x:2,d_skirt_4y:4,d_skirt_5x:-4,d_skirt_5y:2,d_skirt_6x:-5,d_skirt_6y:1,d_skirt_7x:2,
+ d_skirt_8x:-3,d_skirt_8y:4,d_armor_0x:1,d_armor_0y:1,d_armor_1x:-3,d_armor_1y:-1,d_armor_2x:5,d_armor_2y:1,
+ d_armor_3x:5,d_armor_3y:5,d_armor_4x:-5,d_armor_5y:3,d_armor_6y:-3,d_armor_7y:-5,d_armor_8x:1,d_armor_9x:-2,
+ d_armor_10x:-3,d_armor_10y:1,d_armor_15x:-3,d_sl_0x:-2,d_sl_0y:4,d_sl_1x:2,d_sl_2y:-3,d_sl_3y:3,
+ d_sl_4x:-2,d_sl_4y:3,d_sl_5x:5,d_sl_5y:-3,d_face_0x:5,d_face_0y:5,d_face_1x:3,d_face_1y:5,
+ d_face_2x:-1,d_face_2y:2,d_face_3x:-1,d_face_3y:-2,d_face_4y:1,d_face_5x:2,d_face_5y:3,d_face_6x:-1,
+ d_b1_0x:4,d_b1_0y:1,d_b1_1x:5,d_b1_2x:2,d_b1_2y:-2,d_b1_3x:-2,d_b1_4x:1,d_b1_4y:-1,
+ d_b2_0x:-5,d_b2_0y:1,d_b2_1x:4,d_b2_1y:4,d_b2_3y:2,d_b3_0x:3,d_b3_0y:5,d_b3_1x:4,
+ d_b3_1y:-1,d_b3_2x:2,d_b3_2y:2,d_b3_3x:5,d_b3_3y:2,d_b3_4x:1,d_b3_4y:-2,d_b4_0x:5,
+ d_b4_0y:4,d_b4_1x:1,d_b4_1y:-2,d_b4_2x:4,d_b4_2y:1,d_b4_3x:1,d_b4_3y:-5,d_sw_0x:-4,
+ d_sw_1x:3,d_sw_2x:-2,d_sw_3y:-2,d_lface_0x:3,d_lface_0y:4,d_lface_1x:1,d_lface_1y:-5,d_lface_2x:2,
+ d_lface_2y:-5,d_lface_3x:2,d_lface_4x:-1,d_lface_4y:-1};
 export const VERT={body:12,chest:4,skirt:9,armor:16,sl:6,face:7,b1:6,b2:4,b3:5,b4:4,sw:4,lface:5};
 const clamp=v=>Math.max(0,Math.min(255,Math.round(v)));
 function sh(hex,d){const n=parseInt(hex.slice(1),16);return 'rgb('+[n>>16,(n>>8)&255,n&255].map(v=>clamp(v+d)).join(',')+')';}
