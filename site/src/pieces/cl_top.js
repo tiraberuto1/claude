@@ -10,9 +10,12 @@ export function draw(ctx,W,H){
   // 右上の霞の淡い刷き(紙の暖色が透ける)
   {
     const g=ctx.createLinearGradient(0,0,0,40);
-    g.addColorStop(0,'rgba(130,150,142,0.10)');g.addColorStop(1,'rgba(130,150,142,0.45)');
-    const m=ctx.createLinearGradient(430,0,560,0);
-    ctx.save();ctx.beginPath();ctx.rect(430,0,260,45);ctx.clip();
+    g.addColorStop(0,'rgba(130,150,142,0.18)');g.addColorStop(1,'rgba(130,150,142,0.5)');
+    ctx.save();ctx.beginPath();ctx.rect(400,0,300,48);ctx.clip();
+    const w=ctx.createLinearGradient(0,0,0,42);
+    w.addColorStop(0,'rgba(200,172,120,0.95)');w.addColorStop(0.6,'rgba(190,165,120,0.7)');w.addColorStop(1,'rgba(190,165,120,0)');
+    ctx.fillStyle=w;ctx.fillRect(400,0,300,48);
+    ctx.globalCompositeOperation='source-over';
     ctx.fillStyle=g;ctx.globalAlpha=1;ctx.fillRect(430,0,260,45);ctx.restore();
   }
   const shapes=[

@@ -6,43 +6,58 @@ function sm(ctx,P,fill,stroke,lw){const n=P.length;ctx.beginPath();
     ctx.quadraticCurveTo(a[0],a[1],m[0],m[1]);}
   ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}
   if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw;ctx.stroke();}}
+function line(ctx,pts,col,lw){ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();}
 export function draw(ctx,W,H){
-  // 赤い着物
-  const body=[[430,152],[433,140],[444,131],[462,130],[480,138],[498,152],[520,162],[546,176],[560,194],[548,203],[520,201],[490,205],[462,204],[440,196],[430,178]];
+  // 下縁: 白裏地の帯と緑の縁(着物の下に敷く)
+  const lower=[[438,186],[446,200],[470,210],[500,212],[530,210],[552,203],[561,196],[556,199],[530,205],[500,207],[470,205],[450,196],[440,182]];
+  sm(ctx,lower,'#EFE8DC');
+  line(ctx,[[441,196],[455,205],[480,209],[510,210],[540,206],[559,196]],'#4E9A6A',2);
+  // 赤い着物 一枚の布
+  const body=[[430,152],[432,140],[443,130],[460,129],[476,136],[490,150],[512,158],[536,166],[550,182],[560,196],[548,204],[520,202],[490,204],[462,202],[440,194],[430,176]];
   ctx.save();
-  sm(ctx,body,'#C93C2C');
+  sm(ctx,body,'#C23A2B');
   ctx.clip();
-  const g=ctx.createLinearGradient(430,130,550,205);
-  g.addColorStop(0,'rgba(216,69,47,0.55)');g.addColorStop(0.5,'rgba(190,50,38,0.25)');g.addColorStop(1,'rgba(216,70,45,0.55)');
+  // 右へ向けて深い赤
+  const g=ctx.createLinearGradient(430,130,555,205);
+  g.addColorStop(0,'rgba(217,80,58,0.45)');g.addColorStop(0.45,'rgba(194,58,43,0)');g.addColorStop(1,'rgba(140,42,34,0.5)');
   ctx.fillStyle=g;ctx.fillRect(425,125,140,85);
-  // 暗い襞
-  ctx.strokeStyle='rgba(120,24,18,0.55)';ctx.lineWidth=0.8;
-  [[[436,150],[444,176],[462,196]],[[470,142],[486,166],[512,184],[545,196]],[[462,160],[490,176],[520,192]]].forEach(l=>{ctx.beginPath();l.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();});
-  // 小紋: 小さな丸紋(青/淡赤)
+  // ハイライト帯
+  sm(ctx,[[434,150],[446,134],[460,134],[452,150],[444,170]],'rgba(217,80,58,0.7)');
+  sm(ctx,[[500,168],[520,168],[540,180],[524,186]],'rgba(217,80,58,0.5)');
+  // 皺影
+  [[[436,148],[442,172],[458,192]],[[468,140],[484,160],[506,176],[540,190]],[[490,190],[520,194],[550,198]],[[504,160],[524,172],[548,186]]].forEach(l=>line(ctx,l,'rgba(140,42,34,0.8)',1.1));
+  [[[448,150],[452,176],[466,196]],[[494,172],[514,184],[536,196]]].forEach(l=>line(ctx,l,'rgba(110,28,22,0.5)',2.2));
+  // 紋: 金朱の小さな輪(疎ら)、青輪も少し
   seed=31;
-  for(let y=134;y<206;y+=8)for(let x=430+((y/8|0)%2)*6;x<562;x+=12){
-    const j=(rnd()-0.5)*2;
-    ctx.strokeStyle=((x*7+y*3)%5<1)?'rgba(70,80,150,0.75)':'rgba(240,150,110,0.4)';
-    ctx.lineWidth=0.7;ctx.beginPath();ctx.arc(x+j,y+j,2.2,0,7);ctx.stroke();
-    ctx.fillStyle='rgba(235,170,120,0.35)';ctx.fillRect(x+j-0.4,y+j-0.4,0.9,0.9);
+  for(let y=136;y<206;y+=10)for(let x=432+((y/10|0)%2)*5;x<562;x+=10){
+    if(rnd()<0.25)continue;
+    const j=(rnd()-0.5)*1.5, blue=((x*7+y*3)%6<1);
+    ctx.strokeStyle=blue?'rgba(60,70,150,0.8)':'rgba(224,160,64,0.85)';
+    ctx.lineWidth=0.7;ctx.beginPath();ctx.arc(x+j,y+j,2,0,7);ctx.stroke();
   }
   ctx.restore();
-  sm(ctx,body,null,'rgba(100,20,14,0.8)',0.8);
-  // 裾の縁(緑)
-  ctx.strokeStyle='#2E9A6A';ctx.lineWidth=1.6;
-  ctx.beginPath();ctx.moveTo(500,205);ctx.quadraticCurveTo(535,206,556,196);ctx.stroke();
-  // 足先・足裏 (着物の下)
-  seed=9;
-  sm(ctx,[[494,176],[502,166],[516,162],[530,166],[538,176],[536,190],[524,198],[506,198],[496,190]],'#E0A060','#7a3a1a',0.7);
-  sm(ctx,[[504,172],[518,168],[530,172],[528,186],[514,192],[504,186]],'#D88A4A');
-  ctx.strokeStyle='#8a4a22';ctx.lineWidth=0.6;
-  [[535,176,538,166],[529,172,531,163],[522,169,523,161],[515,168,515,161],[508,169,507,163]].forEach(f=>{ctx.beginPath();ctx.moveTo(f[0],f[1]);ctx.lineTo(f[2],f[3]);ctx.stroke();});
-  ctx.beginPath();ctx.moveTo(506,182);ctx.quadraticCurveTo(518,176,530,184);ctx.stroke();
-  // 周辺の血痕
+  sm(ctx,body,null,'rgba(90,18,14,0.8)',0.7);
+  // 左縁の白裏
+  line(ctx,[[433,148],[432,160],[436,178]],'#EFE8DC',1.6);
+  // 足先・足裏(基準では右、x535-590付近)
+  const foot=[[536,184],[544,172],[556,164],[570,158],[584,152],[594,156],[592,168],[584,180],[570,190],[552,192]];
+  sm(ctx,foot,'#D9A268','#7a3a1a',0.7);
+  sm(ctx,[[548,180],[558,170],[572,164],[582,172],[572,184],[556,188]],'#C98A50');
+  // 指と爪
+  [[582,154],[587,150],[591,155],[594,160],[595,166]].forEach((p,i)=>{
+    ctx.fillStyle='#D9A268';ctx.strokeStyle='#7a3a1a';ctx.lineWidth=0.5;
+    ctx.beginPath();ctx.ellipse(p[0],p[1],2.4,3,0.5,0,7);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#F2E4C8';ctx.fillRect(p[0]-0.8,p[1]-2.8,1.6,1.4);});
+  line(ctx,[[552,176],[564,168],[576,164]],'#8a4a22',0.6);
+  // 黒い紐
+  line(ctx,[[548,166],[543,176],[545,188]],'#1a1410',1.2);
+  // 血痕(細い筋と小さな飛沫)
   seed=3;
-  for(let i=0;i<34;i++){
-    const x=430+rnd()*140,y=120+rnd()*100;
-    ctx.fillStyle=rnd()<0.6?'#C8302A':'#9a2418';ctx.globalAlpha=0.55+rnd()*0.3;
-    ctx.beginPath();ctx.ellipse(x,y,0.8+rnd()*2.2,0.6+rnd()*1.6,rnd()*3,0,7);ctx.fill();}
+  for(let i=0;i<30;i++){
+    const x=432+rnd()*140,y=125+rnd()*90;
+    ctx.fillStyle=rnd()<0.6?'#B8281F':'#9a2418';ctx.globalAlpha=0.6+rnd()*0.3;
+    ctx.beginPath();ctx.ellipse(x,y,0.6+rnd()*1.3,0.5+rnd()*1,rnd()*3,0,7);ctx.fill();}
   ctx.globalAlpha=1;
+  for(let i=0;i<10;i++){const x=470+rnd()*100,y=190+rnd()*20;
+    line(ctx,[[x,y],[x+5+rnd()*5,y-2-rnd()*3]],'rgba(184,40,31,0.8)',0.8);}
 }
