@@ -35,19 +35,19 @@ export function draw(ctx,W,H){
     // 横方向グラデ: 左は青、右は黄味
     const g=ctx.createLinearGradient(0,0,680,0);
     if(s.up){
-      g.addColorStop(0,'rgb(122,146,150)');g.addColorStop(0.45,'rgb(128,146,142)');
-      g.addColorStop(0.72,'rgb(140,148,138)');g.addColorStop(1,'rgb(158,152,130)');
+      g.addColorStop(0,'rgb(128,147,138)');g.addColorStop(0.45,'rgb(134,144,130)');
+      g.addColorStop(0.72,'rgb(138,145,128)');g.addColorStop(1,'rgb(160,151,126)');
     }else{
-      g.addColorStop(0,'rgb(116,142,138)');g.addColorStop(0.5,'rgb(124,142,132)');g.addColorStop(1,'rgb(126,142,134)');
+      g.addColorStop(0,'rgb(120,142,132)');g.addColorStop(0.5,'rgb(128,140,124)');g.addColorStop(1,'rgb(126,141,130)');
     }
-    ctx.globalAlpha=s.a;ctx.fillStyle=g;ctx.fill();
+    ctx.globalAlpha=Math.min(1,s.a+0.08);ctx.fillStyle=g;ctx.fill();
     ctx.globalAlpha=1;
     ctx.clip();
     // 絹目・ムラ
     for(let i=0;i<260;i++){
       const x=R()*680,y=R()*252,w=10+R()*50,h=2+R()*8;
       const t=R();
-      ctx.fillStyle=t<0.5?'rgba(150,160,150,0.07)':'rgba(90,120,130,0.07)';
+      ctx.fillStyle=t<0.5?'rgba(175,165,125,0.08)':'rgba(95,130,150,0.09)';
       ctx.beginPath();ctx.ellipse(x,y,w,h,0,0,7);ctx.fill();
     }
     // 金砂子風の細かな粒
