@@ -82,30 +82,26 @@ export function draw(ctx,W,H){
   // 手
   sm([[272,200],[290,194],[300,206],[290,216],[268,214]],'#D9A050',brown,0.6);
   // ---- 左の鬼の顔・髪 ----
-  // 髪
-  ctx.save();
   seed=21;
-  ctx.fillStyle='#5c4e44';
-  ctx.beginPath();ctx.moveTo(58,62);
-  ctx.bezierCurveTo(62,40,100,38,128,48);ctx.bezierCurveTo(150,56,156,70,152,86);
-  ctx.bezierCurveTo(146,98,128,100,118,100);ctx.lineTo(80,98);ctx.bezierCurveTo(60,90,52,72,58,62);ctx.fill();
-  ctx.strokeStyle='rgba(30,22,18,0.55)';ctx.lineWidth=0.6;
-  for(let i=0;i<70;i++){const x=58+rnd()*95,y=42+rnd()*55;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+14+rnd()*12,y-4+rnd()*8);ctx.stroke();}
-  ctx.restore();
+  ctx.fillStyle='#6A5A48';
+  ctx.beginPath();ctx.moveTo(58,64);
+  ctx.bezierCurveTo(62,40,100,36,130,46);ctx.bezierCurveTo(152,54,160,72,152,92);
+  ctx.bezierCurveTo(146,100,130,102,118,102);ctx.lineTo(80,98);ctx.bezierCurveTo(60,90,52,74,58,64);ctx.fill();
+  for(let i=0;i<110;i++){const x=58+rnd()*50,y=42+rnd()*55;
+    ctx.strokeStyle=rnd()<0.5?'rgba(40,30,22,0.6)':'rgba(140,120,100,0.5)';ctx.lineWidth=0.6;
+    ctx.beginPath();ctx.moveTo(x,y);ctx.bezierCurveTo(x+25,y-6,x+50,y+4,x+40+rnd()*50,y+rnd()*14);ctx.stroke();}
   // 顔
-  ctx.beginPath();ctx.moveTo(88,62);ctx.bezierCurveTo(95,50,118,50,130,60);ctx.bezierCurveTo(138,72,132,92,120,100);
-  ctx.bezierCurveTo(108,106,96,100,90,90);ctx.bezierCurveTo(84,80,84,70,88,62);
-  ctx.fillStyle=grad(ctx,90,55,125,100,[[0,'#e46a24'],[1,'#e8a838']]);ctx.fill();ctx.strokeStyle=ink;ctx.lineWidth=0.9;ctx.stroke();
-  // 耳
-  ctx.fillStyle='#e8934a';ctx.beginPath();ctx.moveTo(90,66);ctx.lineTo(88,53);ctx.lineTo(100,60);ctx.fill();ctx.stroke();
-  ctx.beginPath();ctx.moveTo(130,62);ctx.lineTo(134,52);ctx.lineTo(126,58);ctx.fill();ctx.stroke();
-  // 目・眉・口
-  ctx.strokeStyle=ink;ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(98,68);ctx.lineTo(108,72);ctx.moveTo(114,70);ctx.lineTo(126,68);ctx.stroke();
-  ctx.fillStyle='#e8dcc0';ctx.fillRect(101,73,5,2);ctx.fillRect(116,72,5,2);
-  ctx.strokeStyle='#8a3a1a';ctx.beginPath();ctx.moveTo(108,78);ctx.lineTo(110,86);ctx.stroke();
-  ctx.fillStyle='#b81c14';ctx.beginPath();ctx.moveTo(100,88);ctx.quadraticCurveTo(112,86,124,88);ctx.quadraticCurveTo(114,98,104,96);ctx.fill();
-  ctx.fillStyle='#f0e8d0';ctx.fillRect(103,88,2,3);ctx.fillRect(112,88,2,3);
+  ctx.beginPath();ctx.moveTo(90,56);ctx.bezierCurveTo(102,48,122,50,131,60);ctx.bezierCurveTo(138,74,134,92,124,102);
+  ctx.bezierCurveTo(112,108,98,102,92,92);ctx.bezierCurveTo(86,80,86,66,90,56);
+  ctx.fillStyle=grad(ctx,90,55,125,102,[[0,'#D86A30'],[0.6,'#E07A38'],[1,'#E8A848']]);ctx.fill();ctx.strokeStyle='#7A3A18';ctx.lineWidth=0.8;ctx.stroke();
+  ctx.strokeStyle='rgba(140,50,20,0.7)';ctx.lineWidth=0.8;
+  const l2=(a)=>{ctx.beginPath();a.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();};
+  l2([[94,62],[104,68],[110,70]]);l2([[128,62],[120,68],[114,70]]);
+  l2([[110,62],[110,72]]);l2([[106,64],[106,70]]);l2([[114,64],[114,70]]);
+  l2([[98,76],[104,84]]);l2([[128,76],[122,86]]);l2([[110,74],[108,84],[112,86]]);
+  ctx.fillStyle='#F0E4C0';ctx.fillRect(99,72,5,2);ctx.fillRect(118,72,5,2);
+  ctx.fillStyle='#B81C14';ctx.beginPath();ctx.moveTo(98,90);ctx.quadraticCurveTo(112,86,126,90);ctx.quadraticCurveTo(114,102,104,98);ctx.fill();
+  ctx.fillStyle='#F4ECD6';ctx.fillRect(102,90,2,5);ctx.fillRect(116,90,2,5);
   // ---- 左上の持物(刀) ----
   ctx.strokeStyle='#6a86a8';ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(14,48);ctx.lineTo(42,100);ctx.stroke();
   ctx.strokeStyle='#cfd8e0';ctx.lineWidth=0.5;ctx.stroke();
