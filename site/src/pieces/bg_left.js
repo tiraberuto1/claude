@@ -42,6 +42,16 @@ export function draw(ctx,W,H){
     const rg=ctx.createRadialGradient(x,y,0,x,y,r);rg.addColorStop(0,'rgba(150,110,50,0.25)');rg.addColorStop(1,'rgba(150,110,50,0)');
     ctx.fillStyle=rg;ctx.fillRect(x-r,y-r,2*r,2*r);
   }
+  // 褐色のぼかし斑点と赤褐色の染み
+  for(let i=0;i<26;i++){
+    const x=90+R()*250,y=60+R()*130,r=5+R()*12;
+    const rg=ctx.createRadialGradient(x,y,0,x,y,r);rg.addColorStop(0,'rgba(176,138,78,0.22)');rg.addColorStop(1,'rgba(176,138,78,0)');
+    ctx.fillStyle=rg;ctx.fillRect(x-r,y-r,2*r,2*r);
+  }
+  for(const [x,y,r] of [[92,181,4],[108,179,5],[118,183,3],[190,160,4]]){
+    const rg=ctx.createRadialGradient(x,y,0,x,y,r);rg.addColorStop(0,'rgba(181,84,60,0.5)');rg.addColorStop(1,'rgba(181,84,60,0)');
+    ctx.fillStyle=rg;ctx.fillRect(x-r,y-r,2*r,2*r);
+  }
   // 繊維目(縦の細線)
   for(let i=0;i<220;i++){
     ctx.fillStyle=R()<0.5?'rgba(200,195,120,0.10)':'rgba(90,100,50,0.08)';
@@ -111,7 +121,7 @@ export function draw(ctx,W,H){
   // 下の灰青帯と褐色の筋(雲の下地)
   const bt=ctx.createLinearGradient(0,196,0,H);bt.addColorStop(0,'#8a968a');bt.addColorStop(1,'#869186');
   ctx.fillStyle=bt;ctx.fillRect(0,196,175,H-196);
-  ctx.fillStyle='rgb(150,148,98)';ctx.fillRect(175,194,165,38);
+  ctx.fillStyle='rgb(148,142,92)';ctx.fillRect(175,194,165,38);
   ctx.fillStyle='rgba(165,125,80,0.35)';ctx.fillRect(175,226,165,10);
   ctx.fillStyle='#889487';ctx.fillRect(175,236,165,H-236);
   // 上部の青灰
