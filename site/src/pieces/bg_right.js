@@ -15,7 +15,7 @@ export function draw(ctx,W,H){
   ctx.fillStyle='#8f9b8e';ctx.fillRect(340,0,340,40);
   // 黄緑の床
   const g=ctx.createLinearGradient(340,0,680,0);
-  g.addColorStop(0,'#908a62');g.addColorStop(0.5,'#8e8860');g.addColorStop(1,'#8a865f');
+  g.addColorStop(0,'#908a62');g.addColorStop(0.5,'#9a9663');g.addColorStop(1,'#989460');
   ctx.fillStyle=g;ctx.fillRect(340,72,340,170);
   for(let i=0;i<90;i++){
     const x=340+R()*340,y=74+R()*160,r=8+R()*22;
@@ -74,13 +74,29 @@ export function draw(ctx,W,H){
     // かすれた端の筋
     for(let i=0;i<14;i++){const q=pts[Math.floor(Q()*pts.length)];ctx.strokeStyle='rgba(70,50,36,0.5)';ctx.lineWidth=0.8;ctx.beginPath();ctx.moveTo(q[0],q[1]);ctx.lineTo(q[0]-4-Q()*8,q[1]+(Q()-0.3)*5);ctx.stroke();}
   };
-  jag([[680,141],[664,144],[650,148],[638,154],[628,158],[619,164],[614,167],[626,166],[634,169],[644,168],[652,171],[662,170],[670,173],[680,172]],3);
-  jag([[680,185],[672,189],[664,193],[658,197],[651,201],[660,203],[668,205],[680,209]],5);
-  jag([[541,217],[548,212],[556,210],[565,208],[573,208],[566,212],[559,215],[552,218],[546,221]],7);
+  // 緑の床がのぞく部分
+  ctx.fillStyle='rgb(150,142,96)';
+  ctx.beginPath();ctx.moveTo(634,170);ctx.lineTo(680,166);ctx.lineTo(680,184);ctx.lineTo(650,186);ctx.lineTo(626,186);ctx.closePath();ctx.fill();
+  // 倒木: 右上がりの割れた板片
+  const plank=(pts,seed,col)=>{
+    const Q=rng(seed);
+    ctx.beginPath();
+    pts.forEach((q,i)=>{const x=q[0]+(Q()-0.5)*2.5,y=q[1]+(Q()-0.5)*2;i?ctx.lineTo(x,y):ctx.moveTo(x,y);});
+    ctx.closePath();ctx.fillStyle=col;ctx.fill();
+    ctx.strokeStyle='rgba(48,34,24,0.8)';ctx.lineWidth=0.9;ctx.stroke();
+  };
+  plank([[612,173],[622,171],[636,166],[650,161],[664,157],[680,152],[680,160],[668,166],[656,170],[640,174],[628,177],[618,179],[612,177]],3,'rgb(128,100,72)');
+  plank([[630,164],[642,159],[655,153],[668,147],[680,142],[680,148],[670,153],[660,158],[648,163],[638,167]],5,'rgb(112,86,62)');
+  plank([[660,140],[668,137],[680,134],[680,141],[672,143],[664,145]],8,'rgb(138,108,78)');
+  plank([[640,177],[652,172],[666,168],[680,164],[680,170],[668,173],[656,177],[645,181]],9,'rgb(104,80,58)');
+  // 右下隅の黒茶の板
+  plank([[680,185],[670,188],[660,193],[652,199],[680,201]],7,'rgb(52,40,30)');
   // 縁の点線
   dashed(ctx,430,126,580,126,3);
-  dashed(ctx,587,198,640,182,3);
+  dashed(ctx,622,188.5,667,188.5,3);
   // 下部の青灰(雲の下地)
-  ctx.fillStyle='#86998f';ctx.fillRect(340,228,340,19);
+  ctx.fillStyle='#86998f';ctx.fillRect(500,228,180,19);
+  ctx.fillStyle='rgb(150,140,92)';ctx.fillRect(340,228,160,8);
+  ctx.fillStyle='rgb(145,115,70)';ctx.fillRect(340,236,160,11);
   ctx.restore();
 }

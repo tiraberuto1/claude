@@ -21,7 +21,7 @@ export function draw(ctx,W,H){
   ctx.fillStyle=g;ctx.fillRect(0,0,340,H);
 
   // 黄緑の床
-  ctx.fillStyle='rgb(153,155,95)';
+  ctx.fillStyle='rgb(150,148,93)';
   ctx.fillRect(0,44,340,150);
   ctx.fillRect(165,28,175,20);
   // 床のムラ(褐色・黄・濃緑)
@@ -51,6 +51,11 @@ export function draw(ctx,W,H){
   for(const [x,y,r] of [[92,181,4],[108,179,5],[118,183,3],[190,160,4]]){
     const rg=ctx.createRadialGradient(x,y,0,x,y,r);rg.addColorStop(0,'rgba(181,84,60,0.5)');rg.addColorStop(1,'rgba(181,84,60,0)');
     ctx.fillStyle=rg;ctx.fillRect(x-r,y-r,2*r,2*r);
+  }
+  // 基準位置の赤茶の染み(横長楕円・ぼかし)
+  for(const [x,y,w,h,a] of [[83,181.5,9,2.6,0.75],[78,183,6,2,0.5],[75,191,9,2.4,0.55],[208,218,10,2.6,0.75],[214,221,7,2,0.6],[199,216,4,1.6,0.45]]){
+    ctx.save();ctx.filter='blur(0.8px)';ctx.fillStyle='rgba(158,100,56,'+a+')';
+    ctx.beginPath();ctx.ellipse(x,y,w,h,-0.05,0,7);ctx.fill();ctx.restore();
   }
   // 繊維目(縦の細線)
   for(let i=0;i<220;i++){
@@ -109,8 +114,8 @@ export function draw(ctx,W,H){
   for(let i=0;i<40;i++){ctx.fillStyle='rgba(120,85,45,0.18)';ctx.fillRect(162+R()*175,68+R()*6,8+R()*25,0.7);}
 
   // 点線縁
-  dashed(ctx,163,67,340,67,3);
-  dashed(ctx,238,74.5,340,74.5,2.2);
+  dashed(ctx,163,67.5,340,67.5,2.6,7.8);
+  dashed(ctx,292,74,340,74,2.2,7.5);
   dashed(ctx,175,132,330,132,3);
   dashed(ctx,92,189,248,189,3);
   dashed(ctx,92,190,256,76,3);
