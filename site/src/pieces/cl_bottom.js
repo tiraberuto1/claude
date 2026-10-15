@@ -1,4 +1,30 @@
 export const name='cl_bottom';
+// 調整可能な数値定数(SSIM探索の対象)
+export const P={
+  lTop:190.04,
+  lBot:238.21,
+  lTipX:189.54,
+  lTipY:212.71,
+  sTop:238,
+  sEndX:356.75,
+  rbTop:231.5,
+  rbLeft:504.16,
+  bgTop:200.5,
+  bgLeft:577.16,
+  bgBot:233.21,
+  lCol:[129.87,137.86,121.39],
+  sCol:[133.52,133.58,99.12],
+  rbCol:[127.12,131.89,104.98],
+  bgCol:[128.88,129.61,120.39],
+  edge:1.04,
+  wash:0.03,
+  mottle:0.35,
+  gold:0.75,
+  lineA:0.24,
+  arcA:0.53,
+  arcDy:3.25,
+  arcRDy:0.91,
+};
 function rng(s){return()=>((s=(s*1664525+1013904223)>>>0)/4294967296);}
 // 点列(Catmull-Rom風に滑らか)で閉パス
 function smooth(ctx,pts){
@@ -18,60 +44,63 @@ function blob(ctx,pts,col,R,o={}){
   ctx.save();ctx.shadowColor='rgba(168,190,196,0.55)';ctx.shadowBlur=0;ctx.restore();
   const bb=o.bb;
   const g=ctx.createLinearGradient(0,bb[1],0,bb[3]);
-  g.addColorStop(0,'rgba(142,160,150,0.35)');g.addColorStop(0.5,'rgba(142,160,150,0.18)');g.addColorStop(1,'rgba(120,145,150,0.2)');
+  const w=P.wash;g.addColorStop(0,`rgba(142,160,150,${0.35*w})`);g.addColorStop(0.5,`rgba(142,160,150,${0.18*w})`);g.addColorStop(1,`rgba(120,145,150,${0.2*w})`);
   ctx.fillStyle=g;ctx.fillRect(bb[0],bb[1],bb[2]-bb[0],bb[3]-bb[1]);
   // 刷毛のムラ(横長)
   for(let i=0;i<140;i++){
     const x=bb[0]+R()*(bb[2]-bb[0]),y=bb[1]+R()*(bb[3]-bb[1]);
-    ctx.fillStyle=R()<0.5?'rgba(165,180,170,0.07)':'rgba(95,125,140,0.07)';
+    ctx.fillStyle=R()<0.5?`rgba(165,180,170,${0.07*P.mottle})`:`rgba(95,125,140,${0.07*P.mottle})`;
     ctx.beginPath();ctx.ellipse(x,y,15+R()*50,1+R()*3,0,0,7);ctx.fill();
   }
   // 縁のにじみ(濃)
   smooth(ctx,pts);ctx.lineJoin='round';
-  ctx.strokeStyle='rgba(98,126,134,0.10)';ctx.lineWidth=14;ctx.stroke();
-  ctx.strokeStyle='rgba(98,126,134,0.12)';ctx.lineWidth=7;ctx.stroke();
-  ctx.strokeStyle='rgba(95,125,145,0.18)';ctx.lineWidth=3;ctx.stroke();
+  ctx.strokeStyle=`rgba(98,126,134,${0.10*P.edge})`;ctx.lineWidth=14;ctx.stroke();
+  ctx.strokeStyle=`rgba(98,126,134,${0.12*P.edge})`;ctx.lineWidth=7;ctx.stroke();
+  ctx.strokeStyle=`rgba(95,125,145,${0.18*P.edge})`;ctx.lineWidth=3;ctx.stroke();
   // 金砂子
-  for(let i=0;i<120;i++){
+  for(let i=0;i<120*P.gold;i++){
     ctx.fillStyle=R()<0.5?'rgba(205,195,140,0.25)':'rgba(220,220,200,0.2)';
     ctx.fillRect(bb[0]+R()*(bb[2]-bb[0]),bb[1]+R()*(bb[3]-bb[1]),1,1);
   }
   ctx.restore();
   // すやり線(輪郭の細い濃青線)
-  smooth(ctx,pts);ctx.strokeStyle=o.line||'rgba(85,120,145,0.55)';ctx.lineWidth=0.9;ctx.stroke();
+  smooth(ctx,pts);ctx.strokeStyle=o.line||`rgba(85,120,145,${P.lineA})`;ctx.lineWidth=0.9;ctx.stroke();
 }
 function arc(ctx,pts,a=0.4,w=0.8){
   ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
   for(let i=1;i<pts.length-1;i++){const e=[(pts[i][0]+pts[i+1][0])/2,(pts[i][1]+pts[i+1][1])/2];
     if(i===pts.length-2)ctx.quadraticCurveTo(pts[i][0],pts[i][1],pts[i+1][0],pts[i+1][1]);
     else ctx.quadraticCurveTo(pts[i][0],pts[i][1],e[0],e[1]);}
-  ctx.strokeStyle=`rgba(88,122,148,${a})`;ctx.lineWidth=w;ctx.lineCap='round';ctx.stroke();
+  ctx.strokeStyle=`rgba(88,122,148,${a*P.arcA})`;ctx.lineWidth=w;ctx.lineCap='round';ctx.stroke();
 }
 export function draw(ctx,W,H){
   ctx.save();ctx.scale(W/680,H/247);
   const R=rng(11);
-  const C1='rgba(119,140,129,0.97)', C2='rgba(126,132,112,0.97)';
-  // 左下の細帯(全幅に近い)
-  blob(ctx,[[-20,238],[100,238.5],[250,238],[325,238.5],[347,240],[358,246],[354,262],[-20,262]],'rgba(146,139,104,0.99)',R,{bb:[-20,237,358,250],line:'rgba(80,110,108,0.85)'});
+  const cc=a=>`rgba(${a[0]},${a[1]},${a[2]},0.98)`;
+  const {lTop,lBot,lTipX,lTipY,sTop,sEndX,rbTop,rbLeft,bgTop,bgLeft,bgBot}=P;
+  const dy=P.arcDy,ry=P.arcRDy;
+  // 左下の細帯
+  blob(ctx,[[-20,sTop],[100,sTop+0.5],[250,sTop],[sEndX-33,sTop+0.5],[sEndX-11,sTop+2],[sEndX,sTop+8],[sEndX-4,sTop+24],[-20,sTop+24]],cc(P.sCol),R,{bb:[-20,sTop-1,sEndX,sTop+12],line:'rgba(80,110,108,0.85)'});
   // 左の帯(右端が丸い)
-  blob(ctx,[[-20,194],[60,193.5],[150,194.5],[172,196],[186,205],[191,214],[186,224],[174,232],[150,237],[60,237.5],[-20,237]],C1,R,{bb:[-20,193,192,238]});
-  // 左の帯の内側弧(3本)
-  arc(ctx,[[40,212],[90,208],[140,208.5],[170,211],[180,216]],0.35);
-  arc(ctx,[[60,218],[110,216],[155,217],[176,222],[168,228]],0.32);
-  arc(ctx,[[100,205],[150,203],[178,206],[186,213]],0.28);
+  const mY=lTipY, k=lTipX-191;
+  blob(ctx,[[-20,lTop],[60,lTop-0.5],[150,lTop+0.5],[172+k,lTop+2],[186+k,mY-9],[lTipX,mY],[186+k,mY+10],[174+k,mY+18],[150,lBot-0.5],[60,lBot],[-20,lBot-0.5]],cc(P.lCol),R,{bb:[-20,lTop-1,lTipX+1,lBot+1]});
+  arc(ctx,[[40,212+dy],[90,208+dy],[140,208.5+dy],[170,211+dy],[180,216+dy]],0.35);
+  arc(ctx,[[60,218+dy],[110,216+dy],[155,217+dy],[176,222+dy],[168,228+dy]],0.32);
+  arc(ctx,[[100,205+dy],[150,203+dy],[178,206+dy],[186,213+dy]],0.28);
   ctx.save();
-  const L=(pts,c)=>{ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);ctx.quadraticCurveTo(pts[1][0],pts[1][1],pts[2][0],pts[2][1]);ctx.strokeStyle=c;ctx.lineWidth=1.2;ctx.stroke();};
-  L([[10,200],[100,197.5],[165,199]],'rgba(140,165,160,0.45)');
-  L([[10,232],[100,235],[160,233]],'rgba(90,118,112,0.45)');
+  const L=(pts,col)=>{ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);ctx.quadraticCurveTo(pts[1][0],pts[1][1],pts[2][0],pts[2][1]);ctx.strokeStyle=col;ctx.lineWidth=1.2;ctx.stroke();};
+  L([[10,lTop+6],[100,lTop+3.5],[165,lTop+5]],'rgba(140,165,160,0.45)');
+  L([[10,lBot-5.5],[100,lBot-2.5],[160,lBot-4.5]],'rgba(90,118,112,0.45)');
   L([[30,222],[120,224.5],[178,222]],'rgba(90,118,112,0.3)');
   ctx.restore();
   arc(ctx,[[-5,236],[100,236.5],[180,236]],0.3,0.7);
   // 右下の帯
-  blob(ctx,[[498,242],[502,235],[520,231],[560,229.5],[620,229],[690,229],[700,262],[500,262]],C2,R,{bb:[498,229,690,248]});
+  blob(ctx,[[rbLeft-2,rbTop+12.5],[rbLeft+2,rbTop+5.5],[rbLeft+20,rbTop+1.5],[560,rbTop],[620,rbTop-0.5],[690,rbTop-0.5],[700,262],[rbLeft,262]],cc(P.rbCol),R,{bb:[rbLeft-2,rbTop-0.5,690,248]});
   arc(ctx,[[515,238],[560,235],[620,234],[690,233]],0.3);
   // 右の膨らみ
-  blob(ctx,[[573,214],[575,206],[590,201.5],[625,200.5],[690,200],[700,200],[700,230],[610,231],[582,228],[574,221]],'rgba(124,134,116,0.97)',R,{bb:[573,200,690,232]});
-  arc(ctx,[[592,214],[608,210],[640,209],[690,209]],0.35);
-  arc(ctx,[[582,222],[600,219],[640,219.5],[690,219]],0.3);
+  const bh=bgBot-bgTop;
+  blob(ctx,[[bgLeft,bgTop+13.5],[bgLeft+2,bgTop+5.5],[bgLeft+17,bgTop+1],[625,bgTop],[690,bgTop-0.5],[700,bgTop-0.5],[700,bgBot-0.5],[610,bgBot],[bgLeft+9,bgBot-2.5],[bgLeft+1,bgBot-9.5]],cc(P.bgCol),R,{bb:[bgLeft,bgTop,690,bgBot+1]});
+  arc(ctx,[[592,214+ry],[608,210+ry],[640,209+ry],[690,209+ry]],0.35);
+  arc(ctx,[[582,222+ry],[600,219+ry],[640,219.5+ry],[690,219+ry]],0.3);
   ctx.restore();
 }

@@ -1,4 +1,12 @@
 export const name='o_head';
+// 探索パラメータ(tools/tune_o_head.mjs が書き換える)
+export const P={hx:0,hy:0,hsx:1,hsy:1,hb:1,hs:1,tn:16,
+  fx:0,fy:0,fsx:1,fsy:1,fr:1,fg:1,fb:1,sa:0.55,
+  ex:0,ey:0,mx:0,my:0,msx:1,
+  kx:0,ky:0,ksx:1,ksy:1,kb:1};
+const sc=(hex,r,g,b)=>{const n=parseInt(hex.slice(1),16);const q=v=>Math.max(0,Math.min(255,Math.round(v)));
+  return `rgb(${q((n>>16&255)*r)},${q((n>>8&255)*g)},${q((n&255)*b)})`;};
+const xf=(ctx,cx,cy,dx,dy,sx,sy)=>{ctx.translate(cx+dx,cy+dy);ctx.scale(sx,sy);ctx.translate(-cx,-cy);};
 let seed=1;const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
 const pg=(ctx,pts,fill,stroke,lw)=>{ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();
   if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||0.7;ctx.lineJoin='round';ctx.stroke();}};
@@ -6,6 +14,7 @@ const ln=(ctx,pts,col,lw)=>{ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.lineCap='ro
 const lg=(ctx,x0,y0,x1,y1,st)=>{const g=ctx.createLinearGradient(x0,y0,x1,y1);st.forEach(s=>g.addColorStop(s[0],s[1]));return g;};
 
 function hair(ctx){
+  ctx.save();xf(ctx,104,70,P.hx,P.hy,P.hsx,P.hsy);
   // 振り乱した髪: 灰褐の塊 + 右へ流れる毛筋
   ctx.beginPath();ctx.moveTo(58,66);
   ctx.bezierCurveTo(54,50,78,42,104,40);
@@ -13,7 +22,7 @@ function hair(ctx){
   ctx.bezierCurveTo(160,66,160,84,150,98);
   ctx.bezierCurveTo(142,108,132,106,128,100);
   ctx.lineTo(100,98);ctx.bezierCurveTo(76,96,60,82,58,66);
-  ctx.fillStyle=lg(ctx,56,40,150,100,[[0,'#6e5a42'],[0.5,'#7a644a'],[1,'#6a563e']]);ctx.fill();
+  ctx.fillStyle=lg(ctx,56,40,150,100,[[0,sc('#6e5a42',P.hb,P.hb,P.hb)],[0.5,sc('#7a644a',P.hb,P.hb,P.hb)],[1,sc('#6a563e',P.hb,P.hb,P.hb)]]);ctx.fill();
   ctx.save();ctx.clip();
   seed=21;
   for(let i=0;i<260;i++){
@@ -21,7 +30,7 @@ function hair(ctx){
     const L=30+rnd()*70,dy=(rnd()-0.35)*16;
     const c=rnd();
     ctx.strokeStyle=c<0.4?'rgba(40,30,22,0.3)':c<0.75?'rgba(150,126,98,0.5)':'rgba(90,72,54,0.5)';
-    ctx.lineWidth=0.5+rnd()*0.5;
+    ctx.lineWidth=(0.5+rnd()*0.5)*P.hs;
     ctx.beginPath();ctx.moveTo(x,y);
     ctx.bezierCurveTo(x+L*0.3,y-4+rnd()*3,x+L*0.7,y+dy*0.5,x+L,y+dy);ctx.stroke();
   }
@@ -31,8 +40,8 @@ function hair(ctx){
     if(Math.cos(a)<-0.2&&rnd()<0.5)continue;
     ctx.strokeStyle=rnd()<0.5?'rgba(80,64,48,0.8)':'rgba(130,108,84,0.7)';ctx.lineWidth=0.8;
     ctx.beginPath();ctx.moveTo(x-Math.cos(a)*5,y-Math.sin(a)*5);ctx.lineTo(x+Math.cos(a)*(2+rnd()*5)+3,y+Math.sin(a)*(2+rnd()*4));ctx.stroke();}
-  for(let k=0;k<16;k++){
-    const right=k<10,x=right?122+rnd()*30:55+rnd()*14,y=right?46+rnd()*34:56+rnd()*30;
+  for(let k=0;k<P.tn;k++){
+    const right=k<P.tn*0.62,x=right?122+rnd()*30:55+rnd()*14,y=right?46+rnd()*34:56+rnd()*30;
     pg(ctx,[[x,y],[x+(right?9:-4)+rnd()*8,y-3-rnd()*4+(right?0:6)],[x+(right?14:-12)+rnd()*10,y+rnd()*8]],k%2?'#6a563e':'#5a4832');}
   // 右下へ垂れる毛房
   for(let k=0;k<26;k++){
@@ -40,22 +49,25 @@ function hair(ctx){
     ctx.strokeStyle=rnd()<0.5?'rgba(70,56,42,0.7)':'rgba(130,112,92,0.5)';ctx.lineWidth=0.6;
     ctx.beginPath();ctx.moveTo(x,y);ctx.quadraticCurveTo(x+8,y+8,x+4+rnd()*8,y+16+rnd()*8);ctx.stroke();
   }
+  ctx.restore();
 }
 
 function face(ctx){
+  ctx.save();xf(ctx,118,78,P.fx,P.fy,P.fsx,P.fsy);
   const ink='#6a2a14';
   // 耳
   pg(ctx,[[93,66],[88,58],[90,52],[98,58],[101,66]],'#D07030',ink,0.6);
   // 顔 (角張った輪郭)
   const f=[[100,57],[108,53],[120,52],[131,55],[138,62],[140,72],[136,80],[132,88],[128,96],[124,103],[116,105],[108,100],[100,94],[96,84],[96,72]];
-  pg(ctx,f,lg(ctx,96,54,130,104,[[0,'#C87244'],[0.5,'#B8683E'],[1,'#B08048']]),ink,0.8);
+  pg(ctx,f,lg(ctx,96,54,130,104,[[0,sc('#C87244',P.fr,P.fg,P.fb)],[0.5,sc('#B8683E',P.fr,P.fg,P.fb)],[1,sc('#B08048',P.fr,P.fg,P.fb)]]),ink,0.8);
   // 頬・顎の明部と影
   ctx.globalAlpha=0.55;pg(ctx,[[100,72],[110,70],[112,82],[104,92],[98,84]],'#D8803C');
   pg(ctx,[[124,66],[136,68],[133,80],[126,82]],'#D88840');
-  ctx.globalAlpha=0.55;
+  ctx.globalAlpha=P.sa;
   pg(ctx,[[96,72],[104,76],[102,90],[98,84]],'#A83A1E');pg(ctx,[[134,72],[139,72],[134,86],[130,88]],'#A83A1E');
   pg(ctx,[[100,58],[130,55],[136,62],[120,62]],'#A83A1E');pg(ctx,[[117,82],[122,82],[124,92],[116,92]],'#7A2418');
   ctx.globalAlpha=0.5;pg(ctx,[[116,90],[130,88],[124,102],[116,102]],'#A8441C');ctx.globalAlpha=1;
+  ctx.save();ctx.translate(P.ex,P.ey);
   // 眉間のしわ・額
   ln(ctx,[[106,62],[112,66],[118,70]],'#8a3414',0.8);
   ln(ctx,[[134,62],[128,67],[122,70]],'#8a3414',0.8);
@@ -72,11 +84,15 @@ function face(ctx){
   ctx.fillStyle='#2a1408';ctx.fillRect(112,79.2,3,3);ctx.fillRect(129,81.5,3,3);
   // 鼻
   ln(ctx,[[119,83],[120,90],[125,92]],'#8a3414',0.8);
+  ctx.restore();
+  ctx.save();xf(ctx,118,96,P.mx,P.my,P.msx,P.msx);
   // 口: 牙と赤い口中
   pg(ctx,[[106,91],[114,89],[122,91],[130,90],[131,96],[125,102],[116,103],[110,99]],'#C02818','#5a0e08',0.6);
   ctx.fillStyle='#E8D8A0';
   [[102,91,2,5],[108,89,2,6],[114,91,2,4],[124,91,2,5],[130,90,2,6],[118,98,2,4]].forEach(t=>pg(ctx,[[t[0],t[1]],[t[0]+t[2],t[1]],[t[0]+t[2]/2,t[1]+t[3]]],'#E8D8A0'));
   ln(ctx,[[104,94],[112,98],[122,100]],'#e07060',0.7);
+  ctx.restore();
+  ctx.restore();
 }
 
 function hand(ctx){
@@ -86,6 +102,7 @@ function hand(ctx){
 }
 
 function mask(ctx){
+  ctx.save();xf(ctx,313,20,P.kx,P.ky,P.ksx,P.ksy);
   // 右上: 橙赤の面 (獣面)
   const ink='#7a2a12';
   // 外側の赤い毛/たてがみ
@@ -105,6 +122,8 @@ function mask(ctx){
   [[298,32],[303,34],[308,35],[313,32],[318,28]].forEach(t=>pg(ctx,[[t[0],t[1]],[t[0]+2,t[1]],[t[0]+1,t[1]+3]],'#F4ECD6'));
   ln(ctx,[[292,34],[300,37],[308,38]],'#E8A040',1);
   ln(ctx,[[322,10],[324,20],[318,30]],'#E8B050',0.9);
+  ctx.restore();
+  if(P.kb!==1){ctx.save();ctx.globalCompositeOperation='source-atop';ctx.fillStyle=P.kb<1?`rgba(0,0,0,${1-P.kb})`:`rgba(255,255,255,${P.kb-1})`;ctx.fillRect(280,0,70,45);ctx.restore();}
 }
 
 export function draw(ctx,W,H){

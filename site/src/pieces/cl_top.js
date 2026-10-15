@@ -1,38 +1,38 @@
 export const name='cl_top';
+// 探索で調整する数値パラメータ(名前付き定数)
+export const P0={
+  lBot:43,bBot:50.5,bTipX:287,bTipY:36,bTopY:1,cTop:5.25,cBot:39.5,cTongX:329.5,cTongY:33.5,cRight:556,oTipX:523.5,oTipY:58,oTopY:35.5,oBot:70,oTopR:35,aL:0.93,aC:0.99,aO:0.97,aS:0.39,aE:0.65,dR:6,dG:1,dB:-2,edgeA:0.41,glowA:0,glowW:10,arcA:0.35,dust:116,washTop:0.2,washBot:0.43,warmA:0.4
+};
 function rng(s){return()=>((s=(s*1664525+1013904223)>>>0)/4294967296);}
 function path(ctx,pts){ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
   for(let i=1;i<pts.length;i++){const p=pts[i];
     if(p.length===2)ctx.lineTo(p[0],p[1]);else if(p.length===4)ctx.quadraticCurveTo(...p);else ctx.bezierCurveTo(...p);}
   ctx.closePath();}
-export function draw(ctx,W,H){
+export function draw(ctx,W,H,Q){
+  const P=Object.assign({},P0,Q||{});
   const R=rng(11);
   ctx.save();ctx.scale(W/680,H/247);
+  const cl=(c)=>[c[0]+P.dR,c[1]+P.dG,c[2]+P.dB];
   // 右上の霞の淡い刷き(紙の暖色が透ける)
   {
-    const g=ctx.createLinearGradient(0,0,0,40);
-    g.addColorStop(0,'rgba(130,150,142,0.05)');g.addColorStop(1,'rgba(130,150,142,0.5)');
     ctx.save();ctx.beginPath();ctx.rect(400,0,300,48);ctx.clip();
     const w=ctx.createLinearGradient(0,0,0,42);
-    w.addColorStop(0,'rgba(190,165,122,0.55)');w.addColorStop(0.6,'rgba(185,160,122,0.4)');w.addColorStop(1,'rgba(190,165,120,0)');
+    w.addColorStop(0,`rgba(190,165,122,${P.warmA})`);w.addColorStop(0.6,`rgba(185,160,122,${P.warmA*0.73})`);w.addColorStop(1,'rgba(185,160,122,0)');
     ctx.fillStyle=w;ctx.fillRect(400,0,300,48);
-    ctx.globalCompositeOperation='source-over';
-    ctx.fillStyle=g;ctx.globalAlpha=1;ctx.fillRect(430,0,260,45);ctx.restore();
+    const g=ctx.createLinearGradient(0,0,0,40);
+    g.addColorStop(0,`rgba(130,150,142,${P.washTop})`);g.addColorStop(1,`rgba(130,150,142,${P.washBot})`);
+    ctx.fillStyle=g;ctx.fillRect(430,0,260,45);ctx.restore();
   }
   const shapes=[
-    // 左の帯 + 右へ膨らむ舌
-    {a:0.88,c:[128,148,140],pts:[[-5,-5],[172,-5],[172,-5],[172,-5],[250,2],[262,8],[278,18,282,30],[278,40,250,46],[215,50,190,49],[176,48,170,42],[100,41,50,40],[-5,38]]},
-    // 最上端の細帯
-    {a:0.4,c:[132,150,140],pts:[[280,-5],[480,-5],[480,2],[420,4],[340,4],[290,3]]},
-    // 中央の大雲(左に丸い舌)
-    {a:0.88,c:[133,150,140],pts:[[337,31],[336,22,350,15],[358,10,372,8],[430,6],[500,8],[560,12],[560,26],[540,34],[490,38],[440,39],[380,40],[350,40,337,31]]},
-    // 右の楕円の塊
-    {a:0.82,c:[134,150,142],pts:[[526,54],[528,42,556,37],[590,33,640,30],[700,28],[700,70],[640,69],[580,67],[540,66,526,54]]},
-    // 左右縁
-    {a:0.7,c:[140,152,138],pts:[[-5,72],[10,72],[24,76,28,92],[26,108,14,115],[-5,116]]},
-    {a:0.6,c:[150,156,136],pts:[[700,88],[664,88],[652,92,650,102],[652,114,668,118],[700,120]]},
+    {a:P.aL,c:[128,148,140],pts:[[-5,-5],[172,-5],[250,P.bTopY],[262,8],[278,18,P.bTipX,P.bTipY],[278,40,250,P.bBot-3],[215,P.bBot+1],[190,P.bBot],[176,P.bBot-1,170,P.lBot+1],[100,P.lBot],[50,P.lBot-1],[-5,P.lBot-3]]},
+    {a:P.aS,c:[132,150,140],pts:[[280,-5],[480,-5],[480,2],[420,4],[340,4],[290,3]]},
+    {a:P.aC,c:[133,150,140],pts:[[P.cTongX,P.cTongY],[P.cTongX-1,22,350,15],[358,P.cTop+2,372,P.cTop],[430,P.cTop-2],[500,P.cTop],[P.cRight,P.cTop+4],[P.cRight,26],[540,P.cBot-5],[490,P.cBot-1],[440,P.cBot],[380,P.cBot+1],[350,P.cBot+1,P.cTongX,P.cTongY]]},
+    {a:P.aO,c:[134,150,142],pts:[[P.oTipX,P.oTipY],[P.oTipX+2,42,556,P.oTopY],[590,P.oTopY-4,640,P.oTopR],[700,P.oTopR-2],[700,P.oBot+3],[640,P.oBot+2],[580,P.oBot],[540,P.oBot-1,P.oTipX,P.oTipY]]},
+    {a:P.aE,c:[140,152,138],pts:[[-5,72],[10,72],[24,76,28,92],[26,108,14,115],[-5,116]]},
+    {a:P.aE*0.9,c:[150,156,136],pts:[[700,88],[664,88],[652,92,650,102],[652,114,668,118],[700,120]]},
   ];
   for(const s of shapes){
-    const pts=s.pts,[r,gg,b]=s.c;
+    const pts=s.pts,[r,gg,b]=cl(s.c);
     ctx.save();path(ctx,pts);
     ctx.fillStyle=`rgba(${r},${gg},${b},${s.a})`;ctx.fill();ctx.clip();
     for(let i=0;i<90;i++){
@@ -40,14 +40,14 @@ export function draw(ctx,W,H){
       ctx.fillStyle=R()<0.5?'rgba(190,185,150,0.10)':'rgba(100,130,140,0.08)';
       ctx.beginPath();ctx.ellipse(x,y,8+R()*40,1.5+R()*5,0,0,7);ctx.fill();
     }
-    for(let i=0;i<120;i++){ctx.fillStyle=R()<0.6?'rgba(205,190,135,0.3)':'rgba(225,225,200,0.25)';ctx.fillRect(R()*680,R()*75,1,1);}
+    for(let i=0;i<P.dust;i++){ctx.fillStyle=R()<0.6?'rgba(205,190,135,0.3)':'rgba(225,225,200,0.25)';ctx.fillRect(R()*680,R()*75,1,1);}
     ctx.lineJoin='round';path(ctx,pts);
-    ctx.strokeStyle='rgba(100,130,138,0.10)';ctx.lineWidth=10;ctx.stroke();
-    ctx.lineWidth=4;ctx.stroke();
+    ctx.strokeStyle=`rgba(100,130,138,${P.glowA})`;ctx.lineWidth=P.glowW;ctx.stroke();
+    ctx.lineWidth=P.glowW*0.4;ctx.stroke();
     ctx.restore();
-    ctx.save();path(ctx,pts);ctx.strokeStyle='rgba(105,133,138,0.6)';ctx.lineWidth=0.9;ctx.stroke();ctx.restore();
+    ctx.save();path(ctx,pts);ctx.strokeStyle=`rgba(105,133,138,${P.edgeA})`;ctx.lineWidth=0.9;ctx.stroke();ctx.restore();
   }
-  ctx.strokeStyle='rgba(105,133,138,0.5)';ctx.lineWidth=0.8;
+  ctx.strokeStyle=`rgba(105,133,138,${P.arcA})`;ctx.lineWidth=0.8;
   const bz=(a)=>{ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.bezierCurveTo(...a.slice(2));ctx.stroke();};
   bz([172,12,215,8,262,18,282,30]);bz([180,30,215,22,255,30,270,38]);
   bz([374,8,372,20,400,19,450,19]);bz([420,19,480,20,520,22,560,22]);

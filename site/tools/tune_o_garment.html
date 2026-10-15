@@ -1,0 +1,27 @@
+<!doctype html><meta charset="utf-8"><body><script type="module">
+import { pieces } from '/src/pieces/index.js';
+const W=680,H=247;
+const mk=()=>{const c=document.createElement('canvas');c.width=W;c.height=H;return c;};
+const below=mk(),above=mk(),layer=mk(),comp=mk();
+const bctx=below.getContext('2d'),actx=above.getContext('2d');
+let seen=false,garment;
+for(const p of pieces){ if(p.name==='o_garment'){seen=true;garment=p;continue;}
+  const c=mk();p.draw(c.getContext('2d'),W,H);(seen?actx:bctx).drawImage(c,0,0);}
+const img=new Image();img.src='/ref/reference.jpg';await img.decode();
+const rc=mk();rc.getContext('2d').drawImage(img,0,0);
+const gray=(d,w,h)=>{const g=new Float64Array(w*h);for(let i=0;i<w*h;i++)g[i]=Math.round(0.299*d[4*i]+0.587*d[4*i+1]+0.114*d[4*i+2]);return g;};
+const RD=rc.getContext('2d').getImageData(0,0,W,H).data,RG=gray(RD,W,H);
+function box(a,w,h,k=7){const ow=w-k+1,oh=h-k+1,o=new Float64Array(ow*oh);
+  for(let y=0;y<oh;y++)for(let x=0;x<ow;x++){let s=0;for(let j=0;j<k;j++)for(let i=0;i<k;i++)s+=a[(y+j)*w+x+i];o[y*ow+x]=s/49;}return o;}
+function ssim(a,b,w,h){const C1=6.5025,C2=58.5225;const n=a.length,aa=new Float64Array(n),bb=new Float64Array(n),ab=new Float64Array(n);
+  for(let i=0;i<n;i++){aa[i]=a[i]*a[i];bb[i]=b[i]*b[i];ab[i]=a[i]*b[i];}
+  const ma=box(a,w,h),mb=box(b,w,h),va=box(aa,w,h),vb=box(bb,w,h),cv=box(ab,w,h);let s=0;
+  for(let i=0;i<ma.length;i++){const A=va[i]-ma[i]*ma[i],B=vb[i]-mb[i]*mb[i],C=cv[i]-ma[i]*mb[i];
+    s+=((2*ma[i]*mb[i]+C1)*(2*C+C2))/((ma[i]*ma[i]+mb[i]*mb[i]+C1)*(A+B+C2));}return s/ma.length;}
+function crop(g,x0,y0,x1,y1){const w=x1-x0,h=y1-y0,o=new Float64Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++)o[y*w+x]=g[(y0+y)*W+x0+x];return o;}
+window.evalP=(P,regs)=>{const lc=layer.getContext('2d');lc.clearRect(0,0,W,H);garment.draw(lc,W,H,P);
+  const cc=comp.getContext('2d');cc.clearRect(0,0,W,H);cc.drawImage(below,0,0);cc.drawImage(layer,0,0);cc.drawImage(above,0,0);
+  const G=gray(cc.getImageData(0,0,W,H).data,W,H);
+  return regs.map(([x0,y0,x1,y1])=>ssim(crop(RG,x0,y0,x1,y1),crop(G,x0,y0,x1,y1),x1-x0,y1-y0));};
+window.__ready=true;
+</script>

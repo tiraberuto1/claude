@@ -14,10 +14,17 @@ function stripes(c,pts,ox,oy,ang0,ang1,pitch,n,cols,wid){
   }
   c.restore();
 }
-export function draw(ctx,W,H){
+// 調整済み定数(tools/tune_s_centre.mjs の探索結果)。draw の第3引数で上書き可能
+const DEF={lx:0,ly:0,ux:0,uy:0,
+ cp:3.4,cdy:0,clw:3.5,
+ sp:3.4,sdx:0,sdy:0,sa0:-0.35,sa1:0.2,slw:3.5,
+ bp:3.7,bdx:0,bdy:0,ba0:0.52,ba1:0.40,blw:2.6};
+export function draw(ctx,W,H,P){
+  const K=Object.assign({},DEF,P||{});
   const c=ctx;
   const skin='#e3b896',hair='#17120f',skinSh='#c99a78';
   const G=['#b8ad9c','#7a6a58','#aa9f90','#665848'];
+  c.save();c.translate(K.lx,K.ly);
   // ================= 下の武者(黄・赤・黒の縞胴) =================
   // 脛当て・袴(青)
   poly(c,[[222,184],[246,182],[250,196],[243,208],[222,208],[216,196]],'#3a6a90');
@@ -33,7 +40,7 @@ export function draw(ctx,W,H){
   // 胴(1つの輪郭) 上半分:黒赤縞の背
   const body=[[204,168],[212,163],[222,157],[240,146],[262,148],[272,156],[268,166],[258,170],[248,182],[232,188],[218,183],[210,178]];
   poly(c,body,'#c0392b');
-  stripes(c,body,215,138,0.52,0.40,3.7,24,['#d8b03a','#d8b03a','#a83a2c','#d8b03a','#15100e','#c9a238'],2.6);
+  stripes(c,body,215+K.bdx,138+K.bdy,K.ba0,K.ba1,K.bp,24,['#d8b03a','#d8b03a','#a83a2c','#d8b03a','#15100e','#c9a238'],K.blw);
   // 上部(背・黒赤)
   const back=[[222,142],[236,138],[254,140],[262,148],[252,152],[240,148],[226,152]];
   poly(c,back,'#15100e');
@@ -47,6 +54,8 @@ export function draw(ctx,W,H){
   ell(c,281,153,.9,.9,'#3a2018');
   line(c,[[278,151],[283,151]],'#3a2018',.8);
   line(c,[[276,159],[281,158]],'#a85a48',.9);
+  c.restore();
+  c.save();c.translate(K.ux,K.uy);
   // ================= 上の武者(白灰の縞鎧) =================
   // 刀(青い刃・振り上げ)
   line(c,[[266,75],[285,66],[310,60],[336,56]],'#7fa3c4',2.2);
@@ -66,10 +75,10 @@ export function draw(ctx,W,H){
   poly(c,armor,'#968a78');
   // 胴部(横縞)
   const chest=[[283,92],[313,92],[313,118],[283,119]];
-  stripes(c,chest,283,90,0,0,3.4,9,G,3.5);
+  stripes(c,chest,283,90+K.cdy,0,0,K.cp,9,G,K.clw);
   // 草摺(扇状に広がる縞)
   const skirt=[[241,118],[262,102],[274,106],[284,118],[310,130],[308,140],[290,141],[268,143],[258,134]];
-  stripes(c,skirt,246,98,-0.35,0.2,3.4,26,G,3.5);
+  stripes(c,skirt,246+K.sdx,98+K.sdy,K.sa0,K.sa1,K.sp,26,G,K.slw);
   // 下端の赤縁と濃縁
   poly(c,[[284,116],[313,115],[314,121],[300,124],[286,122]],'#6a2a28');
   line(c,[[270,142],[290,141],[309,139]],'#4a2e26',3.2);
@@ -91,4 +100,5 @@ export function draw(ctx,W,H){
   line(c,[[306,90],[310,89.5]],'#a04a40',.9);
   // 肩の縁
   line(c,[[283,92],[290,92]],'#8a3a38',1.2);
+  c.restore();
 }

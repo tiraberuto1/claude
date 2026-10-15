@@ -1,16 +1,26 @@
 export const name='bg_left';
 function rng(s){return()=>((s=(s*1664525+1013904223)>>>0)/4294967296);}
 // 黒白の点線縁(白帯+黒点、周期7px)
-function dashed(ctx,x0,y0,x1,y1,w=3,per=7){
+// 探索対象の数値パラメータ(tools/tune_bg_left.mjs で最適化)
+export const DEFAULTS={
+  dyTop:67.5,dwTop:2.6,dpTop:7.8,dphTop:2,ddTop:3.4,dxTop:163,
+  dy2:74,dw2:2.2,
+  dyMid:132,dyBot:189,dwMid:3,dpMid:7,
+  diagX0:92,diagY0:190,diagX1:256,diagY1:76,
+  beamY:68,beamH:7,
+  st0x:83,st0y:181.5,st1x:75,st1y:191,st2x:208,st2y:218,stA:0.75,stW:9,
+  floorG:148,
+};
+function dashed(ctx,x0,y0,x1,y1,w=3,per=7,ph=2,dot=3.4){
   const L=Math.hypot(x1-x0,y1-y0),a=Math.atan2(y1-y0,x1-x0);
   ctx.save();ctx.translate(x0,y0);ctx.rotate(a);
   ctx.fillStyle='#e8e4d2';ctx.fillRect(0,-w/2,L,w);
   ctx.fillStyle='rgba(120,110,90,0.35)';ctx.fillRect(0,w/2-0.5,L,0.5);
   ctx.fillStyle='#26221e';
-  for(let t=2;t<L;t+=per)ctx.fillRect(t,-w/2,Math.min(3.4,L-t),w);
+  for(let t=ph;t<L;t+=per)ctx.fillRect(t,-w/2,Math.min(dot,L-t),w);
   ctx.restore();
 }
-export function draw(ctx,W,H){
+export function draw(ctx,W,H,P=DEFAULTS){
   const R=rng(11);
   ctx.save();
   ctx.beginPath();ctx.rect(0,0,340,H);ctx.clip();
@@ -53,7 +63,7 @@ export function draw(ctx,W,H){
     ctx.fillStyle=rg;ctx.fillRect(x-r,y-r,2*r,2*r);
   }
   // 基準位置の赤茶の染み(横長楕円・ぼかし)
-  for(const [x,y,w,h,a] of [[83,181.5,9,2.6,0.75],[78,183,6,2,0.5],[75,191,9,2.4,0.55],[208,218,10,2.6,0.75],[214,221,7,2,0.6],[199,216,4,1.6,0.45]]){
+  for(const [x,y,w,h,a] of [[P.st0x,P.st0y,P.stW,2.6,P.stA],[P.st0x-5,P.st0y+1.5,6,2,0.5],[P.st1x,P.st1y,P.stW,2.4,0.55],[P.st2x,P.st2y,P.stW+1,2.6,P.stA],[P.st2x+6,P.st2y+3,7,2,0.6],[P.st2x-9,P.st2y-2,4,1.6,0.45]]){
     ctx.save();ctx.filter='blur(0.8px)';ctx.fillStyle='rgba(158,100,56,'+a+')';
     ctx.beginPath();ctx.ellipse(x,y,w,h,-0.05,0,7);ctx.fill();ctx.restore();
   }
@@ -108,17 +118,17 @@ export function draw(ctx,W,H){
 
   // 横梁(褐色の木)
   const bm=ctx.createLinearGradient(0,68,0,76);bm.addColorStop(0,'rgb(176,138,88)');bm.addColorStop(1,'rgb(160,124,80)');
-  ctx.fillStyle=bm;ctx.fillRect(158,68,182,7);
+  ctx.fillStyle=bm;ctx.fillRect(158,P.beamY,182,P.beamH);
   ctx.fillStyle='rgba(235,215,170,0.35)';ctx.fillRect(170,69,170,1);
   ctx.fillStyle='rgba(100,70,35,0.35)';ctx.fillRect(160,74,180,1);
   for(let i=0;i<40;i++){ctx.fillStyle='rgba(120,85,45,0.18)';ctx.fillRect(162+R()*175,68+R()*6,8+R()*25,0.7);}
 
   // 点線縁
-  dashed(ctx,163,67.5,340,67.5,2.6,7.8);
-  dashed(ctx,292,74,340,74,2.2,7.5);
-  dashed(ctx,175,132,330,132,3);
-  dashed(ctx,92,189,248,189,3);
-  dashed(ctx,92,190,256,76,3);
+  dashed(ctx,P.dxTop,P.dyTop,340,P.dyTop,P.dwTop,P.dpTop,P.dphTop,P.ddTop);
+  dashed(ctx,292,P.dy2,340,P.dy2,P.dw2,7.5);
+  dashed(ctx,175,P.dyMid,330,P.dyMid,P.dwMid,P.dpMid);
+  dashed(ctx,92,P.dyBot,248,P.dyBot,P.dwMid,P.dpMid);
+  dashed(ctx,P.diagX0,P.diagY0,P.diagX1,P.diagY1,P.dwMid,P.dpMid);
 
   // 左下の縁(金地との境)
   ctx.fillStyle='rgba(60,50,40,0.5)';ctx.fillRect(0,178,2,1);

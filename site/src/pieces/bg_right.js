@@ -1,14 +1,20 @@
 export const name='bg_right';
 function rng(s){return()=>((s=(s*1664525+1013904223)>>>0)/4294967296);}
 // 黒白の市松縁
+let DP=4.4,DPH=0;
 function dashed(ctx,x0,y0,x1,y1,w){
   ctx.save();ctx.lineCap='butt';
   ctx.strokeStyle='#e8e2d0';ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
-  ctx.strokeStyle='#2c2724';ctx.lineWidth=w*0.5;ctx.setLineDash([2,2.4]);ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
+  ctx.strokeStyle='#2c2724';ctx.lineWidth=w*0.5;ctx.setLineDash([DP*0.45,DP*0.55]);ctx.lineDashOffset=-DPH;ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
   ctx.restore();
 }
+// 調整可能な数値(tools/tune_bg_right.mjs の探索結果)
+export const P={grainSlope:0.01,grainStep:2.0,grainAlpha:0,seamSlope:-0.088,seamOff:0,seamAlpha:0.7,
+  dashPeriod:5.4,dashPhase:0,plankL:1.0,floorL:1.0,plankTop:139,dashY:71,dashY2:130,dashY3:188.5,
+  panelL:1.0,shX:0,shY:0};
+const sc=(rgb,k)=>'rgb('+rgb.map(v=>Math.max(0,Math.min(255,Math.round(v*k)))).join(',')+')';
 export function draw(ctx,W,H){
-  const R=rng(11);
+  const R=rng(11);DP=P.dashPeriod;DPH=P.dashPhase;
   ctx.save();
   ctx.beginPath();ctx.rect(340,0,340,H);ctx.clip();
   // 上部の青灰(雲の下地)
@@ -29,7 +35,7 @@ export function draw(ctx,W,H){
   ctx.fillStyle='#1d3556';ctx.fillRect(352,36,184,34);
   // 金パネル(基準より暗い緑がかった金)
   const pg=ctx.createLinearGradient(0,40,0,67);pg.addColorStop(0,'#7f7055');pg.addColorStop(1,'#86765a');
-  ctx.fillStyle=pg;ctx.fillRect(356,40,80,26);ctx.fillRect(451,40,76,26);
+  ctx.globalAlpha=1;ctx.fillStyle=pg;ctx.fillRect(356,40,80,26);ctx.fillRect(451,40,76,26);
   ctx.fillStyle='#14233f';ctx.fillRect(436,36,15,34);
   ctx.fillRect(525,36,12,34);
   // パネルの草花
@@ -40,27 +46,27 @@ export function draw(ctx,W,H){
   }
   // 床との境の縁
   ctx.fillStyle='#9c9a68';ctx.fillRect(340,70,260,3);
-  dashed(ctx,340,71,597,71,3);
+  dashed(ctx,340,P.dashY,597,P.dashY,3);
   // 縁側奥の汚れたオリーブ褐色の床
   ctx.fillStyle='rgba(136,116,81,0.9)';ctx.fillRect(480,128,200,11);
   // 縁側の板敷き
   ctx.save();
-  ctx.beginPath();ctx.moveTo(478,139);ctx.lineTo(680,137);ctx.lineTo(680,198);ctx.lineTo(640,206);ctx.lineTo(560,222);ctx.lineTo(500,224);ctx.lineTo(440,222);ctx.lineTo(455,150);ctx.closePath();ctx.clip();
-  const pl=ctx.createLinearGradient(0,137,0,224);pl.addColorStop(0,'rgb(178,130,84)');pl.addColorStop(1,'rgb(168,120,76)');
+  ctx.beginPath();ctx.moveTo(478,P.plankTop);ctx.lineTo(680,P.plankTop-2);ctx.lineTo(680,198);ctx.lineTo(640,206);ctx.lineTo(560,222);ctx.lineTo(500,224);ctx.lineTo(440,222);ctx.lineTo(455,150);ctx.closePath();ctx.clip();
+  const pl=ctx.createLinearGradient(0,137,0,224);pl.addColorStop(0,sc([178,130,84],P.plankL));pl.addColorStop(1,sc([168,120,76],P.plankL));
   ctx.fillStyle=pl;ctx.fillRect(430,130,250,100);
   // 板目(細い横筋・僅かに斜め)
-  for(let y=138;y<226;y+=2+R()*1.2){
+  for(let y=138;y<226;y+=P.grainStep+R()*1.2){
     for(let x=430;x<680;x+=8+R()*30){
       const l=10+R()*40;
-      ctx.strokeStyle=R()<0.7?'rgba(138,94,60,0.35)':'rgba(215,170,120,0.25)';ctx.lineWidth=1;
-      ctx.beginPath();ctx.moveTo(x,y+(680-x)*0.02);ctx.lineTo(x+l,y+(680-x-l)*0.02);ctx.stroke();
+      ctx.strokeStyle=R()<0.7?'rgba(138,94,60,'+P.grainAlpha+')':'rgba(215,170,120,0.25)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(x,y+(680-x)*P.grainSlope);ctx.lineTo(x+l,y+(680-x-l)*P.grainSlope);ctx.stroke();
     }
   }
   // ピンク褐色の汚れ
   for(let i=0;i<30;i++){const x=450+R()*230,y=140+R()*80;ctx.fillStyle='rgba(160,95,75,0.10)';ctx.beginPath();ctx.ellipse(x,y,10+R()*14,3+R()*4,-0.2,0,7);ctx.fill();}
   // 板の継ぎ目(斜め)
-  ctx.strokeStyle='rgba(107,74,48,0.7)';ctx.lineWidth=0.8;
-  for(const y of [154,170,186,202,218]){ctx.beginPath();ctx.moveTo(430,y+8);ctx.lineTo(680,y-14);ctx.stroke();}
+  ctx.strokeStyle='rgba(107,74,48,'+P.seamAlpha+')';ctx.lineWidth=0.8;
+  for(const y of [162,178,194,210,226]){ctx.beginPath();ctx.moveTo(430,y+P.seamOff-P.seamSlope*0);ctx.lineTo(680,y+P.seamOff+250*P.seamSlope);ctx.stroke();}
   ctx.restore();
   // 縁側手前の濃い板
   ctx.fillStyle='#b7905e';ctx.fillRect(445,220,100,4);
@@ -92,8 +98,8 @@ export function draw(ctx,W,H){
   // 右下隅の黒茶の板
   plank([[680,185],[670,188],[660,193],[652,199],[680,201]],7,'rgb(52,40,30)');
   // 縁の点線
-  dashed(ctx,430,126,580,126,3);
-  dashed(ctx,622,188.5,667,188.5,3);
+  dashed(ctx,430,P.dashY2,580,P.dashY2,3);
+  dashed(ctx,622,P.dashY3,667,P.dashY3,3);
   // 下部の青灰(雲の下地)
   ctx.fillStyle='#86998f';ctx.fillRect(500,228,180,19);
   ctx.fillStyle='rgb(150,140,92)';ctx.fillRect(340,228,160,8);
