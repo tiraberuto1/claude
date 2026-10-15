@@ -70,7 +70,7 @@ const res = await p.evaluate(async (SW) => {
     const order=leaves.map((l,i)=>[rn(),i]).sort((a,b)=>a[0]-b[0]).map(x=>leaves[x[1]]);
     let acc=0;
     for(const l of order){const st=stepOf[l.t][lvl];const old=l.o[l.kk];
-      for(const dir of [1,-1]){l.o[l.kk]=limL(l,old+dir*st);if(l.t==='c'&&!(l.o[0]>=l.o[1]+12&&l.o[1]>=l.o[2]+3)){l.o[l.kk]=old;continue;}const e=evalP();if(e.score>cur.score+1e-5){cur=e;acc++;break;}l.o[l.kk]=old;}
+      for(const dir of [1,-1]){l.o[l.kk]=limL(l,old+dir*st);if(l.t==='c'&&!(l.o[0]>=l.o[1]+25&&l.o[1]>=l.o[2]+10)){l.o[l.kk]=old;continue;}const e=evalP();if(e.score>cur.score+1e-5){cur=e;acc++;break;}l.o[l.kk]=old;}
     }
     console.log('sweep',sw,'acc',acc,JSON.stringify({score:cur.score,tr:cur.tr,hold:cur.hold,dm:cur.dm,dm2:cur.dm2}));
   }
