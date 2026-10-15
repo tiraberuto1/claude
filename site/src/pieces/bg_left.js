@@ -55,7 +55,7 @@ export function draw(ctx,W,H){
   ctx.save();
   ctx.beginPath();ctx.moveTo(0,44);ctx.lineTo(148,44);ctx.lineTo(148,72);ctx.lineTo(125,128);ctx.lineTo(90,160);ctx.lineTo(40,174);ctx.lineTo(0,178);ctx.closePath();ctx.clip();
   const gg=ctx.createLinearGradient(0,44,0,180);
-  gg.addColorStop(0,'rgb(186,157,110)');gg.addColorStop(0.5,'rgb(188,160,114)');gg.addColorStop(1,'rgb(168,146,100)');
+  gg.addColorStop(0,'rgb(178,150,104)');gg.addColorStop(0.5,'rgb(180,152,108)');gg.addColorStop(1,'rgb(168,146,100)');
   ctx.fillStyle=gg;ctx.fillRect(0,44,160,140);
   // 金のムラ
   for(let i=0;i<70;i++){

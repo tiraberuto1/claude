@@ -18,6 +18,7 @@ function limb(c,a,b,w,col,col2){L(c,a,b,col2||col,w+2);L(c,a,b,col,w);}
 const SK='#e2b48e',SKD='#b98562',HR='#1c1612';
 export function draw(ctx,W,H){
  const c=ctx;seed=7;
+ c.fillStyle="#f00";c.fillRect(500,100,30,30);
  c.save();c.translate(410,30);c.scale(.25,.25);
  // ===== 赤い布(左上) =====
  P(c,[[24,40],[58,42],[110,128],[198,212],[150,208],[84,150],[38,98]],'#c43228','#8a1c18',2);
