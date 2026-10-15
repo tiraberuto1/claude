@@ -1,7 +1,7 @@
 // usage: node tools/shot.mjs out.png
 import { chromium } from 'playwright'; import { createServer } from 'vite';
 const out = process.argv[2] || 'out/shot.png';
-const s = await createServer({ server: { port: 5200 + Math.floor(Math.random()*3000), strictPort: false }, logLevel: 'error' }); await s.listen();
+const s = await createServer({ server: { port: 7200 + Math.floor(Math.random()*800), strictPort: false }, logLevel: 'error' }); await s.listen();
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--use-gl=swiftshader','--enable-unsafe-swiftshader','--no-sandbox'] });
 const p = await b.newPage({ viewport: { width: 680, height: 247 }, deviceScaleFactor: 1 });
 p.on('pageerror', e => console.error('PAGEERR', e.message));
