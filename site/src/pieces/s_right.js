@@ -23,7 +23,7 @@ function strips(c,poly,o,u,pat,len,j,rep){c.save();c.beginPath();poly.forEach((p
   P(c,[[A[0]-v[0]*1000,A[1]-v[1]*1000],[A[0]+v[0]*1000,A[1]+v[1]*1000],[B[0]+v[0]*1000,B[1]+v[1]*1000],[B[0]-v[0]*1000,B[1]-v[1]*1000]],jit(col,j||18));s=e;k++;}
  c.restore();}
 function dots(c,pts,r,col){pts.forEach(p=>E(c,p[0],p[1],r,r,col));}
-export const params={};
+export const params={cloth:[-5,0,0,1.02],rope:[1.875,0.125,-0.045,0.965],blade:[1.5,0,0.04,1.04],spearA:[0,0,-0.055,0.8],Alegs:[-2.125,3.5,-0.0725,0.94],Askirt:[-0.75,0.5,0.04,1.005],Achest:[2.375,2,-0.02,1.1],Ashik:[0,-0.25,-0.02,0.96],Asw2:[-0.5,0,-0.025,1],Ahead:[3.5,1,-0.1925,0.9],Asleeve:[-2,-0.25,0.02,0.92],Asword:[-1.5,0,-0.11,1.08],spearB:[4,0.25,-0.06,1.09],Blegs:[-0.75,2,0.06,1.023],Bhip:[1.625,-6,0,1.02],Bskirt:[-0.5,-1.75,-0.055,0.97],Bsode:[2.75,2.375,-0.04,1],Bhand:[-2,0.5,0.05,1.08],Bsword:[4.5,1.5,0.01,1.18],Bsword2:[2.375,2,0.1,1.05],Bkim:[-0.25,-4.5,-0.0175,0.945],Bhead:[-0.5,1,-0.02,0.91],C:[-1,2,0.025,1.06]};
 export const PIV={cloth:[435,60],rope:[480,110],blade:[460,118],spearA:[560,85],Alegs:[520,125],Askirt:[525,112],Achest:[517,93],Ashik:[525,78],Asw2:[540,96],Ahead:[495,75],Asleeve:[495,68],Asword:[495,36],spearB:[635,100],Blegs:[620,165],Bhip:[620,150],Bskirt:[620,135],Bsode:[605,100],Bhand:[610,125],Bsword:[640,118],Bsword2:[535,149],Bkim:[585,130],Bhead:[577,98],C:[470,165]};
 let CTX;function G(nm,f){const t=params[nm]||[0,0,0,1],pv=PIV[nm]||[0,0];let h=0;for(const ch of nm)h=(h*31+ch.charCodeAt(0))%2147483646;seed=h+1;
  CTX.save();CTX.translate(pv[0]+t[0],pv[1]+t[1]);CTX.rotate(t[2]);CTX.scale(t[3],t[3]);CTX.translate(-pv[0],-pv[1]);f();CTX.restore();}

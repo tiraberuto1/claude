@@ -7,7 +7,7 @@ p.on('pageerror', e => console.error('ERR', e.message));
 await p.goto(s.resolvedUrls.local[0]);
 const res = await p.evaluate(async (rounds) => {
   const W=680,H=247, mod = await import('/src/pieces/index.js'); const pieces = mod.pieces;
-  const mine = pieces.findIndex(x=>x.name==='s_right'); const M=pieces[mine]; const P=M.params; Object.keys(M.PIV).forEach(g=>{P[g]=[0,0,0,1];});
+  const mine = pieces.findIndex(x=>x.name==='s_right'); const M=pieces[mine]; const P=M.params; Object.keys(M.PIV).forEach(g=>{if(!P[g])P[g]=[0,0,0,1];});
   const refImg = await new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.src='/ref/reference.jpg';});
   const rc=document.createElement('canvas');rc.width=W;rc.height=H;const rx=rc.getContext('2d');rx.drawImage(refImg,0,0);
   const gray=d=>{const o=new Float64Array(W*H);for(let i=0;i<W*H;i++)o[i]=.299*d[i*4]+.587*d[i*4+1]+.114*d[i*4+2];return o;};
