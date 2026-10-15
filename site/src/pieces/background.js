@@ -23,15 +23,16 @@ export function draw(ctx,W,H){
     ctx.fillStyle=R()<0.5?'rgba(190,190,110,0.06)':'rgba(110,125,70,0.06)';
     ctx.beginPath();ctx.ellipse(x,y,r*1.6,r*0.6,0,0,7);ctx.fill();
   }
+  for(let i=0;i<40;i++){const x=175+R()*505,y=30+R()*190;const rg=ctx.createRadialGradient(x,y,0,x,y,35);const c=R()<0.5?'150,150,90':'175,160,95';rg.addColorStop(0,'rgba('+c+',0.35)');rg.addColorStop(1,'rgba('+c+',0)');ctx.fillStyle=rg;ctx.fillRect(x-35,y-35,70,70);}
   // 左の金地(右端は斜め)
   ctx.save();
   ctx.beginPath();ctx.moveTo(0,42);ctx.lineTo(150,42);ctx.lineTo(150,65);ctx.lineTo(135,125);ctx.lineTo(110,150);ctx.lineTo(60,175);ctx.lineTo(0,187);ctx.closePath();ctx.clip();
-  const gg=ctx.createLinearGradient(0,40,0,195);gg.addColorStop(0,'#c9a866');gg.addColorStop(1,'#a99b62');
+  const gg=ctx.createLinearGradient(0,40,0,195);gg.addColorStop(0,'rgb(190,158,105)');gg.addColorStop(1,'rgb(172,146,100)');
   ctx.fillStyle=gg;ctx.fillRect(0,40,160,160);
   for(let i=0;i<300;i++){ctx.fillStyle=R()<0.5?'rgba(235,205,120,0.12)':'rgba(120,120,70,0.10)';ctx.fillRect(R()*150,40+R()*155,6+R()*10,1+R()*2);}
   // 青緑の波(青海波風)
-  ctx.strokeStyle='rgba(70,140,130,0.55)';ctx.lineWidth=1.2;
-  for(let k=0;k<14;k++){const cx=(k%4)*22+(Math.floor(k/4)%2)*11-4,cy=135+Math.floor(k/4)*14;
+  ctx.strokeStyle='rgba(70,140,130,0.55)';ctx.lineWidth=0.8;
+  for(let k=0;k<24;k++){const cx=(k%6)*15+(Math.floor(k/6)%2)*7-4,cy=100+Math.floor(k/6)*20;
     for(let r=6;r<=18;r+=4){ctx.beginPath();ctx.arc(cx,cy,r,Math.PI,0);ctx.stroke();}}
   ctx.strokeStyle='rgba(70,140,130,0.4)';
   for(let k=0;k<8;k++){ctx.beginPath();ctx.moveTo(5+k*12,48);ctx.quadraticCurveTo(10+k*12,60,2+k*12,72);ctx.stroke();}
@@ -47,7 +48,7 @@ export function draw(ctx,W,H){
   ctx.fillStyle='#c8aa6a';ctx.fillRect(340,6,12,66);
   ctx.fillStyle='#1f3a63';ctx.fillRect(352,38,182,32);
   const pg=ctx.createLinearGradient(0,40,0,64);pg.addColorStop(0,'#cdb374');pg.addColorStop(1,'#b8a060');
-  ctx.fillStyle=pg;ctx.fillRect(360,40,75,24);ctx.fillRect(450,40,76,24);
+  ctx.fillStyle=pg;ctx.fillRect(360,40,75,24);ctx.fillRect(450,40,76,24);ctx.fillStyle='rgba(0,0,0,0.12)';ctx.fillRect(360,40,75,24);ctx.fillRect(450,40,76,24);
   ctx.fillStyle='#1f3a63';ctx.fillRect(434,38,17,32);
   for(let i=0;i<40;i++){ctx.fillStyle=R()<0.5?'rgba(120,150,80,0.5)':'rgba(215,170,60,0.55)';ctx.beginPath();ctx.arc(362+R()*163,42+R()*20,1.3,0,7);ctx.fill();}
   ctx.fillStyle='#233f6a';ctx.fillRect(228,2,14,10);
@@ -56,10 +57,12 @@ export function draw(ctx,W,H){
   // 右の縁側(板敷き)
   ctx.save();
   ctx.beginPath();ctx.moveTo(500,140);ctx.lineTo(680,134);ctx.lineTo(680,186);ctx.lineTo(560,222);ctx.lineTo(430,222);ctx.lineTo(480,150);ctx.closePath();ctx.clip();
-  ctx.fillStyle='#c19a64';ctx.fillRect(420,130,260,100);
-  for(let i=0;i<500;i++){ctx.fillStyle=R()<0.5?'rgba(220,180,110,0.12)':'rgba(120,80,40,0.10)';ctx.fillRect(420+R()*260,132+R()*95,4+R()*14,1);}
-  ctx.strokeStyle='rgba(110,75,40,0.55)';ctx.lineWidth=1;
+  ctx.fillStyle='rgb(205,155,95)';ctx.fillRect(420,130,260,100);
+  for(let i=0;i<500;i++){ctx.fillStyle=R()<0.5?'rgba(225,180,120,0.18)':'rgba(150,100,55,0.08)';ctx.fillRect(420+R()*260,132+R()*95,1,6+R()*20);}
+  ctx.strokeStyle='rgba(120,80,45,0.35)';ctx.lineWidth=1;
   for(const y of [152,170,188,206]){ctx.beginPath();ctx.moveTo(420,y+10);ctx.lineTo(680,y-12);ctx.stroke();}
+  ctx.fillStyle='rgba(50,35,25,0.85)';
+  ctx.beginPath();ctx.moveTo(680,150);ctx.quadraticCurveTo(650,152,630,165);ctx.quadraticCurveTo(615,172,600,176);ctx.quadraticCurveTo(630,178,650,185);ctx.lineTo(680,186);ctx.closePath();ctx.fill();
   ctx.restore();
   ctx.fillStyle='#b99a63';ctx.fillRect(430,220,200,5);
   // 床の白縁(横・斜め)

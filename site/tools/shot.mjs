@@ -7,4 +7,4 @@ const p = await b.newPage({ viewport: { width: 680, height: 247 }, deviceScaleFa
 p.on('pageerror', e => console.error('PAGEERR', e.message));
 await p.goto('http://localhost:5199/'); await p.waitForFunction('window.__ready', null, { timeout: 30000 });
 import('node:fs').then(f => f.mkdirSync('out', { recursive: true }));
-await p.screenshot({ path: out }); await b.close(); await s.close();
+await p.waitForTimeout(800); await p.screenshot({ path: out }); await b.close(); await s.close();
