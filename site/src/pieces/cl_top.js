@@ -13,7 +13,7 @@ export function draw(ctx,W,H){
     g.addColorStop(0,'rgba(130,150,142,0.18)');g.addColorStop(1,'rgba(130,150,142,0.5)');
     ctx.save();ctx.beginPath();ctx.rect(400,0,300,48);ctx.clip();
     const w=ctx.createLinearGradient(0,0,0,42);
-    w.addColorStop(0,'rgba(200,172,120,0.95)');w.addColorStop(0.6,'rgba(190,165,120,0.7)');w.addColorStop(1,'rgba(190,165,120,0)');
+    w.addColorStop(0,'rgba(190,165,122,0.55)');w.addColorStop(0.6,'rgba(185,160,122,0.4)');w.addColorStop(1,'rgba(190,165,120,0)');
     ctx.fillStyle=w;ctx.fillRect(400,0,300,48);
     ctx.globalCompositeOperation='source-over';
     ctx.fillStyle=g;ctx.globalAlpha=1;ctx.fillRect(430,0,260,45);ctx.restore();
