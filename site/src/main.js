@@ -13,7 +13,7 @@ pieces.forEach((p, i) => {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   t.minFilter = t.magFilter = THREE.NearestFilter; t.flipY = false; t.generateMipmaps = false;
   const m = new THREE.Mesh(new THREE.PlaneGeometry(W, H),
-    new THREE.MeshBasicMaterial({ map: t, transparent: true, depthTest: false }));
+    new THREE.MeshBasicMaterial({ map: t, transparent: true, depthTest: false, side: THREE.DoubleSide }));
   m.position.set(W / 2, H / 2, 0); m.renderOrder = i; m.name = p.name; scene.add(m);
 });
 renderer.render(scene, cam); // t=0 静止
