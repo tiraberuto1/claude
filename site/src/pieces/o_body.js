@@ -57,13 +57,16 @@ export function draw(ctx,W,H){
   mass([[850,270],[950,290],[1000,350],[900,370]],'#DE9446',0.7);
   // 足裏
   mass([[560,440],[650,430],[690,455],[670,495],[580,495],[550,470]],'#E0A460',0.95);
+  mass([[300,330],[340,300],[400,330],[430,380],[380,410],[320,380]],'#8C5A2A',0.55);
+  mass([[600,300],[700,300],[790,340],[690,380],[620,350]],'#8C5A2A',0.5);
+  mass([[420,420],[470,440],[540,490],[440,480]],'#7A4A22',0.5);
   // 赤い飛沫(首周りに集中)
   seed=11;
   for(let i=0;i<420;i++){
     const x=290+rnd()*760,y=95+rnd()*400;
     const dn=Math.hypot(x-470,y-150),db=Math.hypot(x-580,y-330),da=Math.hypot(x-300,y-330);
     const w=dn<150?1:(db<150||da<100)?0.5:0.12; if(rnd()>w)continue;
-    ctx.globalAlpha=0.3+rnd()*0.3;ctx.fillStyle=rnd()<0.7?'#D8401E':'#8A2A18';
+    ctx.globalAlpha=0.3+rnd()*0.3;ctx.fillStyle=rnd()<0.8?'#D8401E':'#B04020';
     const q=M([x,y]);ctx.beginPath();ctx.ellipse(q[0],q[1],(5+rnd()*11)/3,(4+rnd()*8)/3,rnd()*3,0,7);ctx.fill();}
   ctx.globalAlpha=1;
   // 筋肉の輪郭線
@@ -84,9 +87,10 @@ export function draw(ctx,W,H){
   seed=9;
   sm(ctx,[[400,115],[420,90],[450,100],[470,80],[500,95],[530,85],[560,105],[540,130],[470,130]],'#A82A18');
   sm(ctx,[[420,112],[440,98],[462,106],[480,92],[505,102],[535,96],[540,118],[480,124]],'#D8401E');
-  for(let i=0;i<26;i++){const ang=-Math.PI/2+(rnd()-0.5)*1.6,l=40+rnd()*70;
+  for(let i=0;i<30;i++){const ang=-Math.PI/2+(rnd()-0.5)*1.6,l=40+rnd()*70;
     const x0=410+rnd()*140,y0=100+rnd()*20;
-    ln(ctx,[[x0,y0],[x0+Math.cos(ang)*l*0.5,y0+Math.sin(ang)*l*0.5],[x0+Math.cos(ang)*l,y0+Math.sin(ang)*l]],rnd()<0.5?'#C8381E':'#9A3018',1.0+rnd()*1.4);}
+    const ex=x0+Math.cos(ang)*l,ey=y0+Math.sin(ang)*l,px=-Math.sin(ang)*(5+rnd()*5),py=Math.cos(ang)*(5+rnd()*5);
+    sm(ctx,[[x0-px,y0-py],[x0+Math.cos(ang)*l*0.6,y0+Math.sin(ang)*l*0.6+0],[ex,ey],[x0+Math.cos(ang)*l*0.5+px*0.3,y0+Math.sin(ang)*l*0.5+py*0.3],[x0+px,y0+py]],rnd()<0.5?'#C8381E':'#9A3018');}
   for(let i=0;i<14;i++)blob(ctx,400+rnd()*200,50+rnd()*70,6+rnd()*8,5+rnd()*6,'#C8381E',0.7,rnd()*3);
   // 手(指)
   sm(ctx,[[190,405],[210,375],[260,370],[285,390],[270,430],[225,440],[190,430]],'#D89040',brown,0.6);

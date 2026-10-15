@@ -12,14 +12,14 @@ export function draw(ctx,W,H){
   ctx.save();
   ctx.beginPath();ctx.rect(340,0,340,H);ctx.clip();
   // 上部の青灰(雲の下地)
-  ctx.fillStyle='#8f9f98';ctx.fillRect(340,0,340,40);
+  ctx.fillStyle='#8f9b8e';ctx.fillRect(340,0,340,40);
   // 黄緑の床
   const g=ctx.createLinearGradient(340,0,680,0);
-  g.addColorStop(0,'#a2a468');g.addColorStop(0.5,'#a1a96a');g.addColorStop(1,'#98a266');
+  g.addColorStop(0,'#979566');g.addColorStop(0.5,'#989662');g.addColorStop(1,'#8f9262');
   ctx.fillStyle=g;ctx.fillRect(340,72,340,170);
   for(let i=0;i<90;i++){
     const x=340+R()*340,y=74+R()*160,r=8+R()*22;
-    ctx.fillStyle=R()<0.5?'rgba(195,190,115,0.07)':'rgba(105,125,70,0.07)';
+    ctx.fillStyle=R()<0.5?'rgba(190,180,110,0.07)':'rgba(95,110,65,0.08)';
     ctx.beginPath();ctx.ellipse(x,y,r*1.6,r*0.6,0,0,7);ctx.fill();
   }
   // 障子: 金の柱
@@ -28,7 +28,7 @@ export function draw(ctx,W,H){
   // 紺の枠
   ctx.fillStyle='#1d3556';ctx.fillRect(352,36,184,34);
   // 金パネル(基準より暗い緑がかった金)
-  const pg=ctx.createLinearGradient(0,40,0,67);pg.addColorStop(0,'#988f66');pg.addColorStop(1,'#a89b6a');
+  const pg=ctx.createLinearGradient(0,40,0,67);pg.addColorStop(0,'#8f8059');pg.addColorStop(1,'#9d8a5f');
   ctx.fillStyle=pg;ctx.fillRect(356,40,80,26);ctx.fillRect(451,40,76,26);
   ctx.fillStyle='#14233f';ctx.fillRect(436,36,15,34);
   ctx.fillRect(525,36,12,34);
@@ -39,12 +39,12 @@ export function draw(ctx,W,H){
     ctx.beginPath();ctx.arc(x,y,1+R()*1.2,0,7);ctx.fill();
   }
   // 床との境の縁
-  ctx.fillStyle='#a8aa6e';ctx.fillRect(340,70,260,3);
+  ctx.fillStyle='#9c9a68';ctx.fillRect(340,70,260,3);
   dashed(ctx,340,71,597,71,3);
   // 縁側の板敷き
   ctx.save();
   ctx.beginPath();ctx.moveTo(478,139);ctx.lineTo(680,137);ctx.lineTo(680,198);ctx.lineTo(640,206);ctx.lineTo(560,222);ctx.lineTo(500,224);ctx.lineTo(440,222);ctx.lineTo(455,150);ctx.closePath();ctx.clip();
-  const pl=ctx.createLinearGradient(0,137,0,224);pl.addColorStop(0,'rgb(214,164,104)');pl.addColorStop(1,'rgb(206,152,92)');
+  const pl=ctx.createLinearGradient(0,137,0,224);pl.addColorStop(0,'rgb(208,156,98)');pl.addColorStop(1,'rgb(198,144,90)');
   ctx.fillStyle=pl;ctx.fillRect(430,130,250,100);
   // 板目(細く斜め)
   for(let i=0;i<420;i++){
@@ -68,6 +68,6 @@ export function draw(ctx,W,H){
   dashed(ctx,430,126,580,126,3);
   dashed(ctx,587,198,640,182,3);
   // 下部の青灰(雲の下地)
-  ctx.fillStyle='#8aa0a2';ctx.fillRect(340,228,340,19);
+  ctx.fillStyle='#86998f';ctx.fillRect(340,228,340,19);
   ctx.restore();
 }
