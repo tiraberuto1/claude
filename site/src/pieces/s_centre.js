@@ -15,25 +15,17 @@ function stripes(c,pts,ox,oy,ang0,ang1,pitch,n,cols,wid){
   c.restore();
 }
 // 調整済み定数(tools/tune_s_centre.mjs の探索結果)。draw の第3引数で上書き可能
-const DEF={lx:-3,ly:-3,ux:-1,uy:-2,cp:4.9,cdy:-0.5,clw:1.5,sp:4,
- sdx:-1,sdy:0,sa0:-0.35,sa1:0.2,slw:4.7,bp:3.9,bdx:1,bdy:2,
- ba0:0.56,ba1:0.52,blw:3.4,gl:18,gd:-12,sr:-42,sg:-30,sb:-30,
- d_body_0x:3,d_body_0y:3,d_body_1x:3,d_body_1y:2,d_body_2x:3,d_body_2y:3,d_body_3x:3,d_body_3y:1,
- d_body_4x:5,d_body_4y:-4,d_body_5x:5,d_body_5y:-1,d_body_6x:3,d_body_6y:1,d_body_7x:5,d_body_7y:1,
- d_body_8x:-1,d_body_9x:5,d_body_9y:-4,d_body_10x:-3,d_body_10y:-1,d_body_11x:-4,d_chest_0x:4,d_chest_0y:2,
- d_chest_1x:-4,d_chest_1y:3,d_chest_2x:-5,d_chest_3x:5,d_skirt_0x:5,d_skirt_0y:-3,d_skirt_1y:-2,d_skirt_3x:-5,
- d_skirt_3y:5,d_skirt_4x:2,d_skirt_4y:4,d_skirt_5x:-4,d_skirt_5y:2,d_skirt_6x:-5,d_skirt_6y:1,d_skirt_7x:2,
- d_skirt_8x:-3,d_skirt_8y:4,d_armor_0x:1,d_armor_0y:1,d_armor_1x:-3,d_armor_1y:-1,d_armor_2x:5,d_armor_2y:1,
- d_armor_3x:5,d_armor_3y:5,d_armor_4x:-5,d_armor_5y:3,d_armor_6y:-3,d_armor_7y:-5,d_armor_8x:1,d_armor_9x:-2,
- d_armor_10x:-3,d_armor_10y:1,d_armor_15x:-3,d_sl_0x:-2,d_sl_0y:4,d_sl_1x:2,d_sl_2y:-3,d_sl_3y:3,
- d_sl_4x:-2,d_sl_4y:3,d_sl_5x:5,d_sl_5y:-3,d_face_0x:5,d_face_0y:5,d_face_1x:3,d_face_1y:5,
- d_face_2x:-1,d_face_2y:2,d_face_3x:-1,d_face_3y:-2,d_face_4y:1,d_face_5x:2,d_face_5y:3,d_face_6x:-1,
- d_b1_0x:4,d_b1_0y:1,d_b1_1x:5,d_b1_2x:2,d_b1_2y:-2,d_b1_3x:-2,d_b1_4x:1,d_b1_4y:-1,
- d_b2_0x:-5,d_b2_0y:1,d_b2_1x:4,d_b2_1y:4,d_b2_3y:2,d_b3_0x:3,d_b3_0y:5,d_b3_1x:4,
- d_b3_1y:-1,d_b3_2x:2,d_b3_2y:2,d_b3_3x:5,d_b3_3y:2,d_b3_4x:1,d_b3_4y:-2,d_b4_0x:5,
- d_b4_0y:4,d_b4_1x:1,d_b4_1y:-2,d_b4_2x:4,d_b4_2y:1,d_b4_3x:1,d_b4_3y:-5,d_sw_0x:-4,
- d_sw_1x:3,d_sw_2x:-2,d_sw_3y:-2,d_lface_0x:3,d_lface_0y:4,d_lface_1x:1,d_lface_1y:-5,d_lface_2x:2,
- d_lface_2y:-5,d_lface_3x:2,d_lface_4x:-1,d_lface_4y:-1};
+export const DEF={lx:-3,ly:-3,ux:0,uy:0,cp:3,cdy:2,clw:3,sp:3.2,
+ sdx:17,sdy:6,sa0:-0.45,sa1:0.05,slw:3.2,bp:3.7,bdx:2,bdy:2,
+ ba0:0.56,ba1:0.6,blw:2.6,gl:0,gd:0,sr:-30,sg:-25,sb:-20,
+ d_body_0x:1,d_body_0y:3,d_body_1x:3,d_body_1y:2,d_body_2x:3,d_body_2y:3,d_body_3x:4,d_body_3y:0,
+ d_body_4x:2,d_body_4y:0,d_body_5x:8,d_body_5y:-3,d_body_6x:3,d_body_6y:1,d_body_7x:6,d_body_7y:1,
+ d_body_8x:-4,d_body_9x:1,d_body_9y:-2,d_body_10x:-3,d_body_10y:-1,d_body_11x:-4,d_b1_0x:4,d_b1_0y:1,
+ d_b1_1x:5,d_b1_2x:2,d_b1_2y:-2,d_b1_3x:-2,d_b1_4x:1,d_b1_4y:-1,d_b2_0x:-9,d_b2_0y:0,
+ d_b2_1x:3,d_b2_1y:5,d_b2_3y:2,d_b3_0x:1,d_b3_0y:5,d_b3_1x:3,d_b3_1y:0,d_b3_2x:2,
+ d_b3_2y:1,d_b3_3x:8,d_b3_3y:3,d_b3_4x:-2,d_b3_4y:-2,d_b4_0x:5,d_b4_0y:4,d_b4_1x:1,
+ d_b4_1y:-2,d_b4_2x:4,d_b4_2y:1,d_b4_3x:1,d_b4_3y:-5,d_lface_0x:3,d_lface_0y:4,d_lface_1x:3,
+ d_lface_1y:-6,d_lface_2x:-1,d_lface_2y:-6,d_lface_3x:2,d_lface_4x:-1,d_lface_4y:-1,d_body_8y:-1};
 export const VERT={body:12,chest:4,skirt:9,armor:16,sl:6,face:7,b1:6,b2:4,b3:5,b4:4,sw:4,lface:5};
 const clamp=v=>Math.max(0,Math.min(255,Math.round(v)));
 function sh(hex,d){const n=parseInt(hex.slice(1),16);return 'rgb('+[n>>16,(n>>8)&255,n&255].map(v=>clamp(v+d)).join(',')+')';}
@@ -43,14 +35,14 @@ export function draw(ctx,W,H,P){
   const c=ctx;
   const V=(n,pts)=>pts.map((p,i)=>[p[0]+(K['d_'+n+'_'+i+'x']||0),p[1]+(K['d_'+n+'_'+i+'y']||0)]);
   const skin='#e3b896',hair='#17120f',skinSh='#c99a78';
-  const G=[sh('#b8ad9c',K.gl),sh('#7a6a58',K.gd),sh('#aa9f90',K.gl),sh('#665848',K.gd)];
+  const G=[sh('#cdc3b9',K.gl),sh('#5f504b',K.gd)];
   c.save();c.translate(K.lx,K.ly);
   // ================= 下の武者(黄・赤・黒の縞胴) =================
   // 脛当て・袴(青)
-  poly(c,V('b1',[[222,184],[246,182],[250,196],[243,208],[222,208],[216,196]]),'#3a6a90');
-  poly(c,V('b2',[[222,190],[236,188],[236,204],[224,206]]),'#2a5a82');
-  poly(c,V('b3',[[248,178],[268,176],[276,190],[262,196],[250,192]]),'#6a8aa0');
-  poly(c,V('b4',[[236,192],[256,188],[260,198],[240,202]]),'#587a94');
+  poly(c,V('b1',[[222,184],[246,182],[250,196],[243,208],[222,208],[216,196]]),'#4a6a82');
+  poly(c,V('b2',[[222,190],[236,188],[236,204],[224,206]]),'#35607a');
+  poly(c,V('b3',[[248,178],[268,176],[276,190],[262,196],[250,192]]),'#718a98');
+  poly(c,V('b4',[[236,192],[256,188],[260,198],[240,202]]),'#60808f');
   // 足(茶)
   poly(c,[[192,204],[206,196],[214,203],[206,212],[194,212]],'#a8703a');
   line(c,[[192,138],[214,153]],'#3a9a88',2.2);
@@ -59,8 +51,8 @@ export function draw(ctx,W,H,P){
   poly(c,[[268,150],[284,147],[286,155],[278,158]],'#d4a584');
   // 胴(1つの輪郭) 上半分:黒赤縞の背
   const body=V('body',[[204,168],[212,163],[222,157],[240,146],[262,148],[272,156],[268,166],[258,170],[248,182],[232,188],[218,183],[210,178]]);
-  poly(c,body,'#c0392b');
-  stripes(c,body,215+K.bdx,138+K.bdy,K.ba0,K.ba1,K.bp,24,['#d8b03a','#d8b03a','#a83a2c','#d8b03a','#15100e','#c9a238'],K.blw);
+  poly(c,body,'#a8402c');
+  stripes(c,body,215+K.bdx,138+K.bdy,K.ba0,K.ba1,K.bp,24,['#c49a30','#c49a30','#a03a2a','#c49a30','#15100e','#b08a2c'],K.blw);
   // 上部(背・黒赤)
   const back=[[222,142],[236,138],[254,140],[262,148],[252,152],[240,148],[226,152]];
   poly(c,back,'#15100e');
@@ -93,12 +85,12 @@ export function draw(ctx,W,H,P){
   poly(c,[[262,76],[270,74],[274,82],[266,84]],'#e0b894');
   // 一体鎧: 胴(上)から草摺(下)まで連続
   const armor=V('armor',[[283,92],[300,91],[313,93],[313,117],[306,124],[310,131],[308,141],[290,141],[268,143],[258,134],[244,121],[241,117],[262,102],[272,104],[280,112],[283,106]]);
-  poly(c,armor,'#968a78');
+  poly(c,armor,'#8a7e74');
   // 胴部(横縞)
   const chest=V('chest',[[283,92],[313,92],[313,118],[283,119]]);
   stripes(c,chest,283,90+K.cdy,0,0,K.cp,9,G,K.clw);
   // 草摺(扇状に広がる縞)
-  const skirt=V('skirt',[[241,118],[262,102],[274,106],[284,118],[310,130],[308,140],[290,141],[268,143],[258,134]]);
+  const skirt=V('skirt',[[239,121],[262,102],[274,106],[284,118],[310,130],[308,140],[290,141],[268,143],[258,134]]);
   stripes(c,skirt,246+K.sdx,98+K.sdy,K.sa0,K.sa1,K.sp,26,G,K.slw);
   // 下端の赤縁と濃縁
   poly(c,[[284,116],[313,115],[314,121],[300,124],[286,122]],'#6a2a28');
@@ -106,7 +98,7 @@ export function draw(ctx,W,H,P){
   line(c,[[242,119],[259,135],[270,143]],'#4a2e26',2.6);
   line(c,[[242,118],[262,102]],'#5a2a2a',1);
   // 草摺の下の薄ピンク(腰)
-  poly(c,[[270,102],[284,100],[283,118],[274,112]],'#ecc8b8');
+  poly(c,[[266,101],[285,98],[284,120],[270,114]],'#ecc8b8');
   ell(c,277,108,1,1,'#e08a70');ell(c,280,113,1,1,'#e08a70');ell(c,274,105,1,1,'#e08a70');
   // 頭 ・肩
   poly(c,[[294,94],[306,96],[312,93],[312,86],[296,86]],skinSh);

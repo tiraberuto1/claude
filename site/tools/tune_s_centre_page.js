@@ -19,12 +19,12 @@ export async function run(){
   const tune=[0,0,0,0]; // dummy
   const train=[200,58,335,210];           // 目的関数: 両武者を含む領域
   const valid={ vA:[255,100,285,125], vB:[225,160,255,185] };
-  const f=P=>ssim(render(P),train,true);
-  const steps={lx:1,ly:1,ux:1,uy:1,cp:.05,cdy:.5,clw:.4,sp:.05,sdx:1,sdy:1,sa0:.05,sa1:.05,slw:.4,bp:.1,bdx:1,bdy:1,ba0:.04,ba1:.04,blw:.4,gl:6,gd:6,sr:6,sg:6,sb:6};
+  const f=P=>{const S=render(P);return ssim(S,train,true)+ssim(S,[283,93,313,118]);};
+  const steps={lx:1,ly:1,ux:1,uy:1,cdy:.5,sdx:1,sdy:1,sa0:.05,sa1:.05,bdx:1,bdy:1,ba0:.04,ba1:.04,sr:6,sg:6,sb:6};
   const lim={gl:60,gd:60,sr:50,sg:50,sb:50,lx:6,ly:6,ux:6,uy:6};
-  for(const [n,cnt] of Object.entries(sc.VERT))for(let i=0;i<cnt;i++)for(const ax of 'xy'){steps['d_'+n+'_'+i+ax]=1;lim['d_'+n+'_'+i+ax]=5;}
+  for(const [n,cnt] of Object.entries(sc.VERT))if(!['chest','skirt','armor','sl','face','sw'].includes(n))for(let i=0;i<cnt;i++)for(const ax of 'xy'){steps['d_'+n+'_'+i+ax]=1;lim['d_'+n+'_'+i+ax]=3;}
   const rep=P0=>{const S=render(P0);return Object.fromEntries([...Object.entries(regs),...Object.entries(valid)].map(([k,r])=>[k,+ssim(S,r).toFixed(4)]));};
-  const D={lx:-3,ly:0,ux:-1,uy:-2,cp:4.9,cdy:-0.5,clw:1.5,sp:4,sdx:-1,sdy:0,sa0:-0.35,sa1:0.2,slw:4.7,bp:3.9,bdx:0,bdy:0,ba0:0.52,ba1:0.44,blw:1.8};
+  const D={...sc.DEF};
   for(const k of Object.keys(steps))if(!(k in D))D[k]=0;
   const before=rep(D);
   let P={...D};let cur=f(P);const start=cur;
