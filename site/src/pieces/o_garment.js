@@ -7,7 +7,7 @@ function sm(ctx,P,fill,stroke,lw){const n=P.length;ctx.beginPath();
   ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}
   if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw;ctx.stroke();}}
 function line(ctx,pts,col,lw){ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();}
-export const DEF={bx:0,by:0,sx:1,sy:1,tipx:0,tipy:0,dl:0,dark:0.1,motif:1,mstep:10,mph:0,mpy:0,wrink:1,hl:1,fx:0,fy:0,fs:1,fdl:0,toes:1,blood:1,lw:0,gl:0,tdx:0,tdy:0,bpx:0,bpy:0,vx0:0,vy0:0,vx1:0,vy1:0,vx2:0,vy2:0,vx3:0,vy3:0,vx4:0,vy4:0,vx5:0,vy5:0,vx6:0,vy6:0,vx7:0,vy7:0,vx8:0,vy8:0,vx9:0,vy9:0,vx10:0,vy10:0,vx11:0,vy11:0,vx12:0,vy12:0,vx13:0,vy13:0,vx14:0,vy14:0,vx15:0,vy15:0};
+export const DEF={bx:2,by:1,sx:1,sy:0.99,tipx:1,tipy:1,dl:20,dark:0.01,motif:1,mstep:10,mph:3,mpy:0,wrink:1,hl:1,fx:5,fy:0,fs:1,fdl:8,toes:1,blood:1,lw:4,gl:0,tdx:0,tdy:1,bpx:0,bpy:0,vx0:-4,vy0:3,vx1:0,vy1:-1,vx2:6,vy2:0,vx3:6,vy3:-1,vx4:0,vy4:0,vx5:0,vy5:0,vx6:-3,vy6:0,vx7:4,vy7:-2,vx8:0,vy8:-1,vx9:-1,vy9:1,vx10:-1,vy10:1,vx11:5,vy11:6,vx12:4,vy12:4,vx13:1,vy13:0,vx14:0,vy14:0,vx15:-2,vy15:0};
 const cl=(c,d)=>Math.max(0,Math.min(255,c+d));
 export function draw(ctx,W,H,over){
   const P=Object.assign({},DEF,over||{});

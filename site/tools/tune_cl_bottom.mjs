@@ -44,8 +44,9 @@ const res=await p.evaluate(async ({src,ref,base})=>{
   const CORE=[[30,205,150,230],[20,240,340,247],[540,238,660,246],[600,205,680,228]];
   const cmean=(D,r)=>{const[x0,y0,x1,y1]=r;const m=[0,0,0];let n=0;for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){for(let c=0;c<3;c++)m[c]+=D.data[(y*680+x)*4+c];n++;}return m.map(v=>v/n);};
   const RM=CORE.map(r=>cmean(R,r));
-  const colOK=()=>{cx.clearRect(0,0,680,247);cx.drawImage(B,0,0);mod.draw(cx,680,247);const D=cx.getImageData(0,0,680,247);return CORE.every((r,i)=>{const m=cmean(D,r);return m.every((v,c)=>Math.abs(v-RM[i][c])<=8);});};
-  let best=colOK()?obj():-1;
+  const pen=()=>{cx.clearRect(0,0,680,247);cx.drawImage(B,0,0);mod.draw(cx,680,247);const D=cx.getImageData(0,0,680,247);let e=0;CORE.forEach((r,i)=>{const m=cmean(D,r);m.forEach((v,c)=>{e+=Math.max(0,Math.abs(v-RM[i][c])-6);});});return e;};
+  const tot=()=>obj()-0.01*pen();
+  let best=tot();
   for(let it=0;it<10;it++){
     let imp=false;
     for(const key of keys){
@@ -54,13 +55,13 @@ const res=await p.evaluate(async ({src,ref,base})=>{
         const old=get(key);const v=Math.min(hi(key),Math.max(lo(key),old+d));
         if(v===old)continue;
         set(key,v);
-        const o=obj();
-        if(o>best+1e-5&&colOK()){best=o;imp=true;}else set(key,old);
+        const o=tot();
+        if(o>best+1e-5){best=o;imp=true;}else set(key,old);
       }
     }
     if(!imp)break;
   }
-  return {init,P:JSON.parse(JSON.stringify(P)),t0,t1:score(TR),v0,v1:score(VA),best};
+  const pf=pen();return {pf,init,P:JSON.parse(JSON.stringify(P)),t0,t1:score(TR),v0,v1:score(VA),best};
 },{src,ref,base});
 console.log(JSON.stringify(res,null,1));
 fs.writeFileSync('out/tune_result.json',JSON.stringify(res));

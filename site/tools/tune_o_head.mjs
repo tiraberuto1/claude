@@ -35,9 +35,9 @@ const res = await p.evaluate(async (gray) => {
   const obj=()=>{const v=ev(TR);return v[0]*1+v[1]*1+v[2]*1;};
   const P0=JSON.parse(JSON.stringify(P)), before={tr:ev(TR),ho:ev(HO)};
   const D=[];const sc0={hx:4,hy:4,hsx:0.06,hsy:0.06,hb:0.05,hs:0.2,tn:4,fx:3,fy:3,fsx:0.05,fsy:0.05,fr:0.08,fg:0.08,fb:0.08,sa:0.2,ex:2,ey:2,mx:2,my:2,msx:0.1,kx:3,ky:3,ksx:0.08,ksy:0.08,kb:0.1,ta:0.4,tl:0.2};
-  const lim={hs:[0.6,3],tn:[8,40],sa:[0,1],hb:[0.9,1.2],kb:[0.8,1.2],ta:[-1.5,1.5],tl:[0.6,1.6]};
+  const lim={fr:[0.85,1.1],fg:[0.85,1.1],fb:[0.85,1.1],hs:[0.6,3],tn:[8,40],sa:[0.3,0.9],hb:[0.9,1.2],kb:[0.8,1.2],ta:[-1.5,1.5],tl:[0.6,1.6]};
   for(const k in sc0)D.push({get:()=>P[k],set:v=>{P[k]=k==='tn'?Math.round(v):v;},step:sc0[k],lim:lim[k],base:null});
-  for(const k of ['ho','fo','bo','eo','to','so','no'])P[k].forEach((_,i)=>D.push({get:()=>P[k][i],set:v=>{P[k][i]=v;},step:2,lim:[-5,5]}));
+  for(const k of ['ho','fo','bo','eo','to','so','no'])P[k].forEach((_,i)=>D.push({get:()=>P[k][i],set:v=>{P[k][i]=v;},step:1.5,lim:[-3,3]}));
   let best=obj();
   for(let round=0;round<5;round++){
     for(const d of D){for(const sg of [1,-1]){let moved=true;
