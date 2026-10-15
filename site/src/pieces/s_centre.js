@@ -15,17 +15,17 @@ function stripes(c,pts,ox,oy,ang0,ang1,pitch,n,cols,wid){
   c.restore();
 }
 // 調整済み定数(tools/tune_s_centre.mjs の探索結果)。draw の第3引数で上書き可能
-export const DEF={lx:-3,ly:-3,ux:0,uy:0,cp:3,cdy:2,clw:3,sp:3.2,
- sdx:17,sdy:6,sa0:-0.45,sa1:0.05,slw:3.2,bp:3.7,bdx:2,bdy:2,
- ba0:0.56,ba1:0.6,blw:2.6,gl:0,gd:0,sr:-30,sg:-25,sb:-20,
- d_body_0x:1,d_body_0y:3,d_body_1x:3,d_body_1y:2,d_body_2x:3,d_body_2y:3,d_body_3x:4,d_body_3y:0,
- d_body_4x:2,d_body_4y:0,d_body_5x:8,d_body_5y:-3,d_body_6x:3,d_body_6y:1,d_body_7x:6,d_body_7y:1,
- d_body_8x:-4,d_body_9x:1,d_body_9y:-2,d_body_10x:-3,d_body_10y:-1,d_body_11x:-4,d_b1_0x:4,d_b1_0y:1,
- d_b1_1x:5,d_b1_2x:2,d_b1_2y:-2,d_b1_3x:-2,d_b1_4x:1,d_b1_4y:-1,d_b2_0x:-9,d_b2_0y:0,
- d_b2_1x:3,d_b2_1y:5,d_b2_3y:2,d_b3_0x:1,d_b3_0y:5,d_b3_1x:3,d_b3_1y:0,d_b3_2x:2,
- d_b3_2y:1,d_b3_3x:8,d_b3_3y:3,d_b3_4x:-2,d_b3_4y:-2,d_b4_0x:5,d_b4_0y:4,d_b4_1x:1,
- d_b4_1y:-2,d_b4_2x:4,d_b4_2y:1,d_b4_3x:1,d_b4_3y:-5,d_lface_0x:3,d_lface_0y:4,d_lface_1x:3,
- d_lface_1y:-6,d_lface_2x:-1,d_lface_2y:-6,d_lface_3x:2,d_lface_4x:-1,d_lface_4y:-1,d_body_8y:-1};
+export const DEF={lx:-3,ly:-3,ux:0,uy:0,cp:1.825,cdy:3.5,clw:3,sp:1.675,
+ ca:-0.02,sdx:17,sdy:2.3,sa0:-0.45,sa1:0.01,slw:3.2,bp:4.05,bdx:2,
+ bdy:2.2,ba0:0.56,ba1:0.6,blw:2.6,gl:0,gd:0,sr:-30,sg:-25,
+ sb:-20,d_body_0x:1,d_body_0y:3,d_body_1x:3,d_body_1y:2,d_body_2x:3,d_body_2y:3,d_body_3x:4,
+ d_body_3y:0,d_body_4x:2,d_body_4y:0,d_body_5x:8,d_body_5y:-3,d_body_6x:3,d_body_6y:1,d_body_7x:6,
+ d_body_7y:1,d_body_8x:-4,d_body_9x:1,d_body_9y:-2,d_body_10x:-3,d_body_10y:-1,d_body_11x:-4,d_b1_0x:4,
+ d_b1_0y:1,d_b1_1x:5,d_b1_2x:2,d_b1_2y:-2,d_b1_3x:-2,d_b1_4x:1,d_b1_4y:-1,d_b2_0x:-9,
+ d_b2_0y:0,d_b2_1x:3,d_b2_1y:5,d_b2_3y:2,d_b3_0x:1,d_b3_0y:5,d_b3_1x:3,d_b3_1y:0,
+ d_b3_2x:2,d_b3_2y:1,d_b3_3x:8,d_b3_3y:3,d_b3_4x:-2,d_b3_4y:-2,d_b4_0x:5,d_b4_0y:4,
+ d_b4_1x:1,d_b4_1y:-2,d_b4_2x:4,d_b4_2y:1,d_b4_3x:1,d_b4_3y:-5,d_lface_0x:3,d_lface_0y:4,
+ d_lface_1x:3,d_lface_1y:-6,d_lface_2x:-1,d_lface_2y:-6,d_lface_3x:2,d_lface_4x:-1,d_lface_4y:-1,d_body_8y:-1};
 export const VERT={body:12,chest:4,skirt:9,armor:16,sl:6,face:7,b1:6,b2:4,b3:5,b4:4,sw:4,lface:5};
 const clamp=v=>Math.max(0,Math.min(255,Math.round(v)));
 function sh(hex,d){const n=parseInt(hex.slice(1),16);return 'rgb('+[n>>16,(n>>8)&255,n&255].map(v=>clamp(v+d)).join(',')+')';}
@@ -88,10 +88,10 @@ export function draw(ctx,W,H,P){
   poly(c,armor,'#8a7e74');
   // 胴部(横縞)
   const chest=V('chest',[[283,92],[313,92],[313,118],[283,119]]);
-  stripes(c,chest,283,90+K.cdy,0,0,K.cp,9,G,K.clw);
+  stripes(c,chest,283,90+K.cdy,K.ca||0,K.ca||0,K.cp,16,G,K.cp+.15);
   // 草摺(扇状に広がる縞)
   const skirt=V('skirt',[[239,121],[262,102],[274,106],[284,118],[310,130],[308,140],[290,141],[268,143],[258,134]]);
-  stripes(c,skirt,246+K.sdx,98+K.sdy,K.sa0,K.sa1,K.sp,26,G,K.slw);
+  stripes(c,skirt,246+K.sdx,98+K.sdy,K.sa0,K.sa1,K.sp,40,G,K.sp+.15);
   // 下端の赤縁と濃縁
   poly(c,[[284,116],[313,115],[314,121],[300,124],[286,122]],'#6a2a28');
   line(c,[[270,142],[290,141],[309,139]],'#4a2e26',3.2);

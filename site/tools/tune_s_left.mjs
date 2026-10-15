@@ -26,13 +26,13 @@ const res = await p.evaluate(async (rounds) => {
   const hold=()=>{const S=render();return HOLD.map(r=>ssim(S,r));};
   const init=JSON.parse(JSON.stringify(P)), s0=score(), h0=hold();
   // 探索対象: params の全ての数値 (頂点オフセット vo.*, 色 orc/dkc を含む)
-  const leaves=[];const base=JSON.parse(JSON.stringify(P));
+  const leaves=[];const base=JSON.parse(JSON.stringify(P));const voMap=new Map();const baseVo=(o,k)=>voMap.get(o)[k];
   for(const k of Object.keys(P)){const v=P[k];
     if(typeof v==='number')leaves.push([P,k,k]);
-    else if(k==='vo')for(const n of Object.keys(v))v[n].forEach((_,i)=>leaves.push([v[n],i,'vo']));
+    else if(k==='vo')for(const n of Object.keys(v)){voMap.set(v[n],v[n].slice());v[n].forEach((_,i)=>leaves.push([v[n],i,'vo']));}
     else if(k==='orc'||k==='dkc')v.forEach((_,i)=>leaves.push([v,i,k]));}
   const step=(t)=>t==='vo'?1:t==='orc'||t==='dkc'?8:/_x$|_y$/.test(t)?1:/_s$/.test(t)?.04:t==='br'?.04:/_a$/.test(t)?.1:/_w$/.test(t)?.4:/_p$/.test(t)?.4:.2;
-  const ok=(o,k,t,v)=>{if(t==='vo')return Math.abs(v)<=5;if(t==='orc'||t==='dkc')return Math.abs(v-base[t][k])<=30&&v>=0&&v<=255;
+  const ok=(o,k,t,v)=>{if(t==='vo')return Math.abs(v)<=5&&Math.abs(v-baseVo(o,k))<=3;if(t==='orc'||t==='dkc')return Math.abs(v-base[t][k])<=30&&v>=0&&v<=255;
     if(t==='ct')return v>=.3&&v<=1;if(/_s$/.test(t))return v>.85&&v<1.15;if(/_x$|_y$/.test(t))return Math.abs(v)<=6;if(/_w$/.test(t))return v>=1.5&&v<=5;if(t==='br')return v>.7&&v<1.2;return true;};
   let best=s0;
   for(let r=0;r<rounds;r++){const f=1/Math.pow(2,r);let again=true;

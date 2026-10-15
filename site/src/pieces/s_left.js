@@ -1,5 +1,8 @@
 export const name='s_left';
-const P=(c,pts,f,s,lw)=>{c.beginPath();pts.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.closePath();if(f){c.fillStyle=f;c.fill();}if(s){c.strokeStyle=s;c.lineWidth=lw||1;c.lineJoin='round';c.stroke();}};
+// 角を丸めた閉パス (各頂点の手前 k の位置から二次曲線で曲がる)
+const sm=(c,pts,k)=>{k=k||.32;const n=pts.length,A=(p,q)=>[p[0]+(q[0]-p[0])*k,p[1]+(q[1]-p[1])*k];
+  for(let i=0;i<n;i++){const p=pts[i],a=A(p,pts[(i+n-1)%n]),b=A(p,pts[(i+1)%n]);if(i)c.lineTo(a[0],a[1]);else c.moveTo(a[0],a[1]);c.quadraticCurveTo(p[0],p[1],b[0],b[1]);}c.closePath();};
+const P=(c,pts,f,s,lw,k)=>{c.beginPath();sm(c,pts,k);if(f){c.fillStyle=f;c.fill();}if(s){c.strokeStyle=s;c.lineWidth=lw||1;c.lineJoin='round';c.stroke();}};
 const L=(c,a,b,col,w,cap)=>{c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.strokeStyle=col;c.lineWidth=w;c.lineCap=cap||'round';c.stroke();};
 const E=(c,x,y,rx,ry,f,rot,s,lw)=>{c.beginPath();c.ellipse(x,y,rx,ry,rot||0,0,7);c.fillStyle=f;c.fill();if(s){c.strokeStyle=s;c.lineWidth=lw||1;c.stroke();}};
 const lerp=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
@@ -17,7 +20,7 @@ function vbands(c,q,cols,n,edge){
 }
 // 多角形 poly をクリップし、角度 ang(rad) の縞を幅 w で交互に塗る
 function stripe(c,poly,ang,w,cols,edge,ph){
-  c.save();c.beginPath();poly.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.closePath();c.clip();
+  c.save();c.beginPath();sm(c,poly);c.clip();
   const xs=poly.map(p=>p[0]),ys=poly.map(p=>p[1]);const cx=(Math.min(...xs)+Math.max(...xs))/2,cy=(Math.min(...ys)+Math.max(...ys))/2;
   c.translate(cx,cy);c.rotate(ang);
   for(let i=-30;i<30;i++){c.fillStyle=cols[((i%cols.length)+cols.length)%cols.length];c.fillRect(i*w+(ph||0)*w,-60,w+.4,120);}
@@ -25,7 +28,7 @@ function stripe(c,poly,ang,w,cols,edge,ph){
   if(edge)P(c,poly,null,edge,1);
 }
 // 数値パラメータ(座標降下で探索した値): 各部位の平行移動 dx,dy と縞の角度/ピッチ/位相/コントラスト
-export const params={"blade_x": 0, "blade_y": 0, "pole_x": 2, "pole_y": -0.5, "scab_x": -0.25, "scab_y": -1.875, "greave_x": 0, "greave_y": 0, "sword_x": 1.5, "sword_y": 0.5, "hakL_x": 1, "hakL_y": 0.25, "hakR_x": 0, "hakR_y": 0, "dark_x": 3.375, "dark_y": 0, "skL_x": 1, "skL_y": -1, "skR_x": 0.375, "skR_y": 1, "torso_x": 0, "torso_y": -1, "chest_x": 0.125, "chest_y": 3.125, "shoulder_x": -0.5, "shoulder_y": -0.375, "sleeve_x": 1.5, "sleeve_y": 1.625, "face_x": 0.5, "face_y": -1.75, "axe_x": -0.5, "axe_y": -1.125, "arm_x": 3.125, "arm_y": 0.625, "bucket_x": 0.875, "bucket_y": -1.125, "skL_a": -0.575, "skL_w": 4.325, "skL_p": -1.425, "skR_a": 0.2, "skR_w": 3.762, "skR_p": 0, "torso_a": 0.562, "torso_w": 3, "torso_p": -0.494, "sho_a": 0.069, "sho_w": 2.706, "sho_p": 0.625, "ct": 0.831, "br": 0.916, "skL_s": 1, "skR_s": 0.956, "torso_s": 1.06, "shoulder_s": 0.988, "sleeve_s": 0.999, "face_s": 0.89, "axe_s": 0.947, "hakL_s": 0.995, "dark_s": 0.981, "arm_s": 1.048, "bucket_s": 1.039, "chest_s": 1.1, "scab_s": 1.019, "sword_s": 1, "pole_s": 0.828, "vo": {"greave": [1, 0, 3.5, 3, 0, 2, -0.25, 0, 0.625, 0.125], "hakL": [-0.375, -0.25, 4, 1, 3, 1.5, -0.25, -0.75, 0.75, -1.125, -0.75, -4.5], "dark": [-1, 2.75, 1.5, 3, 0.5, -1, -1, -3, 0.875, 0], "skL": [3.5, 0.125, -1, -1.5, 2.125, -1.125, 5, -1.5, -2.75, -1.5], "skR": [0.125, -3.125, 5, -2.25, -2.125, 1.75, 1.25, 3.125, 0.5, -0.5], "torso": [2.5, 1.875, 3.125, -4.25, -0.75, -1.25, -2, 2.5, 2.25, 1, 0.25, -2], "sho": [0, 0.5, -3, 0.625, 0, -1, -1.375, -4.625, -4.25, 0.375, 2.5, 0.375], "sleeve": [0.625, 0.375, -0.625, -0.5, -0.375, 1.5, -5, -3.125, 0, -0.625], "helm": [2, -1.75, -0.5, -2.5, -4.25, 5, -3.5, -0.5, -0.5, -1, 4.5, -1.25], "axe": [-3, -1, 0, 0, 0, 0, 1.5, 0, -2.5, 0, -2.5, 2, 1, 1], "tachi": [1, 1, 0, 0], "katana": [2, -1, 0, 0.5], "blade": [-1, 1, 1, 0.25, 0, 0, 0, 0, 0, 0, -1, 0]}, "orc": [197, 55, 43], "dkc": [118, 46, 43]};
+export const params={"blade_x": 0, "blade_y": 0, "pole_x": 2, "pole_y": -0.5, "scab_x": -0.25, "scab_y": -1.875, "greave_x": 0, "greave_y": 0, "sword_x": 1.5, "sword_y": 0.5, "hakL_x": 1, "hakL_y": 0.25, "hakR_x": 0, "hakR_y": 0, "dark_x": 3.375, "dark_y": 0, "skL_x": 1, "skL_y": -1, "skR_x": 0.375, "skR_y": 1, "torso_x": 0, "torso_y": -1, "chest_x": 0.125, "chest_y": 3.125, "shoulder_x": -0.5, "shoulder_y": -0.375, "sleeve_x": 1.5, "sleeve_y": 1.625, "face_x": 0.5, "face_y": -1.75, "axe_x": -0.5, "axe_y": -1.125, "arm_x": 3.125, "arm_y": 0.625, "bucket_x": 0.875, "bucket_y": -1.125, "skL_a": -0.575, "skL_w": 4.325, "skL_p": -1.425, "skR_a": 0.2, "skR_w": 3.762, "skR_p": 0, "torso_a": 0.562, "torso_w": 3, "torso_p": -0.494, "sho_a": 0.069, "sho_w": 2.706, "sho_p": 0.625, "ct": 0.831, "br": 0.916, "skL_s": 1, "skR_s": 0.956, "torso_s": 1.06, "shoulder_s": 0.988, "sleeve_s": 0.999, "face_s": 0.89, "axe_s": 0.947, "hakL_s": 0.995, "dark_s": 0.981, "arm_s": 1.048, "bucket_s": 1.039, "chest_s": 1.1, "scab_s": 1.019, "sword_s": 1, "pole_s": 0.828, "vo": {"greave": [1, 0, 3.5, 3, 0, 2, -0.25, 0, 0.625, 0.125], "hakL": [-0.375, -0.25, 4, 1, 3, 1.5, -0.25, -0.75, 0.75, -1.125, -0.75, -4.5], "dark": [-1, 2.75, 1.5, 3, 0.5, -1, -1, -3, 0.875, 0], "skL": [3.5, 0.125, -1, -1.5, 2.125, -1.125, 5, -1.5, -2.75, -1.5], "skR": [0.125, -3.125, 5, -2.25, -2.125, 1.75, 1.25, 3.125, 0.5, -0.5], "torso": [2.5, 1.875, 3.125, -4.25, -0.75, -1.25, -2, 2.5, 2.25, 1, 0.25, -2], "sho": [0, 0.5, -3, 0.625, 0, -1, -1.375, -4.625, -4.25, 0.375, 2.5, 0.375], "sleeve": [0.625, 0.375, -0.625, -0.5, -0.375, 1.5, -5, -3.125, 0, -0.625], "helm": [2, -1.75, -0.5, -2.5, -4.25, 5, -3.5, -0.5, -0.5, -1, 4.5, -1.25], "axe": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "tachi": [1, 1, 0, 0], "katana": [2, -1, 0, 0.5], "blade": [-1, 1, 1, 0.25, 0, 0, 0, 0, 0, 0, -1, 0]}, "orc": [197, 55, 43], "dkc": [118, 46, 43]};
 export function draw(ctx,W,H){
   const c=ctx,Q=params, K='#241612',OR0=Q.orc,DK0=Q.dkc, SK='#e6c29a';
   const V=(n,pts)=>{const o=Q.vo[n];return o?pts.map((p,i)=>[p[0]+o[2*i],p[1]+o[2*i+1]]):pts;};
@@ -38,8 +41,12 @@ export function draw(ctx,W,H){
   L(c,[153,80],[186,101],'#b89440',3.4);L(c,[153,79],[186,100],'#7ab8a8',1);
   c.save();c.strokeStyle='#4f93c4';c.lineCap='round';
   {const b=V('blade',[[181,97],[190,103],[197,95],[207,102],[201,115],[186,108]]);
-  c.lineWidth=2.8;c.beginPath();c.moveTo(b[0][0],b[0][1]);c.lineTo(b[1][0],b[1][1]);c.stroke();
-  c.lineWidth=2;c.beginPath();c.moveTo(b[1][0]-2,b[1][1]-1);c.lineTo(b[2][0],b[2][1]);c.moveTo(b[1][0]-2,b[1][1]-1);c.lineTo(b[3][0],b[3][1]);c.moveTo(b[1][0],b[1][1]+1);c.lineTo(b[4][0],b[4][1]);c.moveTo(b[0][0]+3,b[0][1]+1);c.lineTo(b[5][0],b[5][1]);c.stroke();c.restore();}
+  const draw3=(col,w)=>{c.strokeStyle=col;c.lineWidth=w;c.lineCap='round';c.beginPath();c.moveTo(b[0][0],b[0][1]);c.lineTo(b[1][0],b[1][1]);
+   c.moveTo(b[1][0]-2,b[1][1]-1);c.quadraticCurveTo(b[1][0]+3,b[1][1]-6,b[2][0],b[2][1]);
+   c.moveTo(b[1][0]-2,b[1][1]-1);c.quadraticCurveTo(b[1][0]+8,b[1][1]-3,b[3][0],b[3][1]);
+   c.moveTo(b[1][0],b[1][1]+1);c.quadraticCurveTo(b[1][0]+8,b[1][1]+2,b[4][0],b[4][1]);
+   c.moveTo(b[0][0]+3,b[0][1]+1);c.quadraticCurveTo(b[0][0]+1,b[0][1]+6,b[5][0],b[5][1]);c.stroke();};
+  draw3('#2f628f',4.6);draw3('#4f93c4',3.2);c.restore();}
   close();
   // --- 左下の太刀(鞘) ---
   open('scab');
@@ -77,9 +84,9 @@ export function draw(ctx,W,H){
   // 胸板 (白地に赤点)
   open('chest');
   // 縄目帯: 胴の縁を巻く下に凸の白〜ピンクの弧
-  c.beginPath();c.moveTo(70,128);c.quadraticCurveTo(78,142,96,140);c.strokeStyle='#6a3a30';c.lineWidth=3;c.lineCap='round';c.stroke();
-  c.beginPath();c.moveTo(70,128);c.quadraticCurveTo(78,142,96,140);c.strokeStyle='#ecd2c6';c.lineWidth=2;c.stroke();
-  for(let i=0;i<6;i++){const t=(i+.5)/6,x=(1-t)*(1-t)*70+2*t*(1-t)*78+t*t*96,y=(1-t)*(1-t)*128+2*t*(1-t)*142+t*t*140;E(c,x,y,.7,.7,'#d8786a');}
+  c.beginPath();c.moveTo(70,128);c.quadraticCurveTo(78,142,96,140);c.strokeStyle='#7a4a3c';c.lineWidth=4.6;c.lineCap='round';c.stroke();
+  c.beginPath();c.moveTo(70,128);c.quadraticCurveTo(78,142,96,140);c.strokeStyle='#f4e0d6';c.lineWidth=3.4;c.stroke();
+  for(let i=0;i<6;i++){const t=(i+.5)/6,x=(1-t)*(1-t)*70+2*t*(1-t)*78+t*t*96,y=(1-t)*(1-t)*128+2*t*(1-t)*142+t*t*140;E(c,x,y,.9,.9,'#d8786a');}
   close();
   // --- 肩 (袖) 縦縞 ---
   open('shoulder');
@@ -101,17 +108,20 @@ export function draw(ctx,W,H){
   close();
   // --- 青い斧状の物 ---
   open('axe');
-  P(c,V('axe',[[135,101],[150,102],[160,114],[157,123],[140,127],[131,122],[134,110]]),'#5e95bc','#34566f',.9);
-  P(c,[[142,103],[148,102],[156,112],[148,113]],'#7fb0d0');
+  P(c,V('axe',[[134,112],[137,104],[143,101],[151,102],[157,108],[160,116],[158,123],[150,126],[140,126],[133,121]]),'#6a9cc0','#34566f',1.3,.12);
+  P(c,[[141,104],[148,103],[155,110],[150,116],[144,112]],'#86b4d2');
   P(c,[[135,112],[141,112],[139,121],[135,119]],'#fff');
   close();
   // --- 腕 (右へ伸びる緑の籠手と手) ---
   open('arm');
-  L(c,[116,124],[146,146],'#a9c58f',4);
-  L(c,[119,123],[146,145],'#e8eadc',1,'butt');
+  L(c,[116,124],[143,144],'#8aa874',6.2);
+  L(c,[116,123],[143,143],'#b4cf9c',4.2);
+  L(c,[119,123],[142,142],'#e8eadc',.9,'butt');
+  for(let i=0;i<3;i++)L(c,[124+i*7,126+i*5.4],[126+i*7,129+i*5.4],'#c9a44a',1.3,'butt');
   L(c,[118,127],[134,132],K,1.5);
-  E(c,148,147,3.4,2.4,'#e6b890',.5);
-  L(c,[149,146],[153,143],'#e6b890',1.4);
+  L(c,[142,143],[147,147],'#e0ac84',5);
+  E(c,149,148,4,3.2,'#e6b890',.6,'#a87450',.5);
+  [[153,144],[154,147],[153,150],[150,152]].forEach(q=>L(c,[150,148],q,'#e6b890',1.5));
   close();
   // 肩の黒い縁
   open('arm');

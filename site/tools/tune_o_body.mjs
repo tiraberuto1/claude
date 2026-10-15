@@ -60,9 +60,9 @@ const res = await p.evaluate(async (SW) => {
     if(typeof v==='number'){leaves.push({o,kk,grp,t:(kind==='c')?'c':(kk==='a'?'a':(kk==='spread'||kk==='len'||kk==='ox'||kk==='dens')?'s':'xy')});}
     else walk(v,(kk==='c'||kk==='bodyc')?'c':kind==='c'?'c':'xy',grp||kk);}})(P,'xy','');
   for(const l of leaves)l.o0=l.o[l.kk];
-  const spanXY={body:6,masses:5,kim:6,crown:4,hand:3,sprays:5,loin:3};const span={c:18,a:0.25,s:0.3};
+  const spanXY={};const span={c:12,a:0.2,s:0.2};
   const stepOf={xy:[10,5,2.5],c:[16,8,4],a:[0.15,0.08,0.04],s:[0.2,0.1,0.05]};
-  const limL=(l,v)=>{v=(()=>{const sp=l.t==='xy'?(spanXY[l.grp]||12):span[l.t];return Math.max(l.o0-sp,Math.min(l.o0+sp,v));})();return lim(l.t,v);};
+  const limL=(l,v)=>{v=(()=>{const sp=l.t==='xy'?(spanXY[l.grp]||3):span[l.t];return Math.max(l.o0-sp,Math.min(l.o0+sp,v));})();return lim(l.t,v);};
   const lim=(t,v)=>t==='c'?Math.max(0,Math.min(255,v)):t==='a'?Math.max(0,Math.min(1,v)):t==='s'?Math.max(0.05,v):v;
   let cur=evalP();const base=cur;console.log('init',JSON.stringify(base));
   let seed=1;const rn=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
