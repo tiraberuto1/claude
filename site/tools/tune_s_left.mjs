@@ -25,14 +25,22 @@ const res = await p.evaluate(async (rounds) => {
   const score=()=>{const S=render();return SEARCH.reduce((a,r)=>a+ssim(S,r),0)/SEARCH.length;};
   const hold=()=>{const S=render();return HOLD.map(r=>ssim(S,r));};
   const init=JSON.parse(JSON.stringify(P)), s0=score(), h0=hold();
-  const step=k=>/_x$|_y$/.test(k)?2:/_a$/.test(k)?.1:/_s$/.test(k)?.05:k==='br'?.05:/_w$/.test(k)?.5:/_p$/.test(k)?.5:.3;
-  let best=s0;const keys=Object.keys(P);
-  for(let r=0;r<rounds;r++){const f=1/Math.pow(2,r);let imp=false;
-    let again=true;while(again){again=false;for(const k of keys){for(const d of [1,-1]){const old=P[k];P[k]=old+d*step(k)*f;if(k.endsWith('_w')&&P[k]<1.2)P[k]=old;if(k==='ct'){P[k]=Math.max(0,Math.min(1,P[k]));}
-      const sc=score();if(sc>best+1e-5){best=sc;imp=true;again=true;break;}else P[k]=old;}}}
-    if(!imp&&r>2)break;}
+  // 探索対象: params の全ての数値 (頂点オフセット vo.*, 色 orc/dkc を含む)
+  const leaves=[];const base=JSON.parse(JSON.stringify(P));
+  for(const k of Object.keys(P)){const v=P[k];
+    if(typeof v==='number')leaves.push([P,k,k]);
+    else if(k==='vo')for(const n of Object.keys(v))v[n].forEach((_,i)=>leaves.push([v[n],i,'vo']));
+    else if(k==='orc'||k==='dkc')v.forEach((_,i)=>leaves.push([v,i,k]));}
+  const step=(t)=>t==='vo'?1:t==='orc'||t==='dkc'?8:/_x$|_y$/.test(t)?1:/_s$/.test(t)?.04:t==='br'?.04:/_a$/.test(t)?.1:/_w$/.test(t)?.4:/_p$/.test(t)?.4:.2;
+  const ok=(o,k,t,v)=>{if(t==='vo')return Math.abs(v)<=5;if(t==='orc'||t==='dkc')return Math.abs(v-base[t][k])<=30&&v>=0&&v<=255;
+    if(t==='ct')return v>=.3&&v<=1;if(/_s$/.test(t))return v>.85&&v<1.15;if(/_x$|_y$/.test(t))return Math.abs(v)<=6;if(/_w$/.test(t))return v>=1.5&&v<=5;if(t==='br')return v>.7&&v<1.2;return true;};
+  let best=s0;
+  for(let r=0;r<rounds;r++){const f=1/Math.pow(2,r);let again=true;
+    while(again){again=false;
+      for(const [o,k,t] of leaves){for(const d of [1,-1]){const old=o[k];const nv=old+d*step(t)*f;if(!ok(o,k,t,nv))continue;o[k]=nv;
+        const sc=score();if(sc>best+1e-5){best=sc;again=true;break;}else o[k]=old;}}}}
   return {init,final:JSON.parse(JSON.stringify(P)),s0,s1:best,h0,h1:hold(),
     detail0:null};
-}, 5);
+}, 4);
 console.log(JSON.stringify(res,null,1)); fs.writeFileSync(process.argv[2]||'out/tune_result.json',JSON.stringify(res));
 await b.close(); await s.close();

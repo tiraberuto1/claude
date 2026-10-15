@@ -1,10 +1,13 @@
 export const name='s_right';
 // 座標は基準画像を4倍拡大したもの(原点 410,30)。translate+scale で画像座標へ。
 let seed=7;function rnd(){seed=(seed*16807)%2147483647;return seed/2147483647;}
-function P(c,pts,f,s,lw){c.beginPath();pts.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.closePath();if(f){c.fillStyle=f;c.fill();}if(s){c.strokeStyle=s;c.lineWidth=lw||2;c.lineJoin='round';c.stroke();}}
-function L(c,a,b,col,w,cap){c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.strokeStyle=col;c.lineWidth=w;c.lineCap=cap||'round';c.stroke();}
+export const stats={P:[],L:[],E:[],S:[]};let pI=0,lI=0,eI=0,sI=0;
+function shade(f,m){let r,g,b;if(f[0]==='#'){r=parseInt(f.slice(1,3),16);g=parseInt(f.slice(3,5),16);b=parseInt(f.slice(5,7),16);}else{[r,g,b]=f.match(/\d+/g).map(Number);}const k=v=>Math.max(0,Math.min(255,Math.round(v*m)));return `rgb(${k(r)},${k(g)},${k(b)})`;}
+function Praw(c,pts,f,s,lw){c.beginPath();pts.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.closePath();if(f){c.fillStyle=f;c.fill();}if(s){c.strokeStyle=s;c.lineWidth=lw||2;c.lineJoin='round';c.stroke();}}
+function P(c,pts,f,s,lw){const i=pI++;stats.P[i]=pts.length;const o=params.P&&params.P[i];if(o)pts=pts.map((p,k)=>[p[0]+(o[k*2]||0),p[1]+(o[k*2+1]||0)]);const m=params.PB&&params.PB[i];if(m&&typeof f==='string')f=shade(f,m);Praw(c,pts,f,s,lw);}
+function L(c,a,b,col,w,cap){const i=lI++;stats.L[i]=1;const o=params.L&&params.L[i];if(o){a=[a[0]+o[0],a[1]+o[1]];b=[b[0]+o[2],b[1]+o[3]];}c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.strokeStyle=col;c.lineWidth=w;c.lineCap=cap||'round';c.stroke();}
 function Q(c,a,b,d,col,w){c.beginPath();c.moveTo(a[0],a[1]);c.quadraticCurveTo(b[0],b[1],d[0],d[1]);c.strokeStyle=col;c.lineWidth=w;c.lineCap='round';c.stroke();}
-function E(c,x,y,rx,ry,f,rot){c.beginPath();c.ellipse(x,y,rx,ry,rot||0,0,7);c.fillStyle=f;c.fill();}
+function E(c,x,y,rx,ry,f,rot){const i=eI++;stats.E[i]=1;const o=params.E&&params.E[i];if(o){x+=o[0];y+=o[1];}c.beginPath();c.ellipse(x,y,rx,ry,rot||0,0,7);c.fillStyle=f;c.fill();}
 function hex(h){return [parseInt(h.slice(1,3),16),parseInt(h.slice(4-1+0,5),16),parseInt(h.slice(5,7),16)];}
 function jit(h,a){const [r,g,b]=hex(h);const d=(rnd()-.5)*a;const k=v=>Math.max(0,Math.min(255,Math.round(v+d)));return `rgb(${k(r)},${k(g)},${k(b)})`;}
 const mix=(p,r,t)=>[p[0]+(r[0]-p[0])*t,p[1]+(r[1]-p[1])*t];
@@ -17,18 +20,21 @@ function cords(c,q,n,col,w){for(let i=1;i<n;i++){const t=i/n;L(c,mix(q[0],q[1],t
 function limb(c,a,b,w,col,col2){L(c,a,b,col2||col,w+2);L(c,a,b,col,w);}
 const SK='#e2b48e',HR='#17120f';
 // 多角形内を u 方向に積む縞で塗る。pat=[[色,幅],...] を繰り返す
-function strips(c,poly,o,u,pat,len,j,rep){c.save();c.beginPath();poly.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.closePath();c.clip();
- const v=[-u[1],u[0]];let s=0,k=0;while(s<len){const [col,w]=pat[k%pat.length];if(!rep&&k>=pat.length)break;const e=s+w*(0.85+rnd()*.3);
+function strips(c,poly,o,u,pat,len,j,rep){const si=sI++;stats.S[si]=poly.length;const q=(params.S&&params.S[si])||[1,0,0,1];
+ poly=poly.map((p,k)=>[p[0]+(q[4+k*2]||0),p[1]+(q[5+k*2]||0)]);
+ const ca=Math.cos(q[2]||0),sa=Math.sin(q[2]||0);u=[u[0]*ca-u[1]*sa,u[0]*sa+u[1]*ca];o=[o[0]+u[0]*(q[1]||0),o[1]+u[1]*(q[1]||0)];
+ c.save();c.beginPath();poly.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.closePath();c.clip();
+ const v=[-u[1],u[0]];let s=-(q[1]||0)>0?-(q[1]||0):0,k=0;s=0;const pm=q[0]||1,lm=q[3]||1;while(s<len){const [col,w]=pat[k%pat.length];if(!rep&&k>=pat.length)break;const e=s+w*pm*(0.85+rnd()*.3);
   const A=[o[0]+u[0]*s,o[1]+u[1]*s],B=[o[0]+u[0]*e,o[1]+u[1]*e];
-  P(c,[[A[0]-v[0]*1000,A[1]-v[1]*1000],[A[0]+v[0]*1000,A[1]+v[1]*1000],[B[0]+v[0]*1000,B[1]+v[1]*1000],[B[0]-v[0]*1000,B[1]-v[1]*1000]],jit(col,j||18));s=e;k++;}
+  Praw(c,[[A[0]-v[0]*1000,A[1]-v[1]*1000],[A[0]+v[0]*1000,A[1]+v[1]*1000],[B[0]+v[0]*1000,B[1]+v[1]*1000],[B[0]-v[0]*1000,B[1]-v[1]*1000]],shade(jit(col,j||18),lm));s=e;k++;}
  c.restore();}
 function dots(c,pts,r,col){pts.forEach(p=>E(c,p[0],p[1],r,r,col));}
 export const params={cloth:[-5,0,0,1.02],rope:[1.875,0.125,-0.045,0.96],blade:[1.25,0,0.03,1],spearA:[0,0,0,1],Alegs:[-2.125,3.5,-0.0775,0.94],Askirt:[-0.75,0.5,0.04,1.005],Achest:[2.875,2,0,1.14],Ashik:[0,-0.25,-0.02,0.96],Asw2:[-0.5,0,-0.025,1],Ahead:[3.5,1,-0.1925,0.9],Asleeve:[-2.125,-0.25,0.02,0.92],Asword:[0,0,0,1],spearB:[4,0.5,-0.065,1.008],Blegs:[-0.75,2,0.06,1.023],Bhip:[2.375,-6,0.0175,1.02],Bskirt:[-0.5,-1.75,-0.055,0.97],Bsode:[2.75,2.375,-0.045,1],Bhand:[-2,0.5,0.05,1.08],Bsword:[4.5,1.5,0.01,1.18],Bsword2:[2.375,0.25,0.02,1.04],Bkim:[-0.25,-4.5,-0.0175,0.945],Bhead:[-0.5,1,-0.02,0.91],C:[-0.5,2,-0.015,1.058]};
-export const PIV={cloth:[435,60],rope:[480,110],blade:[460,118],spearA:[0,0,0,1],Alegs:[520,125],Askirt:[525,112],Achest:[517,93],Ashik:[525,78],Asw2:[540,96],Ahead:[495,75],Asleeve:[495,68],Asword:[0,0,0,1],spearB:[635,100],Blegs:[620,165],Bhip:[620,150],Bskirt:[620,135],Bsode:[605,100],Bhand:[610,125],Bsword:[640,118],Bsword2:[535,149],Bkim:[585,130],Bhead:[577,98],C:[470,165]};
+export const PIV={cloth:[435,60],rope:[480,110],blade:[460,118],spearA:[560,85],Alegs:[520,125],Askirt:[525,112],Achest:[517,93],Ashik:[525,78],Asw2:[540,96],Ahead:[495,75],Asleeve:[495,68],Asword:[495,36],spearB:[635,100],Blegs:[620,165],Bhip:[620,150],Bskirt:[620,135],Bsode:[605,100],Bhand:[610,125],Bsword:[640,118],Bsword2:[535,149],Bkim:[585,130],Bhead:[577,98],C:[470,165]};
 let CTX;function G(nm,f){const t=params[nm]||[0,0,0,1],pv=PIV[nm]||[0,0];let h=0;for(const ch of nm)h=(h*31+ch.charCodeAt(0))%2147483646;seed=h+1;
  CTX.save();CTX.translate(pv[0]+t[0],pv[1]+t[1]);CTX.rotate(t[2]);CTX.scale(t[3],t[3]);CTX.translate(-pv[0],-pv[1]);f();CTX.restore();}
 export function draw(ctx,W,H){
- const c=ctx;CTX=ctx;seed=7;
+ const c=ctx;CTX=ctx;seed=7;pI=lI=eI=sI=0;
  G('cloth',()=>{
  // ===== 赤い布(左上) =====
  P(c,[[416,40],[424.5,40.5],[437.5,62],[459.5,83],[447.5,82],[431,67.5],[419.5,54.5]],'#c43228','#8a1c18',.6);

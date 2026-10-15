@@ -29,22 +29,33 @@ const res=await p.evaluate(async ({src,ref,base})=>{
   const score=(regs)=>{const S=render();return regs.map(r=>ssim(S,...r));};
   const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
   const obj=()=>mean(score(TR));
+  render();  // P.o を初期化
   const init=JSON.parse(JSON.stringify(P));
   const v0=score(VA),t0=score(TR);
-  // パラメータ一覧
-  const keys=[];for(const k in P){if(Array.isArray(P[k]))P[k].forEach((_,i)=>keys.push([k,i]));else keys.push([k,null]);}
-  const get=([k,i])=>i===null?P[k]:P[k][i],set=([k,i],v)=>{if(i===null)P[k]=v;else P[k][i]=v;};
-  const stepOf=([k,i])=>i!==null?6:(['edge','wash','mottle','gold','arcA'].includes(k)?0.4:(k==='lineA'?0.15:2));
-  let best=obj();
-  for(let it=0;it<8;it++){
+  const keys=[];
+  for(const k in P){ if(k==='o'){for(const id in P.o)P.o[id].forEach((_,i)=>keys.push(['o',id,i]));}
+    else if(Array.isArray(P[k]))P[k].forEach((_,i)=>keys.push([k,i]));else keys.push([k,null]);}
+  const get=(K)=>K[0]==='o'?P.o[K[1]][K[2]]:(K[1]===null?P[K[0]]:P[K[0]][K[1]]);
+  const set=(K,v)=>{if(K[0]==='o')P.o[K[1]][K[2]]=v;else if(K[1]===null)P[K[0]]=v;else P[K[0]][K[1]]=v;};
+  const SOFT=['edge','wash','mottle','gold','arcA','lineA'];
+  const stepOf=(K)=>K[0]==='o'?1.5:(K[1]!==null?5:(SOFT.includes(K[0])?0.3:2));
+  const lo=(K)=>K[0]==='o'?-5:(K[0]==='edge'||K[0]==='mottle'||K[0]==='gold'?0.2:(SOFT.includes(K[0])?0:-1e9));
+  const hi=(K)=>K[0]==='o'?5:(K[0]==='edge'||K[0]==='mottle'||K[0]==='gold'?1.5:1e9);
+  const CORE=[[30,205,150,230],[20,240,340,247],[540,238,660,246],[600,205,680,228]];
+  const cmean=(D,r)=>{const[x0,y0,x1,y1]=r;const m=[0,0,0];let n=0;for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){for(let c=0;c<3;c++)m[c]+=D.data[(y*680+x)*4+c];n++;}return m.map(v=>v/n);};
+  const RM=CORE.map(r=>cmean(R,r));
+  const colOK=()=>{cx.clearRect(0,0,680,247);cx.drawImage(B,0,0);mod.draw(cx,680,247);const D=cx.getImageData(0,0,680,247);return CORE.every((r,i)=>{const m=cmean(D,r);return m.every((v,c)=>Math.abs(v-RM[i][c])<=8);});};
+  let best=colOK()?obj():-1;
+  for(let it=0;it<10;it++){
     let imp=false;
     for(const key of keys){
-      const s0=stepOf(key)/(1+it*0.6);
+      const s0=stepOf(key)/(1+it*0.5);
       for(const d of [s0,-s0]){
-        const old=get(key);let v=old+d;
-        if(['edge','wash','mottle','gold','arcA','lineA'].includes(key[0])&&v<0)v=0;
-        set(key,v);const o=obj();
-        if(o>best+1e-5){best=o;imp=true;}else set(key,old);
+        const old=get(key);const v=Math.min(hi(key),Math.max(lo(key),old+d));
+        if(v===old)continue;
+        set(key,v);
+        const o=obj();
+        if(o>best+1e-5&&colOK()){best=o;imp=true;}else set(key,old);
       }
     }
     if(!imp)break;

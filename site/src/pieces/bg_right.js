@@ -9,9 +9,10 @@ function dashed(ctx,x0,y0,x1,y1,w){
   ctx.restore();
 }
 // 調整可能な数値(tools/tune_bg_right.mjs の探索結果)
-export const P={grainSlope:0.01,grainStep:2.0,grainAlpha:0,seamSlope:-0.088,seamOff:0,seamAlpha:0.7,
+export const P={grainSlope:0.01,grainStep:2.0,grainAlpha:0.35,seamSlope:-0.088,seamOff:0,seamAlpha:0.7,
   dashPeriod:5.4,dashPhase:0,plankL:1.0,floorL:1.0,plankTop:139,dashY:71,dashY2:130,dashY3:188.5,
-  panelL:1.0,shX:0,shY:0};
+  panelL:1.0,flDx:0,flDy:2,
+  pk:[[-3,0,0],[4,0,0],[0,3,0],[-6,-2,0],[0,0,-0.06]]};
 const sc=(rgb,k)=>'rgb('+rgb.map(v=>Math.max(0,Math.min(255,Math.round(v*k)))).join(',')+')';
 export function draw(ctx,W,H){
   const R=rng(11);DP=P.dashPeriod;DPH=P.dashPhase;
@@ -40,7 +41,7 @@ export function draw(ctx,W,H){
   ctx.fillRect(525,36,12,34);
   // パネルの草花
   for(let i=0;i<35;i++){
-    const x=358+R()*168,y=42+R()*22;if(x>434&&x<452)continue;
+    const x=358+R()*168+P.flDx,y=42+R()*22+P.flDy;if(x>434&&x<452)continue;
     ctx.fillStyle=R()<0.5?'rgba(110,140,80,0.55)':'rgba(215,175,70,0.6)';
     ctx.beginPath();ctx.arc(x,y,1+R()*1.2,0,7);ctx.fill();
   }
@@ -84,19 +85,20 @@ export function draw(ctx,W,H){
   ctx.fillStyle='rgb(150,142,96)';
   ctx.beginPath();ctx.moveTo(634,170);ctx.lineTo(680,166);ctx.lineTo(680,184);ctx.lineTo(650,186);ctx.lineTo(626,186);ctx.closePath();ctx.fill();
   // 倒木: 右上がりの割れた板片
-  const plank=(pts,seed,col)=>{
+  const plank=(pts,seed,col,pi)=>{
+    const [ox,oy,tl]=P.pk[pi];
     const Q=rng(seed);
     ctx.beginPath();
-    pts.forEach((q,i)=>{const x=q[0]+(Q()-0.5)*2.5,y=q[1]+(Q()-0.5)*2;i?ctx.lineTo(x,y):ctx.moveTo(x,y);});
+    pts.forEach((q,i)=>{const x=q[0]+(Q()-0.5)*2.5+ox,y=q[1]+(Q()-0.5)*2+oy+tl*(q[0]-650);i?ctx.lineTo(x,y):ctx.moveTo(x,y);});
     ctx.closePath();ctx.fillStyle=col;ctx.fill();
     ctx.strokeStyle='rgba(48,34,24,0.8)';ctx.lineWidth=0.9;ctx.stroke();
   };
-  plank([[612,173],[622,171],[636,166],[650,161],[664,157],[680,152],[680,160],[668,166],[656,170],[640,174],[628,177],[618,179],[612,177]],3,'rgb(128,100,72)');
-  plank([[630,164],[642,159],[655,153],[668,147],[680,142],[680,148],[670,153],[660,158],[648,163],[638,167]],5,'rgb(112,86,62)');
-  plank([[660,140],[668,137],[680,134],[680,141],[672,143],[664,145]],8,'rgb(138,108,78)');
-  plank([[640,177],[652,172],[666,168],[680,164],[680,170],[668,173],[656,177],[645,181]],9,'rgb(104,80,58)');
+  plank([[612,173],[622,171],[636,166],[650,161],[664,157],[680,152],[680,160],[668,166],[656,170],[640,174],[628,177],[618,179],[612,177]],3,'rgb(128,100,72)',0);
+  plank([[630,164],[642,159],[655,153],[668,147],[680,142],[680,148],[670,153],[660,158],[648,163],[638,167]],5,'rgb(112,86,62)',1);
+  plank([[660,140],[668,137],[680,134],[680,141],[672,143],[664,145]],8,'rgb(138,108,78)',2);
+  plank([[640,177],[652,172],[666,168],[680,164],[680,170],[668,173],[656,177],[645,181]],9,'rgb(104,80,58)',3);
   // 右下隅の黒茶の板
-  plank([[680,185],[670,188],[660,193],[652,199],[680,201]],7,'rgb(52,40,30)');
+  plank([[680,185],[670,188],[660,193],[652,199],[680,201]],7,'rgb(52,40,30)',4);
   // 縁の点線
   dashed(ctx,430,P.dashY2,580,P.dashY2,3);
   dashed(ctx,622,P.dashY3,667,P.dashY3,3);

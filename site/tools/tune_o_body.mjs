@@ -43,8 +43,9 @@ const res = await p.evaluate(async (SW) => {
     // 平均色(体域, 両方のRGB)
     const r0=regs[0];let dm=0;for(let ch=0;ch<3;ch++){let a=0,bb=0,n=0;for(let y=r0[1];y<r0[3];y++)for(let x=r0[0];x<r0[2];x++){const i=4*(y*W+x)+ch;a+=rd[i];bb+=d[i];n++;}dm+=Math.abs(a-bb)/n;}
     const r1=regs[2];let dm2=0;for(let ch=0;ch<3;ch++){let a=0,bb=0,n=0;for(let y=r1[1];y<r1[3];y++)for(let x=r1[0];x<r1[2];x++){const i=4*(y*W+x)+ch;a+=rd[i];bb+=d[i];n++;}dm2+=Math.abs(a-bb)/n;}
-    const score=tot/3-2*(dm+dm2)/(2*3*255);
-    return {score,tr,hold:hs/hn,dm,dm2};
+    let hf=0,hn2=0;for(let y=120;y<200;y++)for(let x=300;x<430;x++){const i=4*(y*W+x);hn2++;if(d[i]>=d[i+1]+30&&d[i+1]>=d[i+2]+10)hf++;}hf/=hn2;
+    const score=tot/3-2*(dm+dm2)/(2*3*255)-0.3*Math.max(0,0.8-hf);
+    return {score,tr,hold:hs/hn,dm,dm2,hf};
   }
   // 葉の列挙
   const leaves=[];
@@ -55,13 +56,13 @@ const res = await p.evaluate(async (SW) => {
     }})(P,'xy','');
   // c配列の葉: 親キー c を検出するため再構築
   leaves.length=0;
-  (function walk(o,kind){for(const kk of Object.keys(o)){const v=o[kk];
-    if(typeof v==='number'){leaves.push({o,kk,t:(kind==='c')?'c':(kk==='a'?'a':(kk==='spread'||kk==='len'||kk==='ox'||kk==='dens')?'s':'xy')});}
-    else walk(v,(kk==='c')?'c':kind==='c'?'c':'xy');}})(P,'xy');
+  (function walk(o,kind,grp){for(const kk of Object.keys(o)){const v=o[kk];
+    if(typeof v==='number'){leaves.push({o,kk,grp,t:(kind==='c')?'c':(kk==='a'?'a':(kk==='spread'||kk==='len'||kk==='ox'||kk==='dens')?'s':'xy')});}
+    else walk(v,(kk==='c')?'c':kind==='c'?'c':'xy',grp||kk);}})(P,'xy','');
   for(const l of leaves)l.o0=l.o[l.kk];
-  const span={xy:30,c:25,a:0.35,s:0.5};
+  const spanXY={body:24,masses:18,kim:18,crown:18,hand:12,sprayo:18};const span={c:25,a:0.25,s:0.3};
   const stepOf={xy:[10,5,2.5],c:[16,8,4],a:[0.15,0.08,0.04],s:[0.2,0.1,0.05]};
-  const limL=(l,v)=>{v=Math.max(l.o0-span[l.t],Math.min(l.o0+span[l.t],v));return lim(l.t,v);};
+  const limL=(l,v)=>{v=(()=>{const sp=l.t==='xy'?(spanXY[l.grp]||12):span[l.t];return Math.max(l.o0-sp,Math.min(l.o0+sp,v));})();return lim(l.t,v);};
   const lim=(t,v)=>t==='c'?Math.max(0,Math.min(255,v)):t==='a'?Math.max(0,Math.min(1,v)):t==='s'?Math.max(0.05,v):v;
   let cur=evalP();const base=cur;console.log('init',JSON.stringify(base));
   let seed=1;const rn=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
@@ -70,9 +71,9 @@ const res = await p.evaluate(async (SW) => {
     const order=leaves.map((l,i)=>[rn(),i]).sort((a,b)=>a[0]-b[0]).map(x=>leaves[x[1]]);
     let acc=0;
     for(const l of order){const st=stepOf[l.t][lvl];const old=l.o[l.kk];
-      for(const dir of [1,-1]){l.o[l.kk]=limL(l,old+dir*st);if(l.t==='c'&&!(l.o[0]>=l.o[1]+25&&l.o[1]>=l.o[2]+10)){l.o[l.kk]=old;continue;}const e=evalP();if(e.score>cur.score+1e-5){cur=e;acc++;break;}l.o[l.kk]=old;}
+      for(const dir of [1,-1]){l.o[l.kk]=limL(l,old+dir*st);if(l.t==='c'&&l.grp!=='kim'&&l.grp!=='tint'&&!(l.o[0]>=l.o[1]+30&&l.o[1]>=l.o[2]+10&&l.o[1]<=0.78*l.o[0])){l.o[l.kk]=old;continue;}const e=evalP();if(e.score>cur.score+1e-5){cur=e;acc++;break;}l.o[l.kk]=old;}
     }
-    console.log('sweep',sw,'acc',acc,JSON.stringify({score:cur.score,tr:cur.tr,hold:cur.hold,dm:cur.dm,dm2:cur.dm2}));
+    console.log('sweep',sw,'acc',acc,JSON.stringify({score:cur.score,tr:cur.tr,hold:cur.hold,dm:cur.dm,dm2:cur.dm2,hf:cur.hf}));
   }
   return {P,base,cur};
 }, SW);

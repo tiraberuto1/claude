@@ -30,19 +30,21 @@ const res = await p.evaluate(async (gray) => {
     return t/ma.length;};
   const render=()=>{hx.clearRect(0,0,W,H);head.draw(hx,W,H);cx.clearRect(0,0,W,H);cx.drawImage(below,0,0);cx.drawImage(hc,0,0);cx.drawImage(above,0,0);
     const d=cx.getImageData(0,0,W,H).data,g=new Float64Array(W*H);for(let i=0;i<g.length;i++)g[i]=Math.floor((299*d[4*i]+587*d[4*i+1]+114*d[4*i+2])/1000);return g;};
-  const TR=[[0,30,160,150],[90,55,138,100],[286,0,340,38]], HO=[[55,40,90,90],[120,40,160,100],[0,0,340,150],[150,40,200,110]];
+  const TR=[[0,30,160,150],[90,55,138,100],[286,0,340,38]], HO=[[55,40,90,90],[120,40,160,100],[0,0,340,150],[150,40,200,110],[200,0,286,40]];
   const ev=(rs)=>{const g=render();return rs.map(r=>ssim(g,r));};
   const obj=()=>{const v=ev(TR);return v[0]*1+v[1]*1+v[2]*1;};
-  const P0={...P}, before={tr:ev(TR),ho:ev(HO)};
-  const step={hx:4,hy:4,hsx:0.06,hsy:0.06,hb:0.1,hs:0.4,tn:6,fx:3,fy:3,fsx:0.05,fsy:0.05,fr:0.08,fg:0.08,fb:0.08,sa:0.2,ex:2,ey:2,mx:2,my:2,msx:0.1,kx:3,ky:3,ksx:0.08,ksy:0.08,kb:0.1};
-  const lim={hs:[0.2,3],tn:[0,40],sa:[0,1],hb:[0.5,1.6],kb:[0.5,1.5]};
-  const keys=Object.keys(step);let best=obj();
-  for(let round=0;round<7;round++){
-    for(const k of keys){for(const sg of [1,-1]){let moved=true;
-      while(moved){moved=false;const old=P[k];let nv=old+sg*step[k];const L=lim[k];if(L)nv=Math.max(L[0],Math.min(L[1],nv));if(nv===old)break;
-        P[k]=k==='tn'?Math.round(nv):nv;const o=obj();if(o>best+1e-5){best=o;moved=true;}else P[k]=old;}}}
-    for(const k of keys)step[k]*=0.55;
+  const P0=JSON.parse(JSON.stringify(P)), before={tr:ev(TR),ho:ev(HO)};
+  const D=[];const sc0={hx:4,hy:4,hsx:0.06,hsy:0.06,hb:0.05,hs:0.2,tn:4,fx:3,fy:3,fsx:0.05,fsy:0.05,fr:0.08,fg:0.08,fb:0.08,sa:0.2,ex:2,ey:2,mx:2,my:2,msx:0.1,kx:3,ky:3,ksx:0.08,ksy:0.08,kb:0.1,ta:0.4,tl:0.2};
+  const lim={hs:[0.6,3],tn:[8,40],sa:[0,1],hb:[0.9,1.2],kb:[0.8,1.2],ta:[-1.5,1.5],tl:[0.6,1.6]};
+  for(const k in sc0)D.push({get:()=>P[k],set:v=>{P[k]=k==='tn'?Math.round(v):v;},step:sc0[k],lim:lim[k],base:null});
+  for(const k of ['ho','fo','bo','eo','to','so','no'])P[k].forEach((_,i)=>D.push({get:()=>P[k][i],set:v=>{P[k][i]=v;},step:2,lim:[-5,5]}));
+  let best=obj();
+  for(let round=0;round<5;round++){
+    for(const d of D){for(const sg of [1,-1]){let moved=true;
+      while(moved){moved=false;const old=d.get();let nv=old+sg*d.step;if(d.lim)nv=Math.max(d.lim[0],Math.min(d.lim[1],nv));if(nv===old)break;
+        d.set(nv);const o=obj();if(o>best+1e-5){best=o;moved=true;}else d.set(old);}}}
+    for(const d of D)d.step*=0.6;
   }
-  return {P0,P:{...P},before,after:{tr:ev(TR),ho:ev(HO)},best};
+  return {P0,P:JSON.parse(JSON.stringify(P)),before,after:{tr:ev(TR),ho:ev(HO)},best};
 }, gray);
 console.log(JSON.stringify(res,null,1)); await b.close(); await s.close();

@@ -16,19 +16,27 @@ function ssim(g,[x0,y0,x1,y1]){const w=x1-x0,h=y1-y0,A=new Float64Array(w*h),B=n
   const ma=box(A,w,h),mb=box(B,w,h),maa=box(AA,w,h),mbb=box(BB,w,h),mab=box(AB,w,h);
   const C1=6.5025,C2=58.5225;let t=0;for(let i=0;i<ma.length;i++){const va=maa[i]-ma[i]**2,vb=mbb[i]-mb[i]**2,cv=mab[i]-ma[i]*mb[i];
     t+=((2*ma[i]*mb[i]+C1)*(2*cv+C2))/((ma[i]**2+mb[i]**2+C1)*(va+vb+C2));}return t/ma.length;}
-const TUNE=[[168,62,230,80],[150,184,200,196],[60,172,100,196],[195,208,225,228],[176,78,245,125],[176,126,230,138]];
-const VAL=[[230,62,290,80],[200,184,250,196],[230,126,290,138],[176,30,300,62]];
-const BND={dyTop:[66.5,68.5],dwTop:[2,3.2],dpTop:[7,8.5],ddTop:[2.5,4.5],dyMid:[131,134],dyBot:[187.5,191],dwMid:[2.4,3.6],dpMid:[6,8],beamY:[67,70],beamH:[5,8],stA:[0.3,0.85],stW:[5,11],diagX0:[88,100],diagY0:[188,192],diagX1:[250,262],diagY1:[72,80]};
+const TUNE0=[[168,62,230,80],[150,184,200,196],[60,172,100,196],[195,208,225,228],[176,78,245,125],[176,126,230,138]];
+const VAL0=[[230,62,290,80],[200,184,250,196],[230,126,290,138],[176,30,300,62]];
+const TUNE=[...TUNE0,[153,48,190,68],[230,40,300,66],[0,46,30,74],[0,120,15,160]];
+const VAL=[...VAL0.slice(0,3),[176,30,230,62],[30,46,60,74],[15,120,30,160]];
+const BND={ddMid:[2,4.5],skx:[240,300],sky:[55,85],skang:[0.4,0.9],sklen:[50,120],skw:[3,9],ska:[0.5,2],pbx:[144,150],pw:[5,9],pwood:[152,158],pww:[6,10],p2x:[164,170],tx0:[166,174],tx1:[178,186],ty1:[47,53],tvx:[166,176],tvy:[58,68],dyTop:[66.5,68.5],dwTop:[2,3.2],dpTop:[7,8.5],ddTop:[2.5,4.5],dyMid:[130,137],dyBot:[187.5,191],dwMid:[2.4,3.6],dpMid:[6,8],beamY:[67,70],beamH:[5,8],stA:[0.3,0.85],stW:[5,11],diagX0:[88,100],diagY0:[188,192],diagX1:[250,262],diagY1:[72,80]};
 const mean=(g,R)=>R.reduce((a,r)=>a+ssim(g,r),0)/R.length;
 const {DEFAULTS}=await p.evaluate(async()=>{const m=await import('/src/pieces/bg_left.js?t=0');return {DEFAULTS:m.DEFAULTS};});
-let P={...DEFAULTS};
-const step={dyTop:.5,dwTop:.4,dpTop:.2,dphTop:1,ddTop:.4,dxTop:2,dy2:.5,dw2:.4,dyMid:.5,dyBot:.5,dwMid:.4,dpMid:.2,diagX0:2,diagY0:2,diagX1:2,diagY1:2,beamY:.5,beamH:.7,st0x:3,st0y:1,st1x:3,st1y:1,st2x:3,st2y:1,stA:.1,stW:2};
+const LEAVES=await p.evaluate(async()=>(await import('/src/pieces/bg_left.js?t=0')).LEAVES);
+let P={...DEFAULTS};delete P.leaves;const P0={...P};
+const inR=(l,R)=>R.some(r=>l[0]+l[2]>r[0]&&l[0]-l[2]<r[2]&&l[1]+l[2]>r[1]&&l[1]-l[2]<r[3]);
+const LS=[2,2,1.5,0.15,0.15,0.2];const lstep={};
+LEAVES.forEach((l,i)=>{if(inR(l,[[0,46,30,74],[0,120,15,160]]))for(let j=0;j<6;j++){P['L'+i+'_'+j]=l[j];lstep['L'+i+'_'+j]=LS[j];}});
+const mk=P=>{const Q={...P};Q.leaves=LEAVES.map((l,i)=>l.map((v,j)=>('L'+i+'_'+j) in P?P['L'+i+'_'+j]:v));return Q;};
+const render0=render;render=g=>render0(mk(g));
+const step={...lstep,ddMid:.4,skx:4,sky:3,skang:.05,sklen:8,skw:1,ska:.2,pbx:1,pw:1,pwood:1,pww:1,p2x:1,tx0:1,tx1:1,ty1:1,tvx:1,tvy:1,dyTop:.5,dwTop:.4,dpTop:.2,dphTop:1,ddTop:.4,dxTop:2,dy2:.5,dw2:.4,dyMid:.5,dyBot:.5,dwMid:.4,dpMid:.2,diagX0:2,diagY0:2,diagX1:2,diagY1:2,beamY:.5,beamH:.7,st0x:3,st0y:1,st1x:3,st1y:1,st2x:3,st2y:1,stA:.1,stW:2};
 const ev=async Q=>{const g=await render(Q);return mean(g,TUNE);};
 let best=await ev(P);const v0=mean(await render(P),VAL);console.log('start tune',best.toFixed(4),'val',v0.toFixed(4));
 for(let it=0;it<4;it++){let imp=false;
   for(const k of Object.keys(step)){for(const d of [1,-1,2,-2]){const Q={...P,[k]:P[k]+d*step[k]};if(BND[k]&&(Q[k]<BND[k][0]||Q[k]>BND[k][1]))continue;const v=await ev(Q);if(v>best+1e-5){best=v;P=Q;imp=true;}}}
   console.log('iter',it,best.toFixed(4));if(!imp)break;}
 const v1=mean(await render(P),VAL);console.log('end tune',best.toFixed(4),'val',v1.toFixed(4));
-for(const r of [...TUNE,...VAL])console.log(r.join(','),ssim(await render(DEFAULTS),r).toFixed(3),'->',ssim(await render(P),r).toFixed(3));
-console.log(JSON.stringify(P));
+for(const r of [...TUNE,...VAL])console.log(r.join(','),ssim(await render(P0),r).toFixed(3),'->',ssim(await render(P),r).toFixed(3));
+console.log(JSON.stringify(mk(P)));
 await b.close();await s.close();
