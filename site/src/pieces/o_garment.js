@@ -7,7 +7,7 @@ function sm(ctx,P,fill,stroke,lw){const n=P.length;ctx.beginPath();
   ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}
   if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw;ctx.stroke();}}
 function line(ctx,pts,col,lw){ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();}
-export const DEF={bx:2,by:1,sx:1,sy:0.99,tipx:1,tipy:1,dl:20,dark:0.01,motif:1,mstep:10,mph:3,mpy:0,wrink:1,hl:1,fx:5,fy:0,fs:1,fdl:8,toes:1,blood:1,lw:4,gl:0,tdx:0,tdy:1,bpx:0,bpy:0,vx0:-4,vy0:3,vx1:0,vy1:-1,vx2:6,vy2:0,vx3:6,vy3:-1,vx4:0,vy4:0,vx5:0,vy5:0,vx6:-3,vy6:0,vx7:4,vy7:-2,vx8:0,vy8:-1,vx9:-1,vy9:1,vx10:-1,vy10:1,vx11:5,vy11:6,vx12:4,vy12:4,vx13:1,vy13:0,vx14:0,vy14:0,vx15:-2,vy15:0};
+export const DEF={ma:0,msx:10,gam:0,gpe:10,gph:0,bx:2,by:1,sx:1,sy:0.99,tipx:1,tipy:1,dl:20,dark:0.01,motif:1,mstep:10,mph:3,mpy:0,wrink:1,hl:1,fx:5,fy:0,fs:1,fdl:8,toes:1,blood:1,lw:4,gl:0,tdx:0,tdy:1,bpx:0,bpy:0,vx0:-4,vy0:3,vx1:0,vy1:-1,vx2:6,vy2:0,vx3:6,vy3:-1,vx4:0,vy4:0,vx5:0,vy5:0,vx6:-3,vy6:0,vx7:4,vy7:-2,vx8:0,vy8:-1,vx9:-1,vy9:1,vx10:-1,vy10:1,vx11:5,vy11:6,vx12:4,vy12:4,vx13:1,vy13:0,vx14:0,vy14:0,vx15:-2,vy15:0};
 const cl=(c,d)=>Math.max(0,Math.min(255,c+d));
 export function draw(ctx,W,H,over){
   const P=Object.assign({},DEF,over||{});
@@ -16,7 +16,11 @@ export function draw(ctx,W,H,over){
   const lower=[[438,186],[446,200],[470,210],[500,212],[530,210],[552,203],[561,196],[556,199],[530,205],[500,207],[470,205],[450,196],[440,182]];
   lower.forEach((q,i)=>{if(i<6)q[1]+=P.lw;});
   sm(ctx,lower,'#EFE8DC');
-  line(ctx,[[441,196],[455,205],[480,209],[510,210],[540,206],[559,196]].map(q=>[q[0],q[1]+P.gl]),'#4E9A6A',2);
+  {const gp=[[441,196],[455,205],[480,209],[510,210],[540,206],[559,196]];const pts=[];let acc=0;
+   for(let i=0;i<gp.length-1;i++){const a=gp[i],b=gp[i+1],L=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.ceil(L/2);
+    for(let k=0;k<n;k++){const t=k/n,x=a[0]+(b[0]-a[0])*t,y=a[1]+(b[1]-a[1])*t;
+     const w=P.gam*Math.sin((acc+L*t)/P.gpe*6.2832+P.gph);pts.push([x,y+P.gl+w]);}acc+=L;}
+   pts.push([gp[5][0],gp[5][1]+P.gl]);line(ctx,pts,'#4E9A6A',2);}
   // 赤い着物 一枚の布
   const body0=[[430,152],[432,140],[443,130],[460,129],[476,136],[490,150],[512,158],[536,166],[550+P.tipx*0.5,182+P.tipy*0.5],[560+P.tipx,196+P.tipy],[548,204],[520,202],[490,204],[462,202],[440,194],[430,176]];
   const body=body0.map((q,i)=>[q[0]+P['vx'+i],q[1]+P['vy'+i]]);
@@ -37,13 +41,14 @@ export function draw(ctx,W,H,over){
   [[[448,150],[452,176],[466,196]],[[494,172],[514,184],[536,196]]].forEach(l=>line(ctx,l,'rgba(110,28,22,0.5)',2.2));
   }
   // 紋: 金朱の小さな輪(疎ら)、青輪も少し
-  seed=31;
-  for(let y=136+P.mpy;P.motif&&y<206;y+=P.mstep)for(let x=432+P.mph+((y/P.mstep|0)%2)*P.mstep/2;x<562;x+=P.mstep){
-    if(rnd()<0.25)continue;
-    const j=(rnd()-0.5)*1.5, blue=((x*7+y*3)%6<1);
-    ctx.strokeStyle=blue?'rgba(60,70,150,0.8)':'rgba(224,160,64,0.85)';
-    ctx.lineWidth=0.7;ctx.beginPath();ctx.arc(x+j,y+j,2,0,7);ctx.stroke();
-  }
+  if(P.motif){const ca=Math.cos(P.ma),sa=Math.sin(P.ma),st=P.msx;
+    for(let j=-20;j<=20;j++)for(let i=-20;i<=20;i++){
+      const u=(i+(j&1?0.5:0))*st,v=j*st*0.85;
+      const x=495+P.mph+u*ca-v*sa,y=168+P.mpy+u*sa+v*ca;
+      if(x<428||x>565||y<126||y>208)continue;
+      const blue=((i*7+j*3)%6+6)%6===0;
+      ctx.strokeStyle=blue?'rgba(60,70,150,0.8)':'rgba(224,160,64,0.85)';
+      ctx.lineWidth=0.7;ctx.beginPath();ctx.arc(x,y,2,0,7);ctx.stroke();}}
   ctx.restore();
   sm(ctx,body,null,'rgba(90,18,14,0.8)',0.7);
   // 左縁の白裏
@@ -56,8 +61,9 @@ export function draw(ctx,W,H,over){
   const heel=[[550,168],[554,158],[564,154],[574,157],[578,166],[576,178],[570,188],[560,190],[553,182]];
   sm(ctx,heel,`rgb(${cl(190,P.fdl)},${cl(132,P.fdl)},${cl(80,P.fdl)})`,'#6a3418',0.8);
   sm(ctx,[[576,170],[582,158],[590,150],[596,156],[592,168],[584,178]],'#B87C4A','#6a3418',0.6);
-  for(let k=0;P.toes&&k<5;k++){const x=578+k*3.6+P.tdx,y=154+k*1.8+P.tdy;
-    ctx.strokeStyle='#6a3418';ctx.lineWidth=0.6;ctx.beginPath();ctx.ellipse(x+1,y+3,2,3.2,0.5,0,7);ctx.stroke();}
+  for(let k=0;P.toes&&k<9;k++){const x=574+k*2.6+P.tdx,y=168+P.tdy;
+    ctx.fillStyle=k%2?'rgba(214,160,100,0.9)':'rgba(120,60,28,0.75)';
+    ctx.beginPath();ctx.moveTo(x,y);ctx.quadraticCurveTo(x+1.5,y-8,x+4+k*0.4,y-16+k*0.7);ctx.lineTo(x+6+k*0.4,y-16+k*0.7);ctx.quadraticCurveTo(x+3.5,y-8,x+2.2,y);ctx.fill();}
   line(ctx,[[559,176],[566,184],[572,182]],'rgba(110,50,20,0.5)',0.6);
   line(ctx,[[555,166],[552,175],[554,184]],'#1a1410',0.9);
   ctx.restore();

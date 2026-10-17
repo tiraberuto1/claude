@@ -37,11 +37,12 @@ const res=await p.evaluate(async ({src,ref,base})=>{
     else if(Array.isArray(P[k]))P[k].forEach((_,i)=>keys.push([k,i]));else keys.push([k,null]);}
   const get=(K)=>K[0]==='o'?P.o[K[1]][K[2]]:(K[1]===null?P[K[0]]:P[K[0]][K[1]]);
   const set=(K,v)=>{if(K[0]==='o')P.o[K[1]][K[2]]=v;else if(K[1]===null)P[K[0]]=v;else P[K[0]][K[1]]=v;};
-  const SOFT=['edge','wash','mottle','gold','arcA','lineA'];
-  const stepOf=(K)=>K[0]==='o'?1.5:(K[1]!==null?5:(SOFT.includes(K[0])?0.3:2));
-  const BND={lTop:[192.5,196],lBot:[236,239],lTipX:[187,193],lTipY:[209,217],sTop:[237,239.5],sEndX:[354,362],rbTop:[228,231],rbLeft:[498,503],bgTop:[199,202],bgLeft:[572,578],bgBot:[226,231.5]};
-  const lo=(K)=>K[1]===null&&BND[K[0]]?BND[K[0]][0]:K[0]==='o'?-5:(K[0]==='edge'||K[0]==='mottle'||K[0]==='gold'?0.2:(SOFT.includes(K[0])?0:-1e9));
-  const hi=(K)=>K[1]===null&&BND[K[0]]?BND[K[0]][1]:K[0]==='o'?5:(K[0]==='edge'||K[0]==='mottle'||K[0]==='gold'?1.5:1e9);
+  const SOFT=['edge','wash','mottle','gold','arcA','lineA','hiA','loA','tipHi'];
+  const stepOf=(K)=>K[0]==='o'?1.5:(K[1]!==null?5:(SG.includes(K[0])?0.04:(SOFT.includes(K[0])?0.15:2)));
+  const BND={lTop:[192.5,196],lBot:[236,239],lTipX:[187,193],lTipY:[210,221],sTop:[237,239.5],sEndX:[354,362],rbTop:[228,231],rbLeft:[498,503],bgTop:[199,202],bgLeft:[572,578],bgBot:[226,231.5]};
+  const SG=['ov1','ov2'];
+  const lo=(K)=>SG.includes(K[0])?-0.3:K[1]===null&&BND[K[0]]?BND[K[0]][0]:K[0]==='o'?-4:(K[0]==='edge'||K[0]==='mottle'||K[0]==='gold'?0.2:(SOFT.includes(K[0])?0:-1e9));
+  const hi=(K)=>SG.includes(K[0])?0.3:K[1]===null&&BND[K[0]]?BND[K[0]][1]:K[0]==='o'?4:(K[0]==='edge'||K[0]==='mottle'||K[0]==='gold'?1.5:1e9);
   const CORE=[[30,205,150,230],[20,240,340,247],[540,238,660,246],[600,205,680,228]];
   const cmean=(D,r)=>{const[x0,y0,x1,y1]=r;const m=[0,0,0];let n=0;for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){for(let c=0;c<3;c++)m[c]+=D.data[(y*680+x)*4+c];n++;}return m.map(v=>v/n);};
   const RM=CORE.map(r=>cmean(R,r));

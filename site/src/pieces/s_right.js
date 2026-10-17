@@ -1,7 +1,7 @@
 export const name='s_right';
 // 座標は基準画像を4倍拡大したもの(原点 410,30)。translate+scale で画像座標へ。
 let seed=7;function rnd(){seed=(seed*16807)%2147483647;return seed/2147483647;}
-export const stats={P:[],L:[],E:[],S:[]};let pI=0,lI=0,eI=0,sI=0;
+export const stats={P:[],L:[],E:[],S:[],SR:[]};let pI=0,lI=0,eI=0,sI=0;
 function shade(f,m){let r,g,b;if(f[0]==='#'){r=parseInt(f.slice(1,3),16);g=parseInt(f.slice(3,5),16);b=parseInt(f.slice(5,7),16);}else{[r,g,b]=f.match(/\d+/g).map(Number);}const k=v=>Math.max(0,Math.min(255,Math.round(v*m)));return `rgb(${k(r)},${k(g)},${k(b)})`;}
 function Praw(c,pts,f,s,lw){c.beginPath();pts.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.closePath();if(f){c.fillStyle=f;c.fill();}if(s){c.strokeStyle=s;c.lineWidth=lw||2;c.lineJoin='round';c.stroke();}}
 function P(c,pts,f,s,lw){const i=pI++;stats.P[i]=pts.length;const o=params.P&&params.P[i];if(o)pts=pts.map((p,k)=>[p[0]+(o[k*2]||0),p[1]+(o[k*2+1]||0)]);const m=params.PB&&params.PB[i];if(m&&typeof f==='string')f=shade(f,m);Praw(c,pts,f,s,lw);}
@@ -20,13 +20,13 @@ function cords(c,q,n,col,w){for(let i=1;i<n;i++){const t=i/n;L(c,mix(q[0],q[1],t
 function limb(c,a,b,w,col,col2){L(c,a,b,col2||col,w+2);L(c,a,b,col,w);}
 const SK='#e2b48e',HR='#17120f';
 // 多角形内を u 方向に積む縞で塗る。pat=[[色,幅],...] を繰り返す
-function strips(c,poly,o,u,pat,len,j,rep){const si=sI++;stats.S[si]=poly.length;const q=(params.S&&params.S[si])||[1,0,0,1];
+function strips(c,poly,o,u,pat,len,j,rep){const si=sI++;stats.S[si]=poly.length;stats.SR[si]=[!!rep,pat.reduce((a,b)=>a+b[1],0),len];const q=(params.S&&params.S[si])||[1,0,0,1];
  poly=poly.map((p,k)=>[p[0]+(q[4+k*2]||0),p[1]+(q[5+k*2]||0)]);
  const cen=[poly.reduce((a,p)=>a+p[0],0)/poly.length,poly.reduce((a,p)=>a+p[1],0)/poly.length];const sc0=(cen[0]-o[0])*u[0]+(cen[1]-o[1])*u[1];
  const ca=Math.cos(q[2]||0),sa=Math.sin(q[2]||0);u=[u[0]*ca-u[1]*sa,u[0]*sa+u[1]*ca];o=[cen[0]-u[0]*sc0+u[0]*(q[1]||0),cen[1]-u[1]*sc0+u[1]*(q[1]||0)];
  c.save();c.beginPath();poly.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.closePath();c.clip();
- const v=[-u[1],u[0]];let s=-(q[1]||0)>0?-(q[1]||0):0,k=0;s=0;const pm=q[0]||1,lm=q[3]||1;while(s<len){const [col,w]=pat[k%pat.length];if(!rep&&k>=pat.length)break;const e=s+w*pm*(0.85+rnd()*.3);
-  const A=[o[0]+u[0]*s,o[1]+u[1]*s],B=[o[0]+u[0]*e,o[1]+u[1]*e];
+ const v=[-u[1],u[0]];let s=-(q[1]||0)>0?-(q[1]||0):0,k=0;s=0;const pm=q[0]||1,lm=q[3]||1;if(rep){const Pd=pat.reduce((a,b)=>a+b[1],0)*pm,nn=Math.ceil(60/Pd);o=[o[0]-u[0]*Pd*nn,o[1]-u[1]*Pd*nn];len+=Pd*nn;}while(s<len){const [col,w]=pat[k%pat.length];if(!rep&&k>=pat.length)break;let e=s+w*pm*(0.85+rnd()*.3);const first=k===0&&!rep,last=!rep&&k===pat.length-1;
+  if(last&&e<len+60)e=len+60;const s2=first?-60:s;const A=[o[0]+u[0]*s2,o[1]+u[1]*s2],B=[o[0]+u[0]*e,o[1]+u[1]*e];
   Praw(c,[[A[0]-v[0]*1000,A[1]-v[1]*1000],[A[0]+v[0]*1000,A[1]+v[1]*1000],[B[0]+v[0]*1000,B[1]+v[1]*1000],[B[0]-v[0]*1000,B[1]-v[1]*1000]],shade(jit(col,j||18),lm));s=e;k++;}
  c.restore();}
 function dots(c,pts,r,col){pts.forEach(p=>E(c,p[0],p[1],r,r,col));}

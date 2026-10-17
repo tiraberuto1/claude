@@ -12,7 +12,8 @@ function dashed(ctx,x0,y0,x1,y1,w){
 export const P={grainSlope:0.01,grainStep:2.0,grainAlpha:0.35,seamSlope:-0.088,seamOff:0,seamAlpha:0.7,
   dashPeriod:5.4,dashPhase:0,plankL:1.0,floorL:1.0,plankTop:139,dashY:71,dashY2:130,dashY3:188.5,
   panelL:1.0,flDx:0,flDy:2,
-  pk:[[-3,0,0],[4,0,0],[0,3,0],[-6,-2,0],[0,0,-0.06]]};
+  pk:[[2,0,0],[4,0,0],[0,0,0],[4,1,0],[0,0,-0.06]],
+  bo:[8,6,0,-2],sm:[0,1,0],bo2:0};
 const sc=(rgb,k)=>'rgb('+rgb.map(v=>Math.max(0,Math.min(255,Math.round(v*k)))).join(',')+')';
 export function draw(ctx,W,H){
   const R=rng(11);DP=P.dashPeriod;DPH=P.dashPhase;
@@ -53,7 +54,7 @@ export function draw(ctx,W,H){
   // 縁側の板敷き
   ctx.save();
   ctx.beginPath();ctx.moveTo(478,P.plankTop);ctx.lineTo(680,P.plankTop-2);ctx.lineTo(680,198);ctx.lineTo(640,206);ctx.lineTo(560,222);ctx.lineTo(500,224);ctx.lineTo(440,222);ctx.lineTo(455,150);ctx.closePath();ctx.clip();
-  const pl=ctx.createLinearGradient(0,137,0,224);pl.addColorStop(0,sc([178,130,84],P.plankL));pl.addColorStop(1,sc([168,120,76],P.plankL));
+  const pl=ctx.createLinearGradient(0,137,0,224);pl.addColorStop(0,sc([178,130,84],P.plankL*0.98));pl.addColorStop(1,sc([168,120,76],P.plankL*0.98));
   ctx.fillStyle=pl;ctx.fillRect(430,130,250,100);
   // 板目(細い横筋・僅かに斜め)
   for(let y=138;y<226;y+=P.grainStep+R()*1.2){
@@ -63,6 +64,12 @@ export function draw(ctx,W,H){
       ctx.beginPath();ctx.moveTo(x,y+(680-x)*P.grainSlope);ctx.lineTo(x+l,y+(680-x-l)*P.grainSlope);ctx.stroke();
     }
   }
+  // 板ごとの明暗(帯)と実測した縁板・継ぎ目
+  [[142,158],[158,175],[175,192],[192,224]].forEach((r,i)=>{const o=P.bo[i];ctx.fillStyle=o>=0?'rgba(255,235,200,'+(o*0.02)+')':'rgba(60,30,10,'+(-o*0.02)+')';ctx.fillRect(430,r[0],250,r[1]-r[0]);});
+  ctx.fillStyle='rgba(176,128,104,0.8)';ctx.fillRect(480,135+P.sm[0],200,7);
+  ctx.fillStyle='rgba(178,130,108,0.8)';ctx.fillRect(440,218+P.sm[1],110,7);
+  ctx.strokeStyle='rgba(196,148,120,0.9)';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(586,205+P.sm[2]);ctx.lineTo(637,176+P.sm[2]);ctx.stroke();
+  ctx.strokeStyle='rgba(107,74,48,0.6)';ctx.lineWidth=0.8;ctx.beginPath();ctx.moveTo(520,142+P.sm[0]);ctx.lineTo(680,142+P.sm[0]);ctx.stroke();
   // ピンク褐色の汚れ
   for(let i=0;i<30;i++){const x=450+R()*230,y=140+R()*80;ctx.fillStyle='rgba(160,95,75,0.10)';ctx.beginPath();ctx.ellipse(x,y,10+R()*14,3+R()*4,-0.2,0,7);ctx.fill();}
   // 板の継ぎ目(斜め)
@@ -93,10 +100,14 @@ export function draw(ctx,W,H){
     ctx.closePath();ctx.fillStyle=col;ctx.fill();
     ctx.strokeStyle='rgba(48,34,24,0.8)';ctx.lineWidth=0.9;ctx.stroke();
   };
-  plank([[612,173],[622,171],[636,166],[650,161],[664,157],[680,152],[680,160],[668,166],[656,170],[640,174],[628,177],[618,179],[612,177]],3,'rgb(128,100,72)',0);
-  plank([[630,164],[642,159],[655,153],[668,147],[680,142],[680,148],[670,153],[660,158],[648,163],[638,167]],5,'rgb(112,86,62)',1);
-  plank([[660,140],[668,137],[680,134],[680,141],[672,143],[664,145]],8,'rgb(138,108,78)',2);
-  plank([[640,177],[652,172],[666,168],[680,164],[680,170],[668,173],[656,177],[645,181]],9,'rgb(104,80,58)',3);
+  // 主流木(先細り・欠けた縁)
+  plank([[611,172],[619,168],[627,166],[635,162],[642,160],[650,156],[658,153],[666,150],[673,147],[680,145],[680,160],[676,164],[670,166],[664,163],[658,167],[650,166],[643,169],[636,171],[628,172],[620,175],[614,175]],3,'rgb(104,80,58)',0);
+  // 上の割れ目の筋(明るい木肌)
+  plank([[626,166],[636,162],[646,158],[656,155],[666,152],[676,149],[680,149],[680,153],[670,156],[660,160],[650,163],[640,166],[632,169]],5,'rgb(132,104,76)',1);
+  // 右上の小片
+  plank([[660,140],[666,137],[673,135],[680,133],[680,139],[674,141],[668,142],[664,144]],8,'rgb(112,88,62)',2);
+  // 下左の流木(左向きに先細り)
+  plank([[540,217],[546,213],[552,210],[558,208],[566,206],[574,205],[580,207],[578,211],[572,213],[565,214],[559,216],[552,218],[546,219]],9,'rgb(96,74,54)',3);
   // 右下隅の黒茶の板
   plank([[680,185],[670,188],[660,193],[652,199],[680,201]],7,'rgb(52,40,30)',4);
   // 縁の点線

@@ -1,6 +1,6 @@
 export const name='o_head';
 // 探索パラメータ(tools/tune_o_head.mjs が書き換える)
-export const P={hx:0,hy:4,hsx:0.7678,hsy:1,hb:0.9,hs:0.6259,tn:10,fx:0,fy:0,fsx:1,fsy:0.85,fr:1,fg:1,fb:1,sa:0.55,ex:0,ey:0,mx:0,my:0,msx:1,kx:0,ky:0,ksx:1.048,ksy:0.9592,kb:1.053,ta:0.3136,tl:0.7568,ho:[-1.87,-2,-2,-2,-2,-2,-2,-2,-1.87,1,-2,0.6,1.87,-0.6,2,-2,2,2,2,-0.13,-2,-1.87,-2,2,-2,2,2,1,2,-2,2,-2,-2,1.87],fo:[1.18,2,1.22,0.78,0,0.37,-0.37,0,2,-2,2,-2,-0.58,2,0.09,1.8,-0.23,2,1.51,1.8,-0.6,0,-1.22,1.36,-2,-2,-1,-2,-1.85,-1.87,2,-2,-2,2,-0.42,1,1,1.09,2,0.6,1.4,1.14],bo:[2,0.64,2,-1,0,0,2,2,-2,-2,-2,0.36],eo:[-0.22,-0.36,-0.14,1.24,0,0,0,0],to:[-2,-0.64,-1.4,0,1.62,-1.37],so:[2,-2,2,-0.14,2,0.36,2,2,2,-0.21,1.6,-2,-2.0,0.13,1.62,0.36,1.11,-1.22],no:[1.8,-1.6,2,0.72,2,0.62,2,-2,-1.78,-1,-2,-0.78,-2,-1.14]};
+export const P={hx:0,hy:0,hsx:1,hsy:1,hb:0.95,hs:0.8,tn:12,fx:0,fy:0,fsx:1,fsy:1,fr:1,fg:1,fb:1,sa:0.55,ex:0,ey:0,mx:0,my:0,msx:1,kx:0,ky:0,ksx:1,ksy:1,kb:1,ta:0,tl:1,ho:new Array(78).fill(0),fo:[1.18,2,1.22,0.78,0,0.37,-0.37,0,2,-2,2,-2,-0.58,2,0.09,1.8,-0.23,2,1.51,1.8,-0.6,0,-1.22,1.36,-2,-2,-1,-2,-1.85,-1.87,2,-2,-2,2,-0.42,1,1,1.09,2,0.6,1.4,1.14],bo:[2,0.64,2,-1,0,0,2,2,-2,-2,-2,0.36],eo:[-0.22,-0.36,-0.14,1.24,0,0,0,0],to:[-2,-0.64,-1.4,0,1.62,-1.37],so:[2,-2,2,-0.14,2,0.36,2,2,2,-0.21,1.6,-2,-2.0,0.13,1.62,0.36,1.11,-1.22],no:[1.8,-1.6,2,0.72,2,0.62,2,-2,-1.78,-1,-2,-0.78,-2,-1.14]};
 const O=(a,pts)=>pts.map((p,i)=>[p[0]+(a[2*i]||0),p[1]+(a[2*i+1]||0)]);
 const sc=(hex,r,g,b)=>{const n=parseInt(hex.slice(1),16);const q=v=>Math.max(0,Math.min(255,Math.round(v)));
   return `rgb(${q((n>>16&255)*r)},${q((n>>8&255)*g)},${q((n&255)*b)})`;};
@@ -9,18 +9,18 @@ let seed=1;const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
 const pg=(ctx,pts,fill,stroke,lw)=>{ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();
   if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||0.7;ctx.lineJoin='round';ctx.stroke();}};
 const ln=(ctx,pts,col,lw)=>{ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.lineCap='round';ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();};
+const sm=(ctx,pts,fill,stroke,lw)=>{const n=pts.length;ctx.beginPath();
+  for(let i=0;i<n;i++){const a=pts[i],b=pts[(i+1)%n],m=[(a[0]+b[0])/2,(a[1]+b[1])/2];
+    if(i===0){const l=pts[n-1];ctx.moveTo((l[0]+a[0])/2,(l[1]+a[1])/2);}ctx.quadraticCurveTo(a[0],a[1],m[0],m[1]);}
+  ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||0.7;ctx.stroke();}};
+const HP=[[51,60],[54,55],[59,51],[64,48],[70,46],[76,44],[82,42],[89,41],[95,41.5],[101,40.5],[107,41],[114,42],[120,44],[125,47],[129,52],[134,56],[139,60],[143,64],[148,68],[152,72],[156,77],[157,82],[155,87],[154,92],[151,96],[147,100],[143,102],[138,101],[130,100],[118,96],[104,90],[92,82],[84,78],[76,77],[68,74],[62,71],[57,68],[53,64]];
 const lg=(ctx,x0,y0,x1,y1,st)=>{const g=ctx.createLinearGradient(x0,y0,x1,y1);st.forEach(s=>g.addColorStop(s[0],s[1]));return g;};
 
 function hair(ctx){
   ctx.save();xf(ctx,104,70,P.hx,P.hy,P.hsx,P.hsy);
   // 振り乱した髪: 灰褐の塊 + 右へ流れる毛筋
-  const H=O(P.ho,[[58,66],[54,50],[78,42],[104,40],[124,39],[138,44],[150,56],[160,66],[160,84],[150,98],[142,108],[132,106],[128,100],[100,98],[76,96],[60,82],[58,66]]);
-  ctx.beginPath();ctx.moveTo(H[0][0],H[0][1]);
-  ctx.bezierCurveTo(H[1][0],H[1][1],H[2][0],H[2][1],H[3][0],H[3][1]);
-  ctx.bezierCurveTo(H[4][0],H[4][1],H[5][0],H[5][1],H[6][0],H[6][1]);
-  ctx.bezierCurveTo(H[7][0],H[7][1],H[8][0],H[8][1],H[9][0],H[9][1]);
-  ctx.bezierCurveTo(H[10][0],H[10][1],H[11][0],H[11][1],H[12][0],H[12][1]);
-  ctx.lineTo(H[13][0],H[13][1]);ctx.bezierCurveTo(H[14][0],H[14][1],H[15][0],H[15][1],H[16][0],H[16][1]);
+  const H=O(P.ho,HP);
+  sm(ctx,H,null);
   ctx.fillStyle=lg(ctx,56,40,150,100,[[0,sc('#6e5a42',P.hb,P.hb,P.hb)],[0.5,sc('#7a644a',P.hb,P.hb,P.hb)],[1,sc('#6a563e',P.hb,P.hb,P.hb)]]);ctx.fill();
   ctx.save();ctx.clip();
   seed=21;
@@ -39,10 +39,12 @@ function hair(ctx){
     if(Math.cos(a)<-0.2&&rnd()<0.5)continue;
     ctx.strokeStyle=rnd()<0.5?'rgba(80,64,48,0.8)':'rgba(130,108,84,0.7)';ctx.lineWidth=0.8;
     ctx.beginPath();ctx.moveTo(x-Math.cos(a)*5,y-Math.sin(a)*5);ctx.lineTo(x+Math.cos(a)*(2+rnd()*5)+3,y+Math.sin(a)*(2+rnd()*4));ctx.stroke();}
-  for(let k=0;k<P.tn;k++){
-    const right=k<P.tn*0.62,x=right?124+rnd()*26:56+rnd()*14,y=right?50+rnd()*30:58+rnd()*28;
-    ctx.strokeStyle=k%2?'rgba(96,78,58,0.8)':'rgba(70,56,42,0.8)';ctx.lineWidth=1.1;
-    ctx.beginPath();ctx.moveTo(x,y);ctx.bezierCurveTo(x+(right?6:-4)*P.tl,y-2+P.ta*4,x+(right?12:-8)*P.tl,y+2,x+(right?18:-12)*P.tl,y+4+rnd()*6);ctx.stroke();}
+  for(let k=0;k<P.tn*2;k++){
+    const i=Math.floor(k*29/(P.tn*2)),q=H[i],r=H[(i+1)%H.length];
+    let nx=r[1]-H[(i+H.length-1)%H.length][1],ny=-(r[0]-H[(i+H.length-1)%H.length][0]);const nl=Math.hypot(nx,ny)||1;nx/=nl;ny/=nl;
+    const L=(2+rnd()*3.5)*P.tl;
+    ctx.strokeStyle=k%2?'rgba(100,82,62,0.85)':'rgba(66,52,40,0.85)';ctx.lineWidth=0.7;
+    ctx.beginPath();ctx.moveTo(q[0]-nx*1.5,q[1]-ny*1.5);ctx.quadraticCurveTo(q[0]+nx*L*0.5+ny*1.5,q[1]+ny*L*0.5-nx*1.5+P.ta,q[0]+nx*L+ny*(rnd()*4-1)+2,q[1]+ny*L+rnd()*3);ctx.stroke();}
   // 右下へ垂れる毛房
   for(let k=0;k<26;k++){
     const x=126+rnd()*30,y=60+rnd()*40;
@@ -67,6 +69,12 @@ function face(ctx){
   ctx.globalAlpha=0.85;pg(ctx,[[88,80],[94,77],[99,80],[98,88],[93,94],[88,90]],'#E8963E');ctx.globalAlpha=1;
   // 額の赤い筋
   for(let i=0;i<6;i++)ln(ctx,[[108+i*2.2,55+i*0.5],[114+i*2.4,60+i*1.2],[118+i*2,67+i*1.2]],'rgba(160,44,20,0.7)',0.7);
+  // 眉間のしわ・頬の陰影
+  ctx.globalAlpha=0.4;ctx.fillStyle='#A03018';
+  ctx.beginPath();ctx.ellipse(104,88,4.5,6,0.2,0,7);ctx.fill();ctx.beginPath();ctx.ellipse(132,92,3,4,0,0,7);ctx.fill();
+  ctx.beginPath();ctx.ellipse(120,76,4,3,0.4,0,7);ctx.fill();ctx.globalAlpha=1;
+  [[[114,64],[115,72]],[[117,63],[118,73]],[[120,64],[120.5,71]]].forEach(w=>ln(ctx,w,'#7A1C10',0.7));
+  ln(ctx,[[110,90],[108,96],[112,100]],'#8A2414',0.7);ln(ctx,[[124,91],[127,95],[126,99]],'#8A2414',0.6);
   // 目の周りの濃い赤
   ctx.globalAlpha=0.6;
   ctx.fillStyle='#9A2416';ctx.beginPath();ctx.ellipse(112,81.5,6,4,0.2,0,7);ctx.fill();
@@ -110,10 +118,14 @@ function mask(ctx){
   const ink='#7a2a12';
   // 外側の赤い毛/たてがみ
   [[308,10,7],[318,8,7],[328,10,8],[334,16,6],[324,16,6],[316,14,6],[330,22,5]].forEach((c,i)=>{const o=P.no[2*(i%7)]||0;ctx.fillStyle=i%2?'#B8502A':'#A8442A';ctx.beginPath();ctx.arc(c[0]+o,c[1]+(P.no[2*(i%7)+1]||0),c[2],0,7);ctx.fill();});
-  for(let k=0;k<7;k++){ln(ctx,[[326+k*1.8,22],[327+k*1.8,27+k%3*3]],'rgba(170,60,34,0.7)',1.1);}
+  for(let k=0;k<16;k++){const x=305+k*2.2,y=6+(k*5)%14;ln(ctx,[[x,y],[x+3,y+2.5]],k%2?'rgba(220,100,50,0.8)':'rgba(150,40,24,0.8)',0.6);}
+  for(let k=0;k<5;k++){const x=325+k*2.2;ln(ctx,[[x,20+k%2],[x+0.6,25+k%3*2],[x-0.3,31+k%2*4]],'rgba(176,40,28,0.8)',0.9);}
   // 鼻づら
-  pg(ctx,O(P.so,[[286,18],[290,10],[298,7],[310,8],[322,10],[326,16],[316,20],[304,22],[292,24]]),'#C07C34',ink,0.6);
+  sm(ctx,O(P.so,[[286,18],[290,10],[298,7],[310,8],[322,10],[326,16],[316,20],[304,22],[292,24]]),'#C07C34',ink,0.6);
   pg(ctx,[[292,12],[304,9],[316,11],[308,15],[296,17]],'#D49A44');
+  // 頭上(目の載る頭)
+  ctx.fillStyle='#B8602C';ctx.beginPath();ctx.ellipse(298,7,12,5,0,0,7);ctx.fill();
+  ctx.fillStyle='#D8A858';ctx.beginPath();ctx.ellipse(293,6.5,2.4,1.8,0,0,7);ctx.fill();ctx.beginPath();ctx.ellipse(303,7.5,2.4,1.8,0,0,7);ctx.fill();
   // 上の目・暗点
   ctx.fillStyle='#2a1a10';ctx.beginPath();ctx.arc(293,6.5,1.5,0,7);ctx.fill();ctx.beginPath();ctx.arc(303,7.5,1.6,0,7);ctx.fill();
   ctx.fillStyle='#4a2a14';ctx.beginPath();ctx.ellipse(299,16.5,2,1.3,0,0,7);ctx.fill();

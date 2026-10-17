@@ -21,15 +21,15 @@ await p.evaluate(async([src,ref,bg])=>{
     const g=gray(ctx.getImageData(0,0,680,247).data);return regs.map(r=>ssim(RG,g,...r));};
   window.P0=mod.P0;
 },[src,b64('ref/reference.jpg'),b64('out/R7_bg.png')]);
-const TR=[[0,0,680,70],[0,0,170,40],[340,0,520,40],[520,0,680,70],[0,60,40,125],[640,60,680,125]];
+const TR=[[0,0,680,70],[0,0,170,40],[340,0,520,40],[340,0,520,40],[520,0,680,70],[0,60,40,125],[640,60,680,125]];
 const HO=[[170,0,340,55],[560,0,680,35],[0,0,680,12],[100,0,170,50]];
 const f=async Q=>{const s=await p.evaluate(([Q,R])=>score(Q,R),[Q,TR]);return s.reduce((a,b)=>a+b)/s.length;};
 let Q=await p.evaluate(()=>({...P0}));const q0={...Q};
 let best=await f(Q);console.log('start',best.toFixed(4),await p.evaluate(([Q,R])=>score(Q,R),[Q,HO]));
-const step={};const init={...Q};for(const k in Q){const v=Math.abs(Q[k]);step[k]=v<1?0.1:v<5?1:v<20?2:4; if(k.startsWith('d'))step[k]=4; if(/^w/.test(k))step[k]=2;}
+const step={};const init={...Q};for(const k in Q){const v=Math.abs(Q[k]);step[k]=v<1?0.1:v<5?1:v<20?2:4; if(k.startsWith('d'))step[k]=4; if(/^(w|ct|ot|tg)/.test(k))step[k]=2;}
 for(let round=0;round<4;round++){
   for(const k in Q){for(const d of [step[k],-step[k]]){
-    const T={...Q,[k]:Q[k]+d};if(/^w/.test(k)&&Math.abs(T[k])>5)continue;if(/^(le|re)/.test(k)&&Math.abs(T[k]-init[k])>6)continue;if(/^a[LCO]$/.test(k)&&T[k]>0.95)continue;if(/^(aS|aE|edgeA|arcA)$/.test(k)&&T[k]<0.15)continue;if(k=='dust'&&T[k]<60)continue;if(/^a|A$|Top$|Bot$|warm|wash/.test(k)&&k.length>0&&(T[k]<0||(/^a|A$|warm|wash/.test(k)&&T[k]>1)))continue;
+    const T={...Q,[k]:Q[k]+d};if(/^(ct|ot|tg)/.test(k)&&Math.abs(T[k])>4)continue;if(k=='innerOff'&&(T[k]<2||T[k]>5))continue;if(k=='innerA'&&(T[k]<0.15||T[k]>0.7))continue;if(/^w/.test(k)&&Math.abs(T[k])>5)continue;if(/^(le|re)/.test(k)&&Math.abs(T[k]-init[k])>6)continue;if(/^a[LCO]$/.test(k)&&T[k]>0.95)continue;if(/^(aS|aE|edgeA|arcA)$/.test(k)&&T[k]<0.15)continue;if(k=='dust'&&T[k]<60)continue;if(/^a|A$|Top$|Bot$|warm|wash/.test(k)&&k.length>0&&(T[k]<0||(/^a|A$|warm|wash/.test(k)&&T[k]>1)))continue;
     if(T[k]<0&&!k.startsWith('d'))continue;
     const s=await f(T);if(s>best+1e-5){best=s;Q=T;}}}
   for(const k in step)step[k]/=2;
