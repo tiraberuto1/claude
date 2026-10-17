@@ -6,7 +6,7 @@ const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', a
 const p = await b.newPage({ viewport: { width: 680, height: 247 } });
 p.on('pageerror', e => console.error('ERR', e.message));
 await p.goto(s.resolvedUrls.local[0]);
-const res = await p.evaluate(async (rounds) => {
+const res = await p.evaluate(async (process_only) => {
   const W=680,H=247, mod = await import('/src/pieces/index.js'); const pieces = mod.pieces;
   const mine = pieces.findIndex(x=>x.name==='s_right'); const M=pieces[mine]; const P=M.params;
   Object.keys(M.PIV).forEach(g=>{ if(!P[g])P[g]=[0,0,0,1]; });
@@ -42,17 +42,18 @@ const res = await p.evaluate(async (rounds) => {
   const boxAll=(m,[x0,y0,x1,y1])=>{let s=0,n=0;for(let y=y0;y<=y1-7;y++)for(let x=x0;x<=x1-7;x++){s+=m[y*W+x];n++;}return s/n;};
   const scoreBox=(box)=>{const S=chan(renderData(),LUM);return boxAll(ssimMapBox(R,S,box),box);};
   const out=[];
-  for(const si of Object.keys(P.S).map(Number)){
+  const ONLY=(process_only||'').split(',').filter(x=>x!=='').map(Number);
+  for(const si of Object.keys(P.S).map(Number)){if(ONLY.length&&!ONLY.includes(si))continue;
     const q=P.S[si];const [rep,Pd]=st.SR[si];
     // 領域 = 縞クリップ多角形の外接矩形(元頂点+現在の頂点オフセット)。描画から取得できないので統計から大まかな箱を与える
     const BOX=window.__boxes[si];
     const [bx0,by0,bx1,by1]=BOX;const mx=Math.floor((bx0+bx1)/2),my=Math.floor((by0+by1)/2);
     const halves=BOX[4]==='h'?[[bx0,by0,mx+3,by1],[mx-3,by0,bx1,by1]]:[[bx0,by0,bx1,my+3],[bx0,my-3,bx1,by1]];
     const base={pitch:q[0],phase:q[1],ang:q[2]};
-    const prange=rep?Pd*q[0]:4; // 位相探索範囲
+    const bounded=(si===1);const prange=(rep&&!bounded)?Pd*q[0]:4; // 位相探索範囲
     const search=(box)=>{let best=-9,bp=null;
       const p0=base.pitch;
-      const coarse=[];for(let pf=-.15;pf<=.1501;pf+=.05)for(let a=-.1;a<=.1001;a+=.02){for(let ph=rep?0:-4;ph<=(rep?prange:4)+1e-9;ph+=.5)coarse.push([p0*(1+pf),ph,base.ang+a]);}
+      const coarse=[];for(let pf=-.15;pf<=.1501;pf+=.05)for(let a=-.1;a<=.1001;a+=.02){for(let ph=(rep&&!bounded)?0:-4;ph<=prange+1e-9;ph+=.5)coarse.push([p0*(1+pf),ph,base.ang+a]);}
       const ev=(c)=>{q[0]=c[0];q[1]=c[1];q[2]=Math.max(-.15,Math.min(.15,c[2]));return scoreBox(box);};
       let cb=null;for(const c of coarse){const v=ev(c);if(v>best){best=v;cb=c;}}
       // 微調整: 位相0.1刻み±.5, 角度0.01刻み±.02, ピッチ0.05刻み(相対)±.05
@@ -69,7 +70,7 @@ const res = await p.evaluate(async (rounds) => {
     window.__prog=si;
   }
   return {final:JSON.parse(JSON.stringify(P)),out};
-}, 0);
+}, process.argv[3]||'');
 fs.writeFileSync(process.argv[2]||'out/tune_stripes.json',JSON.stringify(res));
 console.log(JSON.stringify(res.out));
 await b.close(); await s.close();
