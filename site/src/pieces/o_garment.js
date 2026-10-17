@@ -7,7 +7,7 @@ function sm(ctx,P,fill,stroke,lw){const n=P.length;ctx.beginPath();
   ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}
   if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw;ctx.stroke();}}
 function line(ctx,pts,col,lw){ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();}
-export const DEF={ma:0,msx:10,gam:0,gpe:10,gph:0,bx:2,by:1,sx:1,sy:0.99,tipx:1,tipy:1,dl:20,dark:0.01,motif:1,mstep:10,mph:3,mpy:0,wrink:1,hl:1,fx:5,fy:0,fs:1,fdl:8,toes:1,blood:1,lw:4,gl:0,tdx:0,tdy:1,bpx:0,bpy:0,vx0:-4,vy0:3,vx1:0,vy1:-1,vx2:6,vy2:0,vx3:6,vy3:-1,vx4:0,vy4:0,vx5:0,vy5:0,vx6:-3,vy6:0,vx7:4,vy7:-2,vx8:0,vy8:-1,vx9:-1,vy9:1,vx10:-1,vy10:1,vx11:5,vy11:6,vx12:4,vy12:4,vx13:1,vy13:0,vx14:0,vy14:0,vx15:-2,vy15:0};
+export const DEF={ma:-0.1,msx:9.5,gam:2,gpe:12,gph:0,bx:2,by:1,sx:1,sy:0.99,tipx:2,tipy:0,dl:12,dark:0.01,motif:1,mstep:10,mph:0.2,mpy:6.1,wrink:1,hl:1,fx:5,fy:0,fs:0.97,fdl:8,toes:1,blood:1,lw:4,gl:0,tdx:-1,tdy:2,bpx:-2,bpy:0,vx0:-4,vy0:3,vx1:0,vy1:-2,vx2:4,vy2:1,vx3:4,vy3:-1,vx4:0,vy4:0,vx5:1,vy5:0,vx6:2,vy6:0,vx7:4,vy7:-2,vx8:-1,vy8:-2,vx9:-1,vy9:-1,vx10:0,vy10:2,vx11:4,vy11:4,vx12:4,vy12:4,vx13:1,vy13:0,vx14:0,vy14:0,vx15:-1,vy15:2};
 const cl=(c,d)=>Math.max(0,Math.min(255,c+d));
 export function draw(ctx,W,H,over){
   const P=Object.assign({},DEF,over||{});
