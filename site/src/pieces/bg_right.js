@@ -12,8 +12,8 @@ function dashed(ctx,x0,y0,x1,y1,w){
 export const P={grainSlope:0.01,grainStep:2.0,grainAlpha:0.35,seamSlope:-0.088,seamOff:0,seamAlpha:0.7,
   dashPeriod:5.4,dashPhase:0,plankL:1.0,floorL:1.0,plankTop:139,dashY:71,dashY2:130,dashY3:188.5,
   panelL:1.0,flDx:0,flDy:2,
-  pk:[[2,0,0],[4,0,0],[0,0,0],[4,1,0],[0,0,-0.06]],
-  bo:[8,6,0,-2],sm:[0,1,0],bo2:0};
+  pk:[[2,0,0],[4,2,0],[0,-4,0],[4,1,0],[0,0,-0.06]],
+  bo:[6,6,0,-2],sm:[0,1,0],bo2:0};
 const sc=(rgb,k)=>'rgb('+rgb.map(v=>Math.max(0,Math.min(255,Math.round(v*k)))).join(',')+')';
 export function draw(ctx,W,H){
   const R=rng(11);DP=P.dashPeriod;DPH=P.dashPhase;
