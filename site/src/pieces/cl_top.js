@@ -1,9 +1,9 @@
 export const name='cl_top';
 // 探索で調整する数値パラメータ(名前付き定数)
 export const P0={
-  lBot:43,bBot:50,bTipX:288,bTipY:36,bTopY:1,cTop:5.25,cBot:40,cTongX:330,cTongY:35.5,cRight:550,oTipX:523.5,oTipY:58,oTopY:35.5,oBot:70,oTopR:36,aL:0.84,aC:0.95,aO:0.95,aS:0.3,aE:0.9,dR:11,dG:1,dB:-1,edgeA:0.57,glowA:0.04,glowW:5,arcA:0.28,dust:116,leW:32,leT:76.5,leB:115.5,leM:92,reX:649,reT:91,reB:128,reM:106,
-  wl1:2,wl2:4.5,wl3:4.75,wc1:1.25,wc2:2.25,wc3:0,wc4:0,wo1:1.25,wo2:0.25,wo3:3,wo4:4,
-  innerA:0.16,innerOff:3,ct1:2.75,ct2:0,ct3:0,ct4:3.75,ot1:0,ot2:0.25,ot3:0,tg:2.25,
+  lBot:43,bBot:50,bTipX:287,bTipY:36,bTopY:1,cTop:5.25,cBot:40,cTongX:329,cTongY:34.5,cRight:550,oTipX:523.5,oTipY:58,oTopY:35.5,oBot:70,oTopR:36,aL:0.86,aC:0.95,aO:0.95,aS:0.39,aE:0.8,dR:9,dG:1,dB:-1,edgeA:0.46,glowA:0.04,glowW:6.5,arcA:0.28,dust:116,leW:30,leT:76.5,leB:115.5,leM:88,reX:649,reT:91,reB:126,reM:106,
+  wl1:2,wl2:1,wl3:3.75,wc1:0.75,wc2:3.75,wc3:0,wc4:0,wo1:1.25,wo2:0.25,wo3:3,wo4:4,
+  innerA:0.2,innerOff:3,ct1:2.75,ct2:0,ct3:0,ct4:3.75,ot1:0,ot2:0.25,ot3:0,tg:2,
   washTop:0.2,washBot:0.43,warmA:0.4
 };
 function rng(s){return()=>((s=(s*1664525+1013904223)>>>0)/4294967296);}
