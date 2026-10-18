@@ -15,8 +15,8 @@ function stripes(c,pts,ox,oy,ang0,ang1,pitch,n,cols,wid){
   c.restore();
 }
 // 調整済み定数(tools/tune_s_centre.mjs の探索結果)。draw の第3引数で上書き可能
-export const DEF={lx:-3,ly:-3,ux:0,uy:0,cp:1.825,cdy:3.5,clw:3,sp:1.675,
- ca:-0.02,sdx:17,sdy:2.3,sa0:-0.45,sa1:0.01,slw:3.2,bp:4.05,bdx:2,
+export const DEF={lx:-3,ly:-3,ux:0,uy:0,cp:1.825,cdy:3.7,clw:3,sp:1.7,
+ ca:-0.04,sdx:17,sdy:2,sa0:-0.45,sa1:0,slw:3.2,bp:4.05,bdx:2,
  bdy:2.2,ba0:0.56,ba1:0.6,blw:2.6,gl:0,gd:0,sr:-30,sg:-25,
  sb:-20,d_body_0x:1,d_body_0y:3,d_body_1x:3,d_body_1y:2,d_body_2x:3,d_body_2y:3,d_body_3x:4,
  d_body_3y:0,d_body_4x:2,d_body_4y:0,d_body_5x:8,d_body_5y:-3,d_body_6x:3,d_body_6y:1,d_body_7x:6,
