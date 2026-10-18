@@ -5,7 +5,7 @@ const s=await createServer({server:{port:7200+Math.floor(Math.random()*800)},log
 const b=await chromium.launch({executablePath:'/opt/pw-browsers/chromium',args:['--no-sandbox']});
 const p=await b.newPage();await p.goto(s.resolvedUrls.local[0]);
 async function render(P){for(let t=0;;t++){try{return await p.evaluate(async(P)=>{const m=await import('/src/pieces/bg_left.js?t=0');
-  const c=document.createElement('canvas');c.width=680;c.height=247;const x=c.getContext('2d');m.draw(x,680,247,P);
+  const c=document.createElement('canvas');c.width=680;c.height=247;const x=c.getContext('2d');const ix=await import('/src/pieces/index.js');for(const q of ix.pieces){if(q.name==='bg_left')m.draw(x,680,247,P);else q.draw(x,680,247);}
   const d=x.getImageData(0,0,340,247).data,o=new Uint8Array(340*247);
   for(let i=0;i<o.length;i++)o[i]=0.299*d[i*4]+0.587*d[i*4+1]+0.114*d[i*4+2];return Array.from(o);},P);}catch(e){if(t>20)throw e;await new Promise(r=>setTimeout(r,500));}}}
 function box(a,w,h,k=7){const ow=w-k+1,oh=h-k+1,o=new Float64Array(ow*oh);for(let y=0;y<oh;y++)for(let x=0;x<ow;x++){let t=0;for(let j=0;j<k;j++)for(let i=0;i<k;i++)t+=a[(y+j)*w+x+i];o[y*ow+x]=t/(k*k);}return o;}
